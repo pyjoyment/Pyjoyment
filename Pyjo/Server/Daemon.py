@@ -946,7 +946,11 @@ class Pyjo_Server_Daemon(Pyjo.Server.object):
         if DEBUG:
             warn(term_escape(f'-- Server >>> Client ({_url(tx)})\n{chunk.decode("latin-1")}\n'))
         next = '_finish' if tx.is_finished else '_write' if len(chunk) else None
-        stream = self.ioloop.stream(id)
+        # Unlike Mojolicious: the stream that a callback of the event drain of the content, which server_write emits,
+        # has closed, as an application does once the last chunk of its response has been written, ends the write,
+        # where Mojo calls write on undef
+        if (stream := self.ioloop.stream(id)) is None:
+            return
         if next is None:
             stream.write(chunk)
             return

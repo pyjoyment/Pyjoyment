@@ -53,6 +53,18 @@ def request(daemon, tx):
         tx.res.content.write_chunk(b'Hello ').write_chunk(b'World!').write_chunk(b'')
         return tx.resume()
 
+    # A chunk whose drain closes the connection, once it has been written, as the end of a response that cannot go on
+    if path == '/close':
+        tx.res.code = 200
+        connection = tx.connection
+
+        def drained(content, *args):
+            if (stream := Pyjo.IOLoop.stream(connection)) is not None:
+                stream.close_gracefully()
+
+        tx.res.content.write_chunk(b'Hello', drained)
+        return tx.resume()
+
     tx.res.code = 200
     tx.res.headers.content_type = 'text/plain'
     tx.res.body = f'{req.method} {path} {req.version} {len(req.body)}'.encode()
@@ -116,6 +128,24 @@ with subtest('Chunked response'):
         return result
 
     is_deeply_ok(run(client), ('chunked', b'Hello World!'), 'decoded by http.client')
+
+with subtest('Connection closed by the drain of its content'):
+    errors = []
+    reactor = Pyjo.IOLoop.singleton.reactor
+    cb = reactor.on('error', lambda reactor, err: errors.append(str(err)))
+
+    def client():
+        with socket.create_connection(('127.0.0.1', port), timeout=10) as sock:
+            sock.sendall(b'GET /close HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n')
+            response = b''
+            while chunk := sock.recv(4096):
+                response += chunk
+        return response
+
+    response = run(client)
+    reactor.unsubscribe('error', cb)
+    like_ok(response, rb'\r\n\r\n5\r\nHello$', 'chunk written, connection closed')
+    is_deeply_ok(errors, [], 'no error of the reactor')
 
 with subtest('Concurrent connections'):
 
