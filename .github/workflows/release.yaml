@@ -106,8 +106,6 @@ jobs:
         with:
           name: release
 
-      # gh uploads the files to a draft and publishes it after them, as an
-      # immutable release takes no files once it is published.
       - name: Create release
         run: |
           prerelease=()

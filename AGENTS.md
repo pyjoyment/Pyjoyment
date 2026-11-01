@@ -528,9 +528,9 @@ hatchling. `actions/attest` attests the build provenance of the files and
 their SBOM. The job of the environment `publishing`, which the trusted
 publisher of PyPI names with `release.yaml`, creates the GitHub release first
 and publishes the files on PyPI after it, with the attestations of PEP 740.
-gh creates the release as a draft until its files are uploaded, as an
-immutable release takes no files once it is published. A release that failed
-is run again after its GitHub release is deleted. The action of PyPI
+A release that failed is run again after its GitHub release is deleted, which
+immutable releases would not allow, as the tag of a deleted one cannot be
+used again. The action of PyPI
 runs on x86-64, as its image has no build for ARM.
 
 ```sh
