@@ -91,5 +91,5 @@ jobs:
           VARIANT: ${{ matrix.variant }}
           KIND_NODE_IMAGE: kindest/node:v${{ env.kubernetes_version }}
           # The emulator of the Runtime API of the variant lambda-image, which its image does not have
-          RIE_VERSION: 1.37 # datasource=github-releases depName=aws/aws-lambda-runtime-interface-emulator versioning=loose
+          RIE_VERSION: 1.38 # datasource=github-releases depName=aws/aws-lambda-runtime-interface-emulator versioning=loose
         run: tt/docker-smoke/smoke.sh "${VARIANT}"
