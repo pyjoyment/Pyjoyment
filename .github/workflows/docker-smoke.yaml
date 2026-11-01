@@ -93,3 +93,21 @@ jobs:
           # The emulator of the Runtime API of the variant lambda-image, which its image does not have
           RIE_VERSION: 1.38 # datasource=github-releases depName=aws/aws-lambda-runtime-interface-emulator versioning=loose
         run: tt/docker-smoke/smoke.sh "${VARIANT}"
+
+  # The one check of the matrix, whatever variants it has: it fails when a
+  # variant failed or was cancelled. The workflow runs only for the paths
+  # above, so a ruleset that required it would wait for it forever in a pull
+  # request that does not change them.
+  docker-smoke:
+    name: smoke
+    needs: smoke
+    if: always()
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 5
+
+    steps:
+      - name: Check the result of the matrix
+        shell: bash
+        env:
+          RESULT: ${{ needs.smoke.result }}
+        run: test "$RESULT" = success
