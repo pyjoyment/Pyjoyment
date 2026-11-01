@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "Pyjoyment"
-version = "0.0.2"
+version = "0.1.0"
 description = "A real-time web framework for the Python programming language, ported from Mojolicious."
 readme = "README.md"
 license = "Artistic-2.0"
