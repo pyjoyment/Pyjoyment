@@ -1,5 +1,5 @@
 sphinx==9.1.0
 # Imported by autodoc for the plugin Pyjo.Test.pytest_plugin
-pytest==9.1.1
+pytest==9.2.0
 # The diagrams of the guides
 sphinxcontrib-mermaid==2.1.1
