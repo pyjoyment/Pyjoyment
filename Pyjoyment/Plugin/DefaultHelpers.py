@@ -598,6 +598,8 @@ import Pyjo.Promise
 import Pyjo.String.Bytes
 import Pyjo.String.HTML
 import Pyjo.String.Unicode
+import Pyjo.URL
+import Pyjo.UserAgent
 import Pyjoyment.Plugin
 
 from Pyjo.Util import dumper, random_bytes
@@ -694,7 +696,7 @@ class Pyjoyment_Plugin_DefaultHelpers(Pyjoyment.Plugin.object):
         app.helper('ua', _ua)
 
 
-def _accepts(c: 'Controller', *formats: str) -> Any:
+def _accepts(c: 'Controller', *formats: str) -> list[str] | str | None:
     return c.app.renderer.accepts(c, *formats)
 
 
@@ -762,7 +764,7 @@ def _csrf_token(c: 'Controller') -> str:
     return mask.hex() + bytes(a ^ b for a, b in zip(mask, bytes.fromhex(session['csrf_token']), strict=False)).hex()
 
 
-def _current_route(c: 'Controller', *args: str) -> Any:
+def _current_route(c: 'Controller', *args: str) -> str | bool | None:
     if (route := c.match.endpoint) is None:
         return ''
     return route.name == args[0] if args else route.name
@@ -878,7 +880,7 @@ def _inactivity_timeout(c: 'Controller', timeout: float) -> 'Controller':
     return c
 
 
-def _include(c: 'Controller', *args: Any, **values: Any) -> Any:
+def _include(c: 'Controller', *args: Any, **values: Any) -> Pyjo.String.HTML.object | Pyjo.String.Bytes.object | None:
     return c.render_to_string(*args, **values)
 
 
@@ -897,7 +899,7 @@ def _json_not_found(c: 'Controller') -> Any:
     return c.render(json={'error': 'Not Found'}, status=404)
 
 
-def _log(c: 'Controller') -> Any:
+def _log(c: 'Controller') -> Pyjo.Log.object:
     stash = c.stash()
     if not stash.get('mojo.log'):
         # Not in Mojolicious: the request id as a field of its own of a message of JSON
@@ -1064,7 +1066,7 @@ def _stash_key(name: str) -> Callable[..., Any]:
     return helper
 
 
-def _url_with(c: 'Controller', *args: Any, **values: Any) -> Any:
+def _url_with(c: 'Controller', *args: Any, **values: Any) -> Pyjo.URL.object:
     url = c.url_for(*args, **values)
     url.query = c.req.url.query.clone()
     return url
@@ -1074,7 +1076,7 @@ def _u(c: 'Controller', *args: Any) -> Pyjo.String.Unicode.object:
     return Pyjo.String.Unicode.new(*args)
 
 
-def _ua(c: 'Controller') -> Any:
+def _ua(c: 'Controller') -> Pyjo.UserAgent.object:
     return c.app.ua
 
 
