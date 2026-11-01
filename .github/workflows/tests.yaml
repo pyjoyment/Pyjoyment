@@ -454,7 +454,7 @@ jobs:
   # have: it fails when a job of a matrix failed or was cancelled, so a new
   # version of Python or a new platform needs no change of the ruleset.
   tests:
-    name: tests
+    name: Tests
     needs:
       - prove-mise
       - prove-windows

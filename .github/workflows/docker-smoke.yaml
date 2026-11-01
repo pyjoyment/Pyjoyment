@@ -99,7 +99,7 @@ jobs:
   # above, so a ruleset that required it would wait for it forever in a pull
   # request that does not change them.
   docker-smoke:
-    name: smoke
+    name: Docker Smoke Test
     needs: smoke
     if: always()
     runs-on: ubuntu-26.04-arm
