@@ -16,6 +16,7 @@ from Pyjoyment.Lite import *
 
 import functools
 import inspect
+import re
 
 from typing import TYPE_CHECKING, Any, assert_type, cast
 
@@ -150,7 +151,9 @@ with subtest('Type of a helper that is not registered'):
     try:
         c.unregistered()
     except AttributeError as e:
-        like_ok(str(e), rf'Can\'t locate object method "unregistered" .* at {__file__} line {line}\.', 'caller')
+        like_ok(
+            str(e), rf'Can\'t locate object method "unregistered" .* at {re.escape(__file__)} line {line}\.', 'caller'
+        )
 
 with subtest('Types of the functions of Pyjoyment.Lite'):
     route = get('/types')
