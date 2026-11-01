@@ -1,10 +1,9 @@
 name: Release
 
-# Releases the version of a tag, pushed or created by Automated tag, which
-# starts it with workflow_dispatch, as a tag of the token of a workflow starts
-# no workflow. The job of the environment publishing creates the GitHub release
-# first and publishes on PyPI after it, so that the files on PyPI are the ones
-# of the release, with their attestations.
+# Makes the draft of the GitHub release of a tag, pushed or created by
+# Automated tag, which starts it with workflow_dispatch, as a tag of the token
+# of a workflow starts no workflow. Its notes are written before it is
+# published, and PyPI publishes its files after it.
 on:
   push:
     tags:
@@ -86,19 +85,16 @@ jobs:
             pyjoyment-*.spdx.json
           if-no-files-found: error
 
-  publish:
-    name: publish
+  release:
+    name: release
 
     needs: build
 
-    # The image of the action of PyPI has no build for ARM.
-    runs-on: ubuntu-26.04
-    environment: publishing
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
 
     permissions:
       contents: write
-      id-token: write
 
     steps:
       - name: Download artifacts
@@ -106,13 +102,14 @@ jobs:
         with:
           name: release
 
-      - name: Create release
+      - name: Create draft release
         run: |
           prerelease=()
           if [[ ${GITHUB_REF_NAME} =~ (a|b|rc)[0-9]+$ ]]; then
             prerelease=(--prerelease)
           fi
           gh release create "${GITHUB_REF_NAME}" dist/* pyjoyment-*.spdx.json \
+            --draft \
             --verify-tag \
             --generate-notes \
             --title "${GITHUB_REF_NAME}" \
@@ -120,7 +117,3 @@ jobs:
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-
-      # Trusted publishing, with the attestations of PEP 740 of each file.
-      - name: Publish on PyPI
-        uses: pypa/gh-action-pypi-publish@v1.14.3

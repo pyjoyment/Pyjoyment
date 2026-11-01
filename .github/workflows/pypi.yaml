@@ -1,0 +1,49 @@
+name: PyPI
+
+# Publishes on PyPI the sdist and the wheel of the published GitHub release of
+# the tag that it is run on, once their attestations of Release verify, so
+# that the files on PyPI are the ones of the release. The trusted publisher of
+# PyPI names this file and the environment publishing.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    name: pypi
+
+    # The image of the action of PyPI has no build for ARM.
+    runs-on: ubuntu-26.04
+    environment: publishing
+    timeout-minutes: 10
+
+    permissions:
+      attestations: read
+      contents: read
+      id-token: write
+
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Download release
+        run: |
+          test "${GITHUB_REF_TYPE}" = tag
+          test "$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft)" = false
+          gh release download "${GITHUB_REF_NAME}" --pattern '*.whl' --pattern '*.tar.gz' --dir dist
+
+      - name: Verify attestations
+        run: |
+          for file in dist/*; do
+            gh attestation verify "${file}" \
+              --repo "${GH_REPO}" \
+              --signer-workflow "${GH_REPO}/.github/workflows/release.yaml" \
+              --source-ref "refs/tags/${GITHUB_REF_NAME}"
+          done
+
+      # Trusted publishing, with the attestations of PEP 740 of each file.
+      - name: Publish on PyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.3
