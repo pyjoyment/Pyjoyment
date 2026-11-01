@@ -26,7 +26,7 @@ on:
       - pyproject.toml
   pull_request:
     branches:
-      - "*"
+      - "**"
     paths:
       - tt/docker-smoke/**
       - .github/workflows/docker-smoke.yaml

@@ -20,7 +20,7 @@ on:
       - pyproject.toml
   pull_request:
     branches:
-      - "*"
+      - "**"
     paths:
       - .github/workflows/docs.yaml
       - docs/**

@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
     branches:
-      - "*"
+      - "**"
   schedule:
     # Weekly run catches breakage from new Python releases even when the code
     # did not change.
