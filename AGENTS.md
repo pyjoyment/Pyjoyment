@@ -531,12 +531,13 @@ published. A release that failed is run again after its GitHub release is
 deleted, which immutable releases would not allow, as the tag of a deleted
 one cannot be used again.
 
-The workflow PyPI, run manually on the tag of a published release, publishes
-its sdist and wheel on PyPI once their attestations of Release verify, with
-the attestations of PEP 740, in the environment `publishing`, which waits for
-an approval and takes tags only. The trusted publisher of PyPI names
-`pypi.yaml` and that environment. The action of PyPI runs on x86-64, as its
-image has no build for ARM.
+The workflow PyPI, run manually, publishes the sdist and the wheel of the
+latest published release, or of the release of the tag of its input, on PyPI
+once their attestations of Release verify, with the attestations of PEP 740,
+in the environment `publishing`, which waits for an approval and takes `main`
+and tags only. The trusted publisher of PyPI names `pypi.yaml` and that
+environment. The action of PyPI runs on x86-64, as its image has no build for
+ARM.
 
 ```sh
 gh attestation verify pyjoyment-0.1.0.tar.gz -R dex4er/Pyjoyment
