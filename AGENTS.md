@@ -530,8 +530,8 @@ publisher of PyPI names with `release.yaml`, creates the GitHub release first
 and publishes the files on PyPI after it, with the attestations of PEP 740.
 A release that failed is run again after its GitHub release is deleted, which
 immutable releases would not allow, as the tag of a deleted one cannot be
-used again. The action of PyPI
-runs on x86-64, as its image has no build for ARM.
+used again. The action of PyPI runs on x86-64, as its image has no build for
+ARM.
 
 ```sh
 gh attestation verify pyjoyment-0.1.0.tar.gz -R dex4er/Pyjoyment
