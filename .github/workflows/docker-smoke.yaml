@@ -76,7 +76,7 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@v5
         with:
-          version: 2026.10.4 # datasource=github-releases depName=jdx/mise
+          version: 2026.10.25 # datasource=github-releases depName=jdx/mise
 
       - name: Install kind
         if: matrix.variant == 'kubernetes'
