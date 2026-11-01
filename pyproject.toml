@@ -62,6 +62,7 @@ Homepage = "https://github.com/dex4er/Pyjoyment"
 Documentation = "https://pyjoyment.readthedocs.io/"
 Source = "https://github.com/dex4er/Pyjoyment"
 Issues = "https://github.com/dex4er/Pyjoyment/issues"
+Changelog = "https://github.com/dex4er/Pyjoyment/releases"
 
 # Not dependencies of the package: the ASGI, WSGI and CGI servers that the tests in t/servers run Pyjo.Server.ASGI,
 # Pyjo.Server.WSGI, Pyjo.Server.CGI and the examples on, a client of WebSocket for them, and the frameworks, Flask,
