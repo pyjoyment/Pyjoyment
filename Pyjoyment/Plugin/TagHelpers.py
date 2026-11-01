@@ -643,6 +643,7 @@ import Pyjo.URL
 import Pyjoyment.Plugin
 
 from Pyjo.DOM.HTML import tag_to_html
+from Pyjoyment.Controller import Helper
 
 import functools
 
@@ -900,6 +901,57 @@ def _validation(c: 'Controller', name: str, tag: str, content: Any, /, **attrs: 
     if not c.helpers.validation().has_error(name):
         return _tag(tag, content, **attrs)
     return c.helpers.tag_with_error(tag, content, **attrs)
+
+
+# Not in Mojolicious: the types of the helpers, for type checkers, which Pyjoyment.Controller and Pyjoyment have
+class Helpers:
+    """
+    The types of the helpers of :mod:`Pyjoyment.Plugin.TagHelpers`, for type
+    checkers and editors, which :mod:`Pyjoyment.Controller` and
+    :mod:`Pyjoyment` have, while the helpers themselves are found in the
+    renderer of the application at run time. See
+    :class:`Pyjoyment.Controller.Helper`.
+    """
+
+    color_field = Helper(functools.partial(_field, 'color'))
+    date_field = Helper(functools.partial(_field, 'date'))
+    datetime_field = Helper(functools.partial(_field, 'datetime-local'))
+    email_field = Helper(functools.partial(_field, 'email'))
+    month_field = Helper(functools.partial(_field, 'month'))
+    number_field = Helper(functools.partial(_field, 'number'))
+    range_field = Helper(functools.partial(_field, 'range'))
+    search_field = Helper(functools.partial(_field, 'search'))
+    tel_field = Helper(functools.partial(_field, 'tel'))
+    text_field = Helper(functools.partial(_field, 'text'))
+    time_field = Helper(functools.partial(_field, 'time'))
+    url_field = Helper(functools.partial(_field, 'url'))
+    week_field = Helper(functools.partial(_field, 'week'))
+
+    asset_tag = Helper(_asset_tag)
+    csrf_field = Helper(_csrf_field)
+    form_for = Helper(_form_for)
+    hidden_field = Helper(_hidden_field)
+    javascript = Helper(_javascript)
+    label_for = Helper(_label_for)
+    link_to = Helper(_link_to)
+    select_field = Helper(_select_field)
+    stylesheet = Helper(_stylesheet)
+    submit_button = Helper(_submit_button)
+    tag_with_error = Helper(_tag_with_error)
+    text_area = Helper(_text_area)
+
+    button_to = Helper(functools.partial(_button_to, False))
+    check_box = Helper(functools.partial(_field, 'checkbox'))
+    csrf_button_to = Helper(functools.partial(_button_to, True))
+    favicon = Helper(_favicon)
+    file_field = Helper(functools.partial(_empty_field, 'file'))
+    image = Helper(_image)
+    input_tag = Helper(_input)
+    password_field = Helper(functools.partial(_empty_field, 'password'))
+    radio_button = Helper(functools.partial(_field, 'radio'))
+
+    t = Helper(_tag_helper)
+    tag = Helper(_tag_helper)
 
 
 new = Pyjoyment_Plugin_TagHelpers.new

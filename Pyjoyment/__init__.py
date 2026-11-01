@@ -240,10 +240,22 @@ import os
 import sys
 
 from collections.abc import Callable
-from typing import Any, Self, cast, overload
+from typing import TYPE_CHECKING, Any, Self, cast, overload
 
 
-class Pyjoyment_App(Pyjo.App.object):
+if TYPE_CHECKING:
+    import Pyjoyment.Plugin.DefaultHelpers
+    import Pyjoyment.Plugin.TagHelpers
+
+    # Not in Mojolicious: the types of the helpers of the default plugins, which type checkers take from here, while
+    # __getattr__ finds the helpers in the renderer at run time
+    class _Base(Pyjo.App.object, Pyjoyment.Plugin.DefaultHelpers.Helpers, Pyjoyment.Plugin.TagHelpers.Helpers): ...
+
+else:
+    _Base = Pyjo.App.object
+
+
+class Pyjoyment_App(_Base):
     """
     :mod:`Pyjoyment` inherits all attributes and methods from :mod:`Pyjo.App`
     and implements the following new ones.
@@ -471,8 +483,10 @@ class Pyjoyment_App(Pyjo.App.object):
             return getattr(self.build_controller(), name)
         package = f'{type(self).__module__}.{type(self).__qualname__}'
 
-        # The location of the caller, which croak adds to the message
+        # The location of the caller, which croak adds to the message, the one of the attribute for the type of a helper
         caller = sys._getframe(1)  # pyright: ignore[reportPrivateUsage]
+        if caller.f_code is Pyjoyment.Controller._HELPER_GET and caller.f_back is not None:  # pyright: ignore[reportPrivateUsage]
+            caller = caller.f_back
         at = f'at {caller.f_code.co_filename} line {caller.f_lineno}'
 
         # Not in Mojolicious: the attribute or the helper that the name most likely meant

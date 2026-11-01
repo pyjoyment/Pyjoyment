@@ -189,6 +189,11 @@ done_testing()
   `object`; an action without a method renders its template.
 - A controller is a `Pyjoyment.Controller`: `self.param`, `self.render`,
   `self.req`, `self.res` and the helpers, as `self.notes()`, as `c.` of Lite.
+- Type checkers and editors know the helpers of Pyjoyment, as `self.ua()` or
+  `self.reply.not_found()`; a helper of the application is `Any` to them until
+  a base class of its controllers declares it with the function of the
+  helper, `notes = Pyjoyment.Controller.Helper(notes)`, which `startup`
+  registers by its name.
 - `self.plugin('YAMLConfig')` reads `my_app.yml`, and `my_app.production.yml`
   in the mode `production`; `TOMLConfig` and `JSONConfig` read the others.
 - A name of a route is the string after its pattern, as `'note'`, which

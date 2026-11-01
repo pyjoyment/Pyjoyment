@@ -105,6 +105,11 @@ only-include = ["Pyjoyment/Plugin/Greeting.py"]
   is not a distribution.
 - A hook gets the controller, `after_dispatch(c)`, or the next callback of
   the chain first, `around_dispatch(next, c)`, which it calls.
+- The types of the helpers of a plugin, for type checkers and editors, are a
+  class of its own, `class Helpers:` with `greet = Pyjoyment.Controller.Helper(greet)`
+  for each function of a helper and `greeting: GreetingHelpers` for a prefix,
+  which the base class of the controllers of an application inherits, as
+  `Pyjoyment.Plugin.DefaultHelpers.Helpers` does for the default helpers.
 - A reactor on another event loop is a distribution of the namespace
   `Pyjo.Reactor` in the same way, which `PYJO_REACTOR` selects.
 

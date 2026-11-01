@@ -775,4 +775,47 @@ with subtest('write_sse'):
     ua.start(tx)
     is_deeply_ok([type for type in events if type], ['message', 'greeting', 'farewell'], 'events')
 
+with subtest('helper'):
+    import Pyjoyment.Controller
+
+    class MyApp_Model_Users:
+        def list(self):
+            return ['sri', 'tom']
+
+    # The helper, which startup registers with app.helper('users', users)
+    def users(c: Pyjoyment.Controller.object) -> MyApp_Model_Users:
+        return c.app.users
+
+    # The base class of the controllers of the application
+    class Controller(Pyjoyment.Controller.object):
+        users = Pyjoyment.Controller.Helper(users)
+
+    class Users(Controller):
+        def index(self) -> None:
+            self.render(json=self.users().list())
+
+    sys.modules['MyApp_Controller_Users'] = types.ModuleType('MyApp_Controller_Users')
+    sys.modules['MyApp_Controller_Users'].object = Users
+    app = Pyjoyment.new()
+    app.log.level = 'fatal'
+    app.users = MyApp_Model_Users()
+    app.helper('users', users)
+    app.routes.get('/users').to('MyApp_Controller_Users#index', namespace='')
+    tx = request(app, '/users')
+    is_deeply_ok(decode_json(tx.res.body), ['sri', 'tom'], 'helper of the application')
+
+    app.routes.get('/not_action').to('MyApp_Controller_Users#users', namespace='')
+    is_ok(request(app, '/not_action').res.code, 500, 'not an action, a route without action')
+
+    def _not_found(c):
+        return c.render(text='Not here', status=404)
+
+    class Reply:
+        not_found = Pyjoyment.Controller.Helper(_not_found)
+
+    class Helpers:
+        reply: Reply
+
+    ok(Helpers.__annotations__['reply'] is Reply, 'prefix of nested helpers')
+
 done_testing()

@@ -603,6 +603,7 @@ import Pyjo.UserAgent
 import Pyjoyment.Plugin
 
 from Pyjo.Util import dumper, random_bytes
+from Pyjoyment.Controller import Helper
 
 import functools
 import time
@@ -1097,6 +1098,103 @@ def _validation(c: 'Controller') -> 'Pyjoyment.Validator.Validation.object':
     v = c.app.validator.validation().set(input=hash, csrf_token=token)
     stash['mojo.validation'] = v
     return v
+
+
+# Not in Mojolicious: the types of the helpers, for type checkers, which Pyjoyment.Controller and Pyjoyment have
+class ProxyHelpers:
+    """
+    The types of the nested helpers ``proxy.*``, for type checkers.
+    """
+
+    get_p = Helper(functools.partial(_proxy_method_p, 'GET'))
+    post_p = Helper(functools.partial(_proxy_method_p, 'POST'))
+    start_p = Helper(_proxy_start_p)
+
+
+class ReplyHelpers:
+    """
+    The types of the nested helpers ``reply.*``, for type checkers.
+    """
+
+    asset = Helper(_asset)
+    file = Helper(_file)
+    static = Helper(_static)
+
+    exception = Helper(_exception)
+    not_found = Helper(_not_found)
+    http_exception = Helper(_http_exception)
+    http_not_found = Helper(_http_not_found)
+    html_exception = Helper(functools.partial(_development, 'exception'))
+    html_not_found = Helper(functools.partial(_development, 'not_found'))
+    json_exception = Helper(_json_exception)
+    json_not_found = Helper(_json_not_found)
+    txt_exception = Helper(_txt_exception)
+    txt_not_found = Helper(_txt_not_found)
+
+
+class TimingHelpers:
+    """
+    The types of the nested helpers ``timing.*``, for type checkers.
+    """
+
+    begin = Helper(_timing_begin)
+    elapsed = Helper(_timing_elapsed)
+    rps = Helper(_timing_rps)
+    server_timing = Helper(_timing_server_timing)
+
+
+class Helpers:
+    """
+    The types of the helpers of :mod:`Pyjoyment.Plugin.DefaultHelpers`, for
+    type checkers and editors, which :mod:`Pyjoyment.Controller` and
+    :mod:`Pyjoyment` have, while the helpers themselves are found in the
+    renderer of the application at run time. See
+    :class:`Pyjoyment.Controller.Helper`.
+    """
+
+    app = Helper(_app)
+    param = Helper(_alias('param'))
+    stash = Helper(_alias('stash'))
+    session = Helper(_alias('session'))
+    url_for = Helper(_alias('url_for'))
+    url_for_asset = Helper(_alias('url_for_asset'))
+    url_for_file = Helper(_alias('url_for_file'))
+
+    extends = Helper(_stash_key('extends'))
+    layout = Helper(_stash_key('layout'))
+    title = Helper(_stash_key('title'))
+
+    accepts = Helper(_accepts)
+    b = Helper(_b)
+    u = Helper(_u)
+    c = Helper(_c)
+    config = Helper(_config)
+
+    content = Helper(functools.partial(_content, False, False))
+    content_for = Helper(functools.partial(_content, True, False))
+    content_with = Helper(functools.partial(_content, False, True))
+
+    csrf_token = Helper(_csrf_token)
+    current_route = Helper(_current_route)
+    exception_format = Helper(_exception_format)
+    flash = Helper(_flash)
+    inactivity_timeout = Helper(_inactivity_timeout)
+    is_fresh = Helper(_is_fresh)
+    redirect_to = Helper(_redirect_to)
+    respond_to = Helper(_respond_to)
+    url_with = Helper(_url_with)
+    validation = Helper(_validation)
+
+    dumper = Helper(_dumper)
+    include = Helper(_include)
+
+    log = Helper(_log)
+
+    proxy: ProxyHelpers
+    reply: ReplyHelpers
+    timing: TimingHelpers
+
+    ua = Helper(_ua)
 
 
 new = Pyjoyment_Plugin_DefaultHelpers.new

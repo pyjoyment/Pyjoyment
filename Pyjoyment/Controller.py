@@ -62,6 +62,9 @@ objects. This includes all helpers from
     # Longer version
     c.helpers.layout('green')
 
+Type checkers and editors know the types of these helpers, and of the helpers
+of an application that :class:`Helper` declares.
+
 See also
 --------
 
@@ -90,7 +93,7 @@ import weakref
 
 from collections.abc import Callable
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Self, cast, overload
+from typing import TYPE_CHECKING, Any, Concatenate, Self, cast, overload
 
 
 if TYPE_CHECKING:
@@ -98,6 +101,18 @@ if TYPE_CHECKING:
     import Pyjo.Message.Response
     import Pyjo.Transaction
     import Pyjoyment
+    import Pyjoyment.Plugin.DefaultHelpers
+    import Pyjoyment.Plugin.TagHelpers
+
+    # Not in Mojolicious: the types of the helpers of the default plugins, which type checkers take from here, while
+    # __getattr__ finds the helpers in the renderer at run time, and any other helper is Any
+    class _Helpers(Pyjoyment.Plugin.DefaultHelpers.Helpers, Pyjoyment.Plugin.TagHelpers.Helpers):
+        def __getattr__(self, name: str) -> Any: ...
+
+    class _Base(Pyjo.Base.object, _Helpers): ...
+
+else:
+    _Base = Pyjo.Base.object
 
 
 _ABSOLUTE = re.compile(r'^(?:[^:/?#]+:|//|#)')
@@ -105,7 +120,7 @@ _ABSOLUTE = re.compile(r'^(?:[^:/?#]+:|//|#)')
 _MISSING: Any = Pyjo.Base.object()
 
 
-class Pyjoyment_Controller(Pyjo.Base.object):
+class Pyjoyment_Controller(_Base):
     """
     :mod:`Pyjoyment.Controller` inherits all methods from :mod:`Pyjo.Base` and
     implements the following new ones.
@@ -157,8 +172,10 @@ class Pyjoyment_Controller(Pyjo.Base.object):
             return helper(self) if isinstance(helper, type) else _Helper(helper, self)
         package = f'{type(self).__module__}.{type(self).__qualname__}'
 
-        # The location of the caller, which croak adds to the message
+        # The location of the caller, which croak adds to the message, the one of the attribute for the type of a helper
         caller = sys._getframe(1)  # pyright: ignore[reportPrivateUsage]
+        if caller.f_code is _HELPER_GET and caller.f_back is not None:
+            caller = caller.f_back
         at = f'at {caller.f_code.co_filename} line {caller.f_lineno}'
 
         # Not in Mojolicious: the attribute or the helper that the name most likely meant, as "req" for "request" of
@@ -399,7 +416,7 @@ class Pyjoyment_Controller(Pyjo.Base.object):
         return self.write(*args).write(b'') if args else self.write(b'')
 
     @property
-    def helpers(self) -> Any:
+    def helpers(self) -> '_Helpers':
         """::
 
             helpers = c.helpers
@@ -1215,6 +1232,70 @@ class _Helper(functools.partial[Any]):
             name=name,
             obj=self,
         )
+
+
+# Not in Mojolicious: Perl has no type checkers, and mojo.js declares the types of its helpers in an interface that
+# TypeScript merges
+class Helper[**P, R]:
+    """::
+
+        users = Pyjoyment.Controller.Helper(users)
+
+    Declare the type of a helper, for type checkers and editors, as an
+    attribute of a class with the name of the helper. The type is the one of
+    the function of the helper, without the controller that the helper gets
+    first, so that ``c.users()`` returns what ``users(c)`` does. The helper
+    itself is still found by its name in the renderer of the application, as
+    any other helper, so an application or a plugin can replace it with
+    :meth:`Pyjoyment.Pyjoyment_App.helper`. It is not an action, as a route
+    only reaches the methods of a controller. ::
+
+        import Pyjoyment.Controller
+
+        # The helper, which startup registers with app.helper('users', users)
+        def users(c: Pyjoyment.Controller.object) -> MyApp.Model.Users.object:
+            return c.app.users
+
+        # The base class of the controllers of the application
+        class Controller(Pyjoyment.Controller.object):
+            users = Pyjoyment.Controller.Helper(users)
+
+        class Users(Controller):
+            def index(self) -> None:
+                self.render(json=self.users().list())
+
+    A plugin declares the types of its helpers in a class of its own, which
+    the base class of the controllers inherits, as
+    :class:`Pyjoyment.Plugin.DefaultHelpers.Helpers` declares the default
+    helpers, which :mod:`Pyjoyment.Controller` and :mod:`Pyjoyment` have for
+    type checkers. A prefix of nested helpers is a class of its own too::
+
+        class Reply:
+            not_found = Pyjoyment.Controller.Helper(_not_found)
+
+        class Helpers:
+            reply: Reply
+    """
+
+    def __init__(self, cb: Callable[Concatenate[Any, P], R]) -> None:
+        self.cb = cb
+        self.name = ''
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.name = name
+
+    @overload
+    def __get__(self, obj: None, owner: type | None = None) -> Self: ...
+
+    @overload
+    def __get__(self, obj: Any, owner: type | None = None) -> Callable[P, R]: ...
+
+    def __get__(self, obj: Any, owner: type | None = None) -> Self | Callable[P, R]:
+        return self if obj is None else cast(Any, type(obj)).__getattr__(obj, self.name)
+
+
+# The code of a helper that is got through its type, whose frame __getattr__ skips for the location of the caller
+_HELPER_GET = vars(Helper)['__get__'].__code__
 
 
 def _hmac(data: str, secret: str) -> str:

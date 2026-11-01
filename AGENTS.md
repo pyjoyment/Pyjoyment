@@ -408,6 +408,22 @@ packages are typed, so that pyright in strict mode takes the annotations of a
 module of Pyjoyment that a distribution of its own uses, as a controller,
 instead of failing on a library without stubs.
 
+The helpers, which `__getattr__` of `Pyjoyment.Controller` and of `Pyjoyment`
+finds in the renderer, take their types from the classes `Helpers` of
+`Pyjoyment.Plugin.DefaultHelpers` and `Pyjoyment.Plugin.TagHelpers`, which the
+two classes inherit for type checkers only, under `TYPE_CHECKING`, so that
+their bases and the lookup of a helper at run time stay those of Mojo. Each
+attribute of such a class is a `Pyjoyment.Controller.Helper` of the function
+that `register` registers, whose type is the one of the function without the
+controller, so the signature is written once, and a prefix of nested helpers
+is an annotation with a class of its own. A new helper of a default plugin
+goes into its class with the same function, which
+`t/Pyjoyment/helper_types_lite_app.py` compares with the helpers that the
+plugin registers. The return type of the function is what an application
+gets, so a helper that returns `Any` is `Any` there. The test is on the strict
+list, with `reportUnnecessaryTypeIgnoreComment`, so that a call that pyright
+rejects, as a helper without its call, stays rejected.
+
 ## Session and Temporary Files
 
 Files created while working on a task, such as scratch scripts, command
