@@ -1,4 +1,4 @@
-sphinx==9.1.0
+sphinx==9.2.0
 # Imported by autodoc for the plugin Pyjo.Test.pytest_plugin
 pytest==9.1.1
 # The diagrams of the guides
