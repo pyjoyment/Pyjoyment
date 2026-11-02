@@ -533,13 +533,13 @@ def _absolutize(group: list[Selector]) -> list[Selector]:
 
 def _all_tags(tree: Tree) -> list[Tree]:
     tags: list[Tree] = []
-    queue = tree[1 if tree[0] == 'root' else 4 :]
-    while len(queue):
-        current = queue.pop(0)
+    queue: collections.deque[Tree] = collections.deque(tree[1 if tree[0] == 'root' else 4 :])
+    while queue:
+        current = queue.popleft()
         if current[0] != 'tag':
             continue
         tags.append(current)
-        queue[0:0] = current[4:]
+        queue.extendleft(reversed(current[4:]))
 
     return tags
 

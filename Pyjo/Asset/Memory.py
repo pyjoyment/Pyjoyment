@@ -98,7 +98,7 @@ class Pyjo_Asset_Memory(Pyjo.Asset.object):
 
         self._max_memory_size: int | None = max_memory_size
 
-        self._content = b''
+        self._content = bytearray()
         self._frozen = False
         self._mtime = mtime if mtime is not None else MTIME
 
@@ -189,7 +189,7 @@ class Pyjo_Asset_Memory(Pyjo.Asset.object):
         if (end := self.end_range) is not None and (offset + max) > end:
             max = end + 1 - offset
 
-        return self._content[offset : offset + max] if max > 0 else b''
+        return bytes(self._content[offset : offset + max]) if max > 0 else b''
 
     def move_to(self, to: Anything) -> Self:
         """::
@@ -198,7 +198,7 @@ class Pyjo_Asset_Memory(Pyjo.Asset.object):
 
         Move asset data into a specific file.
         """
-        Pyjo.File.new(to).spew(self._content)
+        Pyjo.File.new(to).spew(bytes(self._content))
         return self
 
     @property
@@ -218,7 +218,7 @@ class Pyjo_Asset_Memory(Pyjo.Asset.object):
 
         Read all asset data at once.
         """
-        return self._content
+        return bytes(self._content)
 
     def to_file(self) -> Pyjo.Asset.File.object:
         """::

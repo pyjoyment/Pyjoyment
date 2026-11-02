@@ -120,6 +120,7 @@ import Pyjo.DOM.HTML
 import Pyjo.String.Mixin
 
 import builtins
+import collections
 import re
 
 from collections.abc import Callable, Iterator
@@ -1332,22 +1333,22 @@ def _start(tree: Tree) -> int:
 
 
 def _text(nodes: list[Tree], xml: bool | None, all: bool) -> str:
-    text = ''
-    queue = list(nodes)
-    while len(queue):
-        node = queue.pop(0)
+    text: list[str] = []
+    queue: collections.deque[Tree] = collections.deque(nodes)
+    while queue:
+        node = queue.popleft()
         type = node[0]
 
         # Text
         if type in ('text', 'cdata', 'raw'):
-            text += node[1]
+            text.append(node[1])
 
         # Nested tag
         elif type == 'tag' and all:
             if xml or node[1] not in ('script', 'style'):
-                queue[0:0] = _nodes(node)
+                queue.extendleft(reversed(_nodes(node)))
 
-    return text
+    return ''.join(text)
 
 
 # The matches of a selector, found anew for each iteration of a Pyjo.Iterator
