@@ -77,11 +77,9 @@ an application needs another I/O library: `Pyjo.Reactor.Poll` runs without
 asyncio, on `select.poll`, and on `select.select` on Windows, with a standard
 installation of Python and nothing else. On PyPy, whose JIT compiles it, it
 serves requests as fast as the servers of Python whose event loop and HTTP
-parser are compiled from C or Rust, as the
-[benchmarks](https://github.com/pyjoyment/Pyjoyment/tree/main/benchmarks)
-measure. A distribution of its own adds another reactor, as
-`Pyjo.Reactor.Twisted`, which `PYJO_REACTOR` selects, with no change of the
-application.
+parser are compiled from C or Rust. A distribution of its own adds another
+reactor, as `Pyjo.Reactor.Twisted`, which `PYJO_REACTOR` selects, with no
+change of the application.
 
 ### Tests
 
@@ -343,8 +341,6 @@ basis. It runs on Linux, macOS and Windows. On Windows, Python has no
 run there, and `Pyjo.Server.Prethread` runs the workers in threads instead.
 The event loop watches up to 512 sockets there, with the `select` of Windows,
 and a server stops with Ctrl-C, gracefully, or with Ctrl-Break, immediately.
-
-The progress is tracked in [GitHub Issues](https://github.com/pyjoyment/Pyjoyment/issues).
 
 ## Distributions
 

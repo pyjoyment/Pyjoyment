@@ -18,5 +18,3 @@ Pyjoyment runs on Linux, macOS and Windows. On Windows, Python has no
 run there, and ``Pyjo.Server.Prethread`` runs the workers in threads instead.
 The event loop watches up to 512 sockets there, with the ``select`` of Windows,
 and a server stops with Ctrl-C, gracefully, or with Ctrl-Break, immediately.
-
-The progress is tracked in `GitHub Issues <https://github.com/pyjoyment/Pyjoyment/issues>`_.
