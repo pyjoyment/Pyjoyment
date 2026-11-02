@@ -59,6 +59,10 @@ with subtest('ByteStream'):
 with subtest('Collection'):
     is_ok(c(1, 2, 3).join('-'), '1-2-3', 'right result')
 
+# Not in Mojolicious: a lazy iterator, as c makes a collection
+with subtest('Iterator'):
+    is_ok(i(e for e in (1, 2, 3)).map(lambda e: e * 2).join('-'), '2-4-6', 'right result')
+
 with subtest('File'):
     is_ok(f(__file__).basename(), os.path.basename(__file__), 'right result')
 
