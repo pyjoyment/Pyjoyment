@@ -277,6 +277,11 @@ class Pyjo_GetOpt(Pyjo.Base.object):
         """
         if not (m := re.fullmatch(r'([\w?-]+(?:\|[\w?-]+)*)(?:(!)|(\+)|([=:])([sif])([@%])?)?', spec)):
             raise Pyjo.Exception.new(f'Error in option spec: "{spec}"')
+        # A target that is not one, as a default given in its place, fails here, as in Getopt::Long, and not when the option
+        # is given
+        linkage = target is None or isinstance(target, (list, dict)) or callable(target)
+        if not linkage:
+            raise Pyjo.Exception.new(f'Invalid option linkage for "{spec}"')
         names = m[1].split('|')
         name = next((name for name in names if len(name) > 1), names[0]).replace('-', '_')
         kind = 'negatable' if m[2] else 'increment' if m[3] else 'value' if m[4] else 'flag'

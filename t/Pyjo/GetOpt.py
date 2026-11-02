@@ -105,6 +105,11 @@ with subtest('Errors'):
     throws_ok(
         lambda: Pyjo.GetOpt.new().option('t|test=x'), re.compile(r'^Error in option spec: "t\|test=x"'), 'bad spec'
     )
+    throws_ok(
+        lambda: Pyjo.GetOpt.new().option('c|concurrency=i', 4),
+        re.compile(r'^Invalid option linkage for "c\|concurrency=i"'),
+        'a default in the place of the target',
+    )
 
 with subtest('Defaults'):
     getopt = Pyjo.GetOpt.new().option('M|method=s', default='GET').option('v|verbose', default=False)
