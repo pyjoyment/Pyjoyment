@@ -74,7 +74,12 @@ The event loop of Pyjoyment is the one of asyncio by default, so the
 coroutines and the tasks of the libraries of asyncio run in the same loop as
 its servers and clients. A reactor is where the event loop is replaced, when
 an application needs another I/O library: `Pyjo.Reactor.Poll` runs without
-asyncio, on `select.poll`, and a distribution of its own adds another one, as
+asyncio, on `select.poll`, and on `select.select` on Windows, with a standard
+installation of Python and nothing else. On PyPy, whose JIT compiles it, it
+serves requests as fast as the servers of Python whose event loop and HTTP
+parser are compiled from C or Rust, as the
+[benchmarks](https://github.com/pyjoyment/Pyjoyment/tree/main/benchmarks)
+measure. A distribution of its own adds another reactor, as
 `Pyjo.Reactor.Twisted`, which `PYJO_REACTOR` selects, with no change of the
 application.
 
