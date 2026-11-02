@@ -7,7 +7,7 @@ import sys
 import tempfile
 
 
-# The examples of Pyjo.HelloWorld from README.md, on the port 3000 replaced by a free one: natively, and with the
+# The examples of Pyjo.HelloWorld of examples/servers, on the port 3000 replaced by a free one: natively, and with the
 # servers of the dependency group "servers" when it is installed
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
 ServerProcess = importlib.import_module('ServerProcess')
