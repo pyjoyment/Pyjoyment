@@ -95,6 +95,21 @@ with subtest('Quiet'):
     is_ok(buffer.getvalue(), '', 'no output')
     os.chdir(cwd)
 
+# Unlike Mojolicious: a message is flushed at once, as the standard output of a pipe is buffered in blocks
+with subtest('Flushed'):
+
+    class Output(io.StringIO):
+        flushed = ''
+
+        def flush(self):
+            self.flushed = self.getvalue()
+            super().flush()
+
+    output = Output()
+    with contextlib.redirect_stdout(output):
+        Pyjoyment.Command.new()._loud('  [write] foo')
+    is_ok(output.flushed, '  [write] foo\n', 'flushed with its line')
+
 with subtest('Abstract methods'):
     throws_ok(
         lambda: Pyjoyment.Command.new().run(),

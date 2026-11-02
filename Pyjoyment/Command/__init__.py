@@ -320,7 +320,9 @@ class Pyjoyment_Command(Pyjo.Base.object):
 
     def _loud(self, msg: str) -> Self:
         if not self.quiet:
-            print(msg)
+            # Unlike Mojolicious: flushed, as the standard output of a pipe, as the log of CI or of tee, is buffered in
+            # blocks, so a command that runs long would show its progress at its end only
+            print(msg, flush=True)
         return self
 
 
