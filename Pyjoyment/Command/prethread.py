@@ -35,7 +35,8 @@ Pyjoyment.Command.prethread - Pre-thread command
                                            listen on, defaults to the value of
                                            PYJO_LISTEN, the port of PORT or
                                            "http://*:3000"
-          --log-format <name>              Format of log messages, "text" or
+          --log-format <name>              Format of log messages, "text",
+                                           "plain" without time and process, or
                                            "json", defaults to the value of
                                            PYJO_LOG_FORMAT or "text"
       -m, --mode <name>                    Operating mode for your application,

@@ -117,6 +117,28 @@ with subtest('Colorized log messages'):
     )
     del os.environ['PYJO_LOG_COLOR']
 
+# Not in Mojolicious: messages without the time and the process, as a log of CI adds its own time
+with subtest('Plain log messages'):
+    log = Pyjo.Log.new()
+    ok(not log.plain, 'time and process')
+    os.environ['PYJO_LOG_FORMAT'] = 'plain'
+    log = Pyjo.Log.new()
+    ok(log.plain, 'plain of the environment')
+    ok(not log.json, 'not JSON')
+    is_ok(log.format(time.time(), 'info', 'Test 123'), '[info] Test 123\n', 'right format')
+    is_ok(log.format(time.time(), 'debug', 'Test', '1', '2', '3'), '[debug] Test 1 2 3\n', 'right format of lines')
+    del os.environ['PYJO_LOG_FORMAT']
+    log = Pyjo.Log.new(plain=True, short=True, color=True)
+    is_ok(log.format(time.time(), 'error', 'Test 123'), '[error] Test 123\n', 'before short and color')
+    log = Pyjo.Log.new(plain=True, json=True)
+    like_ok(log.format(time.time(), 'info', 'Test 123'), r'^\{"time":', 'JSON before plain')
+    log = Pyjo.Log.new(plain=True)
+    context = log.context(Pyjo.Log.Field('request_id', 'abc', '[abc]'))
+    buffer = io.StringIO()
+    log.handle = buffer
+    context.info('Hello')
+    is_ok(buffer.getvalue(), '[info] [abc] Hello\n', 'with the context')
+
 # Not in Mojolicious: JSON Lines with the fields that log collectors recognize, as Cloud Logging, Datadog and Elastic
 with subtest('JSON log messages'):
     log = Pyjo.Log.new()

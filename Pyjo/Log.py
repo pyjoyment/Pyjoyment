@@ -66,6 +66,12 @@ The levels ``trace`` and ``debug`` are of the severity ``DEBUG``, ``info`` of
 ``INFO``, ``warn`` of ``WARNING``, ``error`` of ``ERROR`` and ``fatal`` of
 ``CRITICAL``.
 
+With :attr:`~Pyjo_Log.plain`, or ``PYJO_LOG_FORMAT`` set to ``plain``, a
+message has its level only, without the time and the process, for a log that
+adds its own time to each line, as the one of GitHub Actions. ::
+
+    [info] Disk is 95% full
+
 The logging module
 ------------------
 
@@ -154,6 +160,7 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
         level: str = 'trace',
         max_history_size: int = 10,
         path: str | os.PathLike[str] | None = None,
+        plain: bool | None = None,
         short: bool | None = None,
     ) -> None:
         """::
@@ -208,6 +215,7 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
         Log file path used by :attr:`handle`.
         """
 
+        self._plain: bool | None = plain
         self._short: bool | None = short
 
         self._capturing = False
@@ -258,8 +266,8 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
 
         Generate log messages as lines of JSON, see `JSON`_, defaults to true
         when the ``PYJO_LOG_FORMAT`` environment variable is ``json``, and
-        false when it is ``text`` or not set. It takes precedence over
-        :attr:`short` and :attr:`color`.
+        false when it is ``text``, ``plain`` or not set. It takes precedence
+        over :attr:`plain`, :attr:`short` and :attr:`color`.
         """
         if self._json is None:
             self._json = (os.environ.get('PYJO_LOG_FORMAT') or '').lower() == 'json'
@@ -268,6 +276,28 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
     @json.setter
     def json(self, value: bool) -> None:
         self._json = value
+
+    # Not in Mojolicious: messages without the time and the process, as a log of CI adds its own time
+    @property
+    def plain(self) -> bool:
+        """::
+
+            boolean = log.plain
+            log.plain = boolean
+
+        Generate log messages with their level only, without the time and the
+        process, as ``[info] Hello``, for a log that adds its own time, as the
+        one of GitHub Actions, defaults to true when the ``PYJO_LOG_FORMAT``
+        environment variable is ``plain``. It takes precedence over
+        :attr:`short` and :attr:`color`.
+        """
+        if self._plain is None:
+            self._plain = (os.environ.get('PYJO_LOG_FORMAT') or '').lower() == 'plain'
+        return self._plain
+
+    @plain.setter
+    def plain(self, value: bool) -> None:
+        self._plain = value
 
     @property
     def short(self) -> bool:
@@ -300,7 +330,17 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
             log.format = lambda time, level, *lines: '[2018-11-08 14:20:13.77168] [28320] [info] I ♥ Pyjoyment\\n'
         """
         if self._format is None:
-            self._format = _json if self.json else _short if self.short else _color if self.color else _default
+            self._format = (
+                _json
+                if self.json
+                else _plain
+                if self.plain
+                else _short
+                if self.short
+                else _color
+                if self.color
+                else _default
+            )
         return self._format
 
     @format.setter
@@ -711,6 +751,10 @@ def _message(log: Pyjo_Log, level: str, *lines: Any) -> None:
         history.pop(0)
 
     log.append(log.format(*msg))
+
+
+def _plain(time: float, level: str, *lines: Any) -> str:
+    return f'[{level}] {" ".join(map(str, lines))}\n'
 
 
 def _short(time: float, level: str, *lines: Any) -> str:

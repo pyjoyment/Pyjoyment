@@ -39,7 +39,8 @@ Pyjoyment.Command.get - Get command
                                            value of PYJO_INACTIVITY_TIMEOUT or 40
       -k, --insecure                       Do not require a valid TLS certificate
                                            to access HTTPS sites
-          --log-format <name>              Format of log messages, "text" or
+          --log-format <name>              Format of log messages, "text",
+                                           "plain" without time and process, or
                                            "json", defaults to the value of
                                            PYJO_LOG_FORMAT or "text"
       -M, --method <method>                HTTP method to use, defaults to "GET"
