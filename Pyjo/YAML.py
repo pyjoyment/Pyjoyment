@@ -96,6 +96,8 @@ expressions of scalars and keys it borrows, with thanks.
 
 import Pyjo.Exception
 
+from Pyjo.Util import b64_encode
+
 import base64
 import binascii
 import builtins
@@ -1097,7 +1099,7 @@ class _Dumper:
         if isinstance(value, (list, tuple)):
             return '[]', []
         if isinstance(value, (bytes, bytearray)):
-            return '!!binary ' + base64.b64encode(value).decode(), []
+            return '!!binary ' + b64_encode(bytes(value), ''), []
         if isinstance(value, datetime.date):
             return '!!timestamp ' + value.isoformat(), []
         raise _error(f"does not support a value of the type '{type(value).__name__}'")

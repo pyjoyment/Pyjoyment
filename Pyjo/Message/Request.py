@@ -60,11 +60,9 @@ import Pyjo.Message
 import Pyjo.Parameters
 import Pyjo.URL
 
-from Pyjo.Util import b64_decode, b64_encode, decode, url_unescape
+from Pyjo.Util import b64_decode, b64_encode, decode, sha1_bytes, url_unescape
 
-import base64
 import builtins
-import hashlib
 import os
 import random
 import re
@@ -716,7 +714,7 @@ def _request_id() -> str:
     if _seed is None:
         _seed, _counter = f'{os.getpid()}{time.time()}{random.random()}', random.randrange(0xFFFFFF)
     _counter = (_counter + 1) % 0xFFFFFF
-    b64 = base64.b64encode(hashlib.sha1(f'{_seed}{_counter}'.encode()).digest()).decode()[:12]
+    b64 = b64_encode(sha1_bytes(f'{_seed}{_counter}'.encode()), '')[:12]
     return b64.translate(str.maketrans('+/', '-_'))
 
 

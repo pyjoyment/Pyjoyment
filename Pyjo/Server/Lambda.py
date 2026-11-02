@@ -160,7 +160,7 @@ import Pyjo.Server
 import Pyjo.Transaction
 
 from Pyjo.Server.WSGI import _IO  # pyright: ignore[reportPrivateUsage]
-from Pyjo.Util import die, extract_usage, getopt, url_escape
+from Pyjo.Util import b64_encode, die, extract_usage, getopt, url_escape
 
 import base64
 import http.client
@@ -286,7 +286,7 @@ class Pyjo_Server_Lambda(Pyjo.Server.object):
             response['body'] = content.decode()
             response['isBase64Encoded'] = False
         else:
-            response['body'] = base64.b64encode(content).decode('ascii')
+            response['body'] = b64_encode(content, '')
             response['isBase64Encoded'] = True
         return response
 
@@ -579,7 +579,7 @@ class _Runtime:
             except StopIteration:
                 pass
             except Exception as e:
-                error = base64.b64encode(_error(e)).decode('ascii')
+                error = b64_encode(_error(e), '')
                 trailers = (
                     f'Lambda-Runtime-Function-Error-Type: Unhandled\x0d\x0a'
                     f'Lambda-Runtime-Function-Error-Body: {error}\x0d\x0a'

@@ -98,6 +98,7 @@ import Pyjo.Transaction
 import Pyjo.Transaction.HTTP
 
 from Pyjo.Server.Lambda import _RE_TEXT, _is_utf8  # pyright: ignore[reportPrivateUsage]
+from Pyjo.Util import b64_encode
 
 import base64
 import json
@@ -786,7 +787,7 @@ def _body(req: Any) -> tuple[str | None, bool]:
         return None, False
     if _RE_TEXT.match(req.headers.content_type or '') and _is_utf8(body):
         return body.decode(), False
-    return base64.b64encode(body).decode('ascii'), True
+    return b64_encode(body, ''), True
 
 
 # The event of the request in the payload format of the application

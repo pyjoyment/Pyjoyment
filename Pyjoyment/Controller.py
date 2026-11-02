@@ -84,8 +84,6 @@ import Pyjo.Util
 import Pyjoyment.Routes.Match
 
 import functools
-import hashlib
-import hmac
 import io
 import re
 import sys
@@ -1299,7 +1297,7 @@ _HELPER_GET = vars(Helper)['__get__'].__code__
 
 
 def _hmac(data: str, secret: str) -> str:
-    return hmac.new(secret.encode(), data.encode(), hashlib.sha256).hexdigest()
+    return Pyjo.Util.hmac_sha256_sum(data.encode(), secret.encode())
 
 
 new = Pyjoyment_Controller.new
