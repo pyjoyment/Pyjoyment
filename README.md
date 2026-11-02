@@ -56,6 +56,12 @@ its own, without the framework:
 - Command line options, event emitter, logger and utility functions.
 - Test library and test harness.
 
+A script uses the toolkit without a server: the user agent requests the HTML
+specification, which blocks until the response comes, as a script expects,
+and the CSS selectors of its DOM pick the rows of the table of the named
+character references, whose names and code points the script prints, as
+`Aacute; U+000C1`:
+
 ```python
 import Pyjo.UserAgent
 
@@ -154,9 +160,12 @@ them, on the server of another.
 | ---------- | ---------------------------------------------- | ------------------------------------------------ |
 | WSGI       | Flask, Django, any WSGI application            | any WSGI server, as gunicorn                     |
 | ASGI       | Starlette, FastAPI, any ASGI application       | any ASGI server, as uvicorn                      |
-| FastCGI    | PHP on php-fpm, any FastCGI application        | a web server in front of it, as nginx            |
+| FastCGI    | PHP on php-fpm, any FastCGI application        | a web server in front of it, as Caddy            |
 | CGI        | CGI programs, as Python or PHP scripts         | a web server that runs CGI programs              |
 | AWS Lambda | event functions, as the runtime of Lambda does | Lambda, as an event function or a custom runtime |
+
+`Pyjo.HelloWorld`, the application that answers `Your Pyjo is working!`, on
+uvicorn, as the ASGI application that `Pyjo.Server.ASGI` makes of it:
 
 ```python
 import Pyjo.HelloWorld
@@ -242,6 +251,11 @@ serves its requests, without blocking it:
   as components of the application;
 - the libraries of asyncio, as the asynchronous AWS SDK, whose coroutines run
   in the same event loop.
+
+A page of the application opens a WebSocket to it and sends it a URL, which
+the application requests with its user agent, without blocking the other
+connections, and sends back the title of the page. The template of the page is
+in the docstring of the script, after the line `__DATA__`:
 
 ```python
 """
