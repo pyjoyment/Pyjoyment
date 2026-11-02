@@ -231,6 +231,18 @@ python myapp.py inflate                       # a script of Lite: its templates 
   standard error at once, as JSON with `PYJO_LOG_FORMAT=json`. The standard
   output is for what a command gives as its result, as JSON for a program.
 
+- A command of the application, a class of `Pyjoyment.Command` in
+  `MyApp/Command/sync.py`, is found through
+  `self.commands.namespaces.append('MyApp.Command')` of `startup`, or
+  `app.commands.namespaces` of a script of Lite, whose package has another
+  name than the script, as macOS takes `Sync/` and `sync.py` for one.
+- The dict of `getopt` takes the target of an option, a list, a dict or a
+  callback, not its default: `Pyjo.GetOpt.new().option('c|concurrency=i',
+  default=4)` has one. `rel_file` of a command is relative to the current
+  directory, as in Mojolicious; a file of the application is
+  `self.app.home.child(...)`. `_loud` is private: a command reports with
+  `self.app.log`.
+
 ## Documentation
 
 - Growing: https://pyjoyment.readthedocs.io/en/latest/guides/growing.html

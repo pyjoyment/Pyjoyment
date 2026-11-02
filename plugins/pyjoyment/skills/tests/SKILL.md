@@ -151,6 +151,17 @@ PYTHONDEVMODE=1 pyjo-prove -l -r t   # and the ResourceWarning of what a test le
   `tx.req.url`.
 - `t.get_ok(...)` of a stream of Server-Sent Events gives an empty body: a
   stream is tested with `get_sse_ok` and `sse_ok`.
+- `throws_ok` with a message or a pattern catches an `Exception` only:
+  `SystemExit` of a command is checked with the class, `throws_ok(cb,
+  SystemExit)`. The text of a `Pyjo.Exception` ends with a new line, so its
+  message is checked with a pattern, `re.compile(r'^Not found')`.
+- A test that imports a script of `Pyjoyment.Lite` runs its `app.start()`:
+  `Pyjo.Server.new().load_app('app.py')` gives its application without a
+  command. A test named as the module that it imports, `t/app.py` for
+  `app.py` with `-l`, imports itself.
+- The log of the application is checked with `app.log.capture('info')`,
+  whose messages have the format of the log, with the time: `app.log.format =
+  lambda time, level, *lines: ...` makes them exact.
 
 ## Documentation
 

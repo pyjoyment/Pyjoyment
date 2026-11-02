@@ -26,6 +26,13 @@ back here.
   repository that does not exist. Its tests
   lay the checkout next to it over the one of Git with `uv run --with-editable
 ../Pyjoyment`, so that they test what is there.
+- **Pyright and the namespace.** Pyright takes the regular package `Pyjo` of
+  Pyjoyment of `.venv` for an import of `Pyjo.X`, which hides the module of
+  the checkout that `extend_path` finds at run time. A module of the
+  distribution imports its package relatively, as `from .. import MCP`; code
+  outside of the package, as a script in the root of a repository that has a
+  module of `Pyjo` beside it, takes the module from `importlib.import_module`
+  as `Any`, with a comment that says why.
 - **The tests.** Its CI checks out Pyjoyment next to it and runs the whole
   suite of Pyjoyment with the distribution, as `PYJO_REACTOR` set to the
   reactor, on the Pythons of the matrix of Pyjoyment, daily too, as Pyjoyment

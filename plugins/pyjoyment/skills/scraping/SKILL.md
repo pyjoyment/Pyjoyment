@@ -132,7 +132,15 @@ and the other methods of HTTP, `x` for the DOM, `j` for JSON.
 - A script with the name of a module of the standard library, as
   `concurrent.py`, `json.py` or `email.py`, hides it from every module that
   imports it, as the directory of a script comes first in `sys.path`.
-  $1
+- A signature of a request, as Signature Version 4 of AWS or the HMAC of an
+  API, is made in the event `start`, where the URL is absolute, but `Host` and
+  `Content-Length` are not set yet: the signature sets `Host` itself and
+  leaves out `Content-Length`. With requests at the same time, a subscriber
+  signs its own transaction only, `if tx is mine`, and unsubscribes, as
+  `once` takes the one that starts next.
+- A request has no limit of its whole time, `request_timeout` is `0`, and 40
+  seconds without data, `inactivity_timeout`: a batch of long requests sets
+  both, so that one that hangs or trickles ends.
 ## Documentation
 
 - Pyjo.UserAgent: https://pyjoyment.readthedocs.io/en/latest/api/Pyjo_UserAgent.html

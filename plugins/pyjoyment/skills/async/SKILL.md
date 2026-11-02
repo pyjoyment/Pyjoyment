@@ -164,6 +164,11 @@ app.start()
 
 ## Mistakes
 
+- `Pyjo.Iterator.new(items)` takes a list, and `c(*items)` and
+  `Pyjo.Collection.new(*items)` take the elements: `Pyjo.Collection.new(items)`
+  is a collection of one element, the list. `map` of an iterator takes a
+  coroutine function as it takes a function that gives a promise.
+
 - `time.sleep`, `requests`, `urllib.request` or a blocking database driver in
   an action stop every connection. `PYTHONDEVMODE=1` logs a callback that
   blocked the loop, as `Executing <Handle ...> took 2.003 seconds`.
