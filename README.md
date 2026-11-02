@@ -45,8 +45,8 @@ server, glues them to other services, and runs and deploys them together.
 its own, without the framework:
 
 - HTTP and WebSocket client and server, with TLS.
-- Event loop with promises and `async`/`await`, on asyncio, with TCP, UDP and
-  UNIX domain sockets, timers and child processes.
+- Event loop with promises and `async`/`await`, with TCP, UDP and UNIX
+  domain sockets, timers and child processes.
 - HTML/XML parser with CSS selectors.
 - JSON with JSON Pointers and JSON Schema, from type hints and validated,
   YAML and TOML, all loaded and dumped.
@@ -55,8 +55,7 @@ its own, without the framework:
 - Containers for URLs, paths, query strings, headers, cookies and HTTP
   messages.
 - Command line options, event emitter, logger and utility functions.
-- Test scripts which print the [Test Anything Protocol](https://testanything.org/)
-  (TAP), with `Pyjo.Test`, and their harness, `Pyjo.Prove`.
+- Test library and test harness.
 
 ```python
 import Pyjo.UserAgent
@@ -69,6 +68,31 @@ tx = Pyjo.UserAgent.new().get('https://html.spec.whatwg.org')
 for n in tx.res.dom('#named-character-references-table tbody > tr').each():
     u(n.at('td > code').text + ' ' + n.children('td')[1].text).trim().say()
 ```
+
+### Event loop
+
+The event loop of Pyjoyment is the one of asyncio by default, so the
+coroutines and the tasks of the libraries of asyncio run in the same loop as
+its servers and clients. A reactor is where the event loop is replaced, when
+an application needs another I/O library: `Pyjo.Reactor.Poll` runs without
+asyncio, on `select.poll`, and a distribution of its own adds another one, as
+`Pyjo.Reactor.Twisted`, which `PYJO_REACTOR` selects, with no change of the
+application.
+
+### Tests
+
+`Pyjo.Test` is a library of assertions and `Pyjo.Prove` a harness for test
+scripts that print the [Test Anything Protocol](https://testanything.org/)
+(TAP), modelled on `Test::More` and `prove`, the standard ones of Perl, and
+`Pyjo.Test.Pyjo` tests an application with its requests, without a server.
+The framework itself is tested with them.
+
+An application is tested with any test framework, as an assertion of
+`Pyjo.Test` raises `AssertionError` once `raise_failures()` is called, and
+pytest is integrated out of the box: Pyjoyment comes with a plugin of pytest,
+which pytest loads where Pyjoyment is installed, and which runs the test
+scripts of `Pyjo.Test` as tests of pytest, and gives the tests of pytest the
+fixture `t`, the `Pyjo.Test.Pyjo` of the application.
 
 ## Composition
 
