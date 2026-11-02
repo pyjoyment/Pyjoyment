@@ -298,6 +298,26 @@ with subtest('following_nodes'):
     # "C"
     is_ok(dom.parse('<p>A</p><!-- B -->C').at('p').following_nodes.last().content, 'C', 'following_nodes')
 
+with subtest('iterate'):
+    dom = dom.parse('<p>A</p><p>B <a href="/b">b</a></p><p>C</p>')
+    iterator = dom.iterate('p ~ p')
+    is_deeply_ok(iterator.map('text').to_list(), ['B ', 'C'], 'iterate')
+    iterator = dom.parse('<svg xmlns="http://www.w3.org/2000/svg"><line /></svg>').iterate(
+        'svg|line', svg='http://www.w3.org/2000/svg'
+    )
+    is_ok(iterator.first().tag, 'line', 'namespace')
+
+    dom = dom.parse('<p>A</p><p>B <a href="/b">b</a></p><p>C</p>')
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        # Print the text of each paragraph as soon as it is found
+        dom.iterate('p').map('all_text').each(lambda text, num: print(text))
+    is_ok(output.getvalue(), 'A\nB b\nC\n', 'printed')
+
+    # Find no more elements after the first one with a link
+    link = dom.iterate('p').first(lambda p: p.at('a[href]'))
+    is_ok(link.all_text, 'B b', 'first with a link')
+
 with subtest('matches'):
     # True
     ok(dom.parse('<p class="a">A</p>').at('p').matches('.a'), 'matches')

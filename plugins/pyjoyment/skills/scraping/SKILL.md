@@ -52,6 +52,9 @@ print(api.json('/items/0/name'))
   `Pyjo.Collection` of all, with `map`, `grep`, `first`, `head`, `join`,
   `each` and `size`; an element has `text` (its own), `all_text` (of its
   descendants too), `attr('href')`, `tag`, `children(css)`, `parent`.
+- `dom.iterate(css)` is a lazy `Pyjo.Iterator` of the same elements, found as
+  they are taken, so that the first one is processed before the last one is
+  found, and `first` stops the search.
 - `ua.get(url, headers, form={...})`, `ua.post(url, json={...})`, a body as
   bytes after the headers; `res.code`, `res.headers.content_type`, `res.text`,
   `res.json()`, `res.dom()`, `res.save_to(path)`.

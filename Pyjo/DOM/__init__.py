@@ -123,7 +123,11 @@ import builtins
 import re
 
 from collections.abc import Callable, Iterator
-from typing import Any, Self, cast, overload
+from typing import TYPE_CHECKING, Any, Self, cast, overload
+
+
+if TYPE_CHECKING:
+    import Pyjo.Iterator
 
 
 type Anything = builtins.object
@@ -560,6 +564,28 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
             dom.parse('<p>A</p><!-- B -->C').at('p').following_nodes.last().content
         """
         return self._collect(_siblings(self.tree, False, True))
+
+    # Not in Mojolicious: the matches one by one, in a lazy chain
+    def iterate(self, css: object, **ns: str) -> 'Pyjo.Iterator.object[Pyjo_DOM]':
+        """::
+
+            iterator = dom.iterate('div ~ p')
+            iterator = dom.iterate('svg|line', svg='http://www.w3.org/2000/svg')
+
+        Same as :meth:`find`, but returns a lazy :mod:`Pyjo.Iterator`, which
+        finds the descendant elements as they are taken, in the order of the
+        document, so that the first one is processed before the last one is
+        found. ::
+
+            # Print the text of each paragraph as soon as it is found
+            dom.iterate('p').map('all_text').each(lambda text, num: print(text))
+
+            # Find no more elements after the first one with a link
+            link = dom.iterate('p').first(lambda p: p.at('a[href]'))
+        """
+        import Pyjo.Iterator
+
+        return Pyjo.Iterator.new(_Matches(self, css, ns))
 
     def matches(self, css: object, **ns: str) -> bool | None:
         """::
@@ -1322,6 +1348,19 @@ def _text(nodes: list[Tree], xml: bool | None, all: bool) -> str:
                 queue[0:0] = _nodes(node)
 
     return text
+
+
+# The matches of a selector, found anew for each iteration of a Pyjo.Iterator
+class _Matches:
+    def __init__(self, dom: Pyjo_DOM, css: object, ns: dict[str, str]) -> None:
+        self.dom, self.css, self.ns = dom, css, ns
+
+    def __iter__(self) -> Iterator[Pyjo_DOM]:
+        dom, xml = self.dom, self.dom.xml
+        return (
+            dom.new().set(tree=tree, xml=xml)
+            for tree in Pyjo.DOM.CSS.new(tree=dom.tree).select_iter(self.css, **self.ns)
+        )
 
 
 new = Pyjo_DOM.new

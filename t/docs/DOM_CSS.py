@@ -255,6 +255,12 @@ with subtest('select'):
     results = css.select('svg|line', svg='http://www.w3.org/2000/svg')
     is_deeply_ok(results, [], 'no results')
 
+with subtest('select_iter'):
+    results = css.select_iter('head > title')
+    is_ok(next(results)[1], 'title', 'results')
+    results = css.select_iter('svg|line', svg='http://www.w3.org/2000/svg')
+    is_deeply_ok(list(results), [], 'no results')
+
 with subtest('select_one'):
     result = css.select_one('head > title')
     is_ok(result[1], 'title', 'result')

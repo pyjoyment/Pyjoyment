@@ -420,6 +420,7 @@ import collections
 import pprint
 import re
 
+from collections.abc import Iterator
 from typing import Any, cast
 
 
@@ -495,6 +496,19 @@ class Pyjo_DOM_CSS(Pyjo.Base.object):
         used to declare xml namespace aliases.
         """
         return _select_all(self._tree(), _compile(css, **ns))
+
+    # Not in Mojolicious: the results one by one, as Pyjo.DOM.iterate takes them
+    def select_iter(self, css: object, **ns: str) -> Iterator[Tree]:
+        """::
+
+            results = css.select_iter('head > title')
+            results = css.select_iter('svg|line', svg='http://www.w3.org/2000/svg')
+
+        Same as :meth:`select`, but returns an iterator, which runs the CSS
+        selector against :attr:`tree` as its results are taken, in the order of
+        the document.
+        """
+        return _select_iter(self._tree(), _compile(css, **ns))
 
     def select_one(self, css: object, **ns: str) -> Tree | None:
         """::
@@ -714,7 +728,8 @@ def _match(group: list[Selector], current: Tree, tree: Tree, scope: Tree) -> boo
     return None
 
 
-def _match_one(selector: Selector, current: Tree, tree: Tree, scope: Tree) -> bool:
+# Not in Mojolicious: the pool of _select, as a tree whose descendants and itself the steps back stay within
+def _match_one(selector: Selector, current: Tree, tree: Tree, scope: Tree, pool: Tree | None = None) -> bool:
 
     # Match the rightmost compound, then propagate backward through combinators
     parts = list(reversed(selector))
@@ -732,7 +747,7 @@ def _match_one(selector: Selector, current: Tree, tree: Tree, scope: Tree) -> bo
         seen: set[int] = set()
         new: list[Tree] = []
         for node in candidates:
-            for cand in _step_back(combinator, node, scope):
+            for cand in _step_back(combinator, node, scope) if pool is None else _step_within(combinator, node, pool):
                 if id(cand) in seen:
                     continue
                 seen.add(id(cand))
@@ -880,6 +895,25 @@ def _select_one(scope: Tree, group: list[Selector]) -> Tree | None:
     return results[0] if len(results) else None
 
 
+# Not in Mojolicious: the results of _select one by one, in the order of the document, each matched backward within the
+# pool that _evaluate starts from, so that the results are the same
+def _select_iter(scope: Tree, group: list[Selector]) -> Iterator[Tree]:
+
+    # Scoped selectors require the whole tree to be searched
+    tree = scope
+    if any(_is_scoped(s) for s in group):
+        group, tree = _absolutize(group), _root(scope)
+
+    queue: collections.deque[Tree] = collections.deque(tree[1 if tree[0] == 'root' else 4 :])
+    while queue:
+        current = queue.popleft()
+        if current[0] != 'tag':
+            continue
+        queue.extendleft(reversed(current[4:]))
+        if any(_match_one(s, current, tree, scope, tree) for s in group):
+            yield current
+
+
 def _selector(selector: list[Any], current: Tree, tree: Tree, scope: Tree) -> bool:
 
     # The root might be the scope
@@ -939,6 +973,20 @@ def _step_back(combinator: str, node: Tree, scope: Tree) -> list[Tree]:
             break
         prev.append(sib)
     return prev[-1:] if combinator == '+' else prev
+
+
+# Not in Mojolicious: _step_back within a tree and its descendants, the pool of _select, whose siblings are outside
+def _step_within(combinator: str, node: Tree, pool: Tree) -> list[Tree]:
+    if node is pool or node[0] == 'root':
+        return []
+    if combinator in (' ', '>'):
+        ancestors: list[Tree] = []
+        while (parent := node[3]) is not None:
+            ancestors.append(node := parent)
+            if combinator == '>' or node is pool:
+                break
+        return ancestors
+    return _step_back(combinator, node, pool)
 
 
 def _step_forward(combinator: str, node: Tree) -> list[Tree]:

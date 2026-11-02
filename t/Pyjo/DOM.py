@@ -3308,4 +3308,47 @@ with subtest('Unknown CSS selector'):
     throws_ok(lambda: dom.at('div['), re.compile(r'Unknown CSS selector: div\['), 'right error')
     throws_ok(lambda: dom.find('p['), re.compile(r'Unknown CSS selector: p\['), 'right error')
 
+# Not in Mojolicious: the matches one by one, which are the ones of find, from a scope too
+with subtest('Lazy selection'):
+    dom = Pyjo.DOM.new(
+        '<div id="x"><a>1</a><b id="b"><c>2</c><a>3</a><c>4</c></b><c>5</c></div>'
+        '<section><p>6</p><b><p>7</p></b><p class="x">8</p></section>'
+    )
+    selectors = [
+        '*',
+        'a',
+        'c',
+        'b c',
+        'b > c',
+        'a ~ b c',
+        'a + b c',
+        'a ~ c',
+        'c + a',
+        'c ~ c',
+        'div c',
+        'div > c',
+        ':scope c',
+        ':scope > c',
+        ':scope ~ c',
+        'c:not(:first-child)',
+        'b:has(> c)',
+        'p:is(.x, :first-child)',
+        'section p',
+        'section > b > p',
+        ':root',
+        'div, section p',
+        'b ~ *',
+    ]
+    for scope in (dom, dom.at('#x'), dom.at('#b'), dom.at('section')):
+        for css in selectors:
+            found = [str(e) for e in scope.find(css)]
+            is_deeply_ok([str(e) for e in scope.iterate(css)], found, f'{css} from {scope.tag or "root"}')
+
+    dom = Pyjo.DOM.new('<p class="x">1</p><p>2</p><p>3</p>')
+    elements = iter(dom.iterate('p.x'))
+    is_ok(next(elements).text, '1', 'first element')
+    dom.find('p')[2].attr(**{'class': 'x'})
+    is_deeply_ok([e.text for e in elements], ['3'], 'the rest matched as they are taken')
+    is_deeply_ok([e.text for e in dom.iterate('p.x')], ['1', '3'], 'matched anew for each iteration')
+
 done_testing()
