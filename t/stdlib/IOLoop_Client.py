@@ -71,6 +71,12 @@ def receive(handle):
         return handle.recv(100).decode()
 
 
+# A port that refuses a connection: a privileged one, which no test that runs at the same time takes, as it could take
+# the port of a socket that is closed before the connection, and a socket bound without listening refuses nothing on
+# macOS, where the connection times out
+REFUSED = 1
+
+
 with subtest('A server of the standard library'):
     listening = socket.create_server(('127.0.0.1', 0))
     port = listening.getsockname()[1]
@@ -91,14 +97,11 @@ with subtest('A server of the standard library'):
     listening.close()
 
 with subtest('Errors'):
-    closed = socket.create_server(('127.0.0.1', 0))
-    port = closed.getsockname()[1]
-    closed.close()
-    got = connect(port=port)
+    got = connect(port=REFUSED)
     isa_ok(got['err'], ConnectionRefusedError, 'refused')
     got = connect(address='name.invalid', port=80)
     like_ok(str(got['err']), r"^Can't resolve: ", 'unknown name')
-    got = connect(port=port, socks_address='127.0.0.1')
+    got = connect(port=REFUSED, socks_address='127.0.0.1')
     isa_ok(got['err'], ConnectionRefusedError, 'no SOCKS proxy')
 
 with subtest('Blocking name resolution'):
@@ -126,10 +129,7 @@ with subtest('SOCKS5'):
     got = connect(address='localhost', port=port, socks_address='127.0.0.1', socks_port=proxy.port)
     is_ok(receive(got['handle']), f'hello {proxy.last}', 'the proxy resolves the name')
 
-    closed = socket.create_server(('127.0.0.1', 0))
-    closed_port = closed.getsockname()[1]
-    closed.close()
-    got = connect(port=closed_port, socks_address='127.0.0.1', socks_port=proxy.port)
+    got = connect(port=REFUSED, socks_address='127.0.0.1', socks_port=proxy.port)
     is_ok(got['err'], 'Connection refused', 'the proxy cannot connect')
     proxy.close()
 
