@@ -57,10 +57,16 @@ its own, without the framework:
 - Test library and test harness.
 
 A script uses the toolkit without a server: the user agent requests the HTML
-specification, which blocks until the response comes, as a script expects,
-and the CSS selectors of its DOM pick the rows of the table of the named
-character references, whose names and code points the script prints, as
-`Aacute; U+000C1`:
+specification, and the CSS selectors of its DOM pick the rows of the table of
+the named character references, whose names and code points the script
+prints, as `Aacute; U+000C1`.
+
+The processing is concurrent. The request blocks here, as a script expects,
+and the same request is non-blocking with `get_p`, whose promise is awaited
+or chained, so that a script or an application runs many of them at once in
+its event loop and processes each response as it comes. The steps of the
+chain pass the elements on one by one, as an iterator does, so that the first
+row is printed before the last one is picked:
 
 ```python
 import Pyjo.UserAgent
