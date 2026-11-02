@@ -1,8 +1,8 @@
 {
   "name": "pyjoyment",
   "owner": {
-    "name": "Piotr Roszatycki",
-    "url": "https://github.com/dex4er"
+    "name": "Pyjoyment",
+    "url": "https://github.com/pyjoyment"
   },
   "description": "Skills for coding agents that write applications with Pyjoyment",
   "plugins": [
