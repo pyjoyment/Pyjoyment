@@ -14,6 +14,8 @@ from Pyjo.Test import *
 from Pyjo.Util import (
     b64_decode,
     b64_encode,
+    b64url_decode,
+    b64url_encode,
     camelize,
     class_to_file,
     class_to_path,
@@ -328,6 +330,20 @@ with subtest('b64_encode'):
 
 with subtest('b64_decode'):
     is_ok(b64_decode('Zm9vYmFyJCVeJjMyMTc=\n'), b'foobar$%^&3217', 'right Base64 decoded result')
+
+# Not in Mojolicious: Base64 for URLs
+with subtest('b64url_encode'):
+    is_ok(b64url_encode(b'foobar$%^&3217'), 'Zm9vYmFyJCVeJjMyMTc', 'without the padding')
+    is_ok(b64url_encode(b'\xfb\xff\xfe'), '-__-', 'without + and /')
+    is_ok(b64url_encode(b''), '', 'empty')
+
+with subtest('b64url_decode'):
+    is_ok(b64url_decode('Zm9vYmFyJCVeJjMyMTc'), b'foobar$%^&3217', 'without the padding')
+    is_ok(b64url_decode('Zm9vYmFyJCVeJjMyMTc='), b'foobar$%^&3217', 'with the padding')
+    is_ok(b64url_decode(b'-__-'), b'\xfb\xff\xfe', 'with - and _')
+    is_ok(b64url_decode('YQ'), b'a', 'one byte')
+    data = bytes(range(256))
+    is_ok(b64url_decode(b64url_encode(data)), data, 'every byte')
 
 with subtest('b64_encode (UTF-8)'):
     is_ok(

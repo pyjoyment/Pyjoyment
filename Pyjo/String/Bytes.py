@@ -113,6 +113,30 @@ class Pyjo_String_Bytes(bytes):
         """
         return Pyjo.String.Unicode.new(Pyjo.Util.b64_encode(self.to_bytes(), eol))
 
+    # Not in Mojolicious: Base64 for URLs, as Pyjo.Util has it
+    def b64url_decode(self) -> Self:
+        """::
+
+            data = data.b64url_decode()
+
+        Base64 decode bytes in the variant for URLs with
+        :func:`Pyjo.Util.b64url_decode`.
+        """
+        return self.new(Pyjo.Util.b64url_decode(self.to_bytes()))
+
+    def b64url_encode(self) -> 'Pyjo.String.Unicode.object':
+        """::
+
+            string = data.b64url_encode()
+
+        Base64 encode bytes in the variant for URLs with
+        :func:`Pyjo.Util.b64url_encode`. ::
+
+            # "Zm9vIGJhciBiYXo"
+            b(b'foo bar baz').b64url_encode()
+        """
+        return Pyjo.String.Unicode.new(Pyjo.Util.b64url_encode(self.to_bytes()))
+
     def camelize(self) -> Self:
         """::
 

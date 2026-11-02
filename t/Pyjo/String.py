@@ -33,6 +33,16 @@ with subtest('b64_encode'):
 with subtest('b64_decode'):
     is_ok(b(b'Zm9vYmFyJCVeJjMyMTc=\n').b64_decode(), b'foobar$%^&3217', 'right Base64 decoded result')
 
+# Not in Mojolicious: Base64 for URLs, of bytes and of strings, which chain
+with subtest('b64url_encode and b64url_decode'):
+    isa_ok(b(b'\xfb\xff\xfe').b64url_encode(), Pyjo.String.Unicode.object, 'string of bytes')
+    is_ok(b(b'\xfb\xff\xfe').b64url_encode(), '-__-', 'right Base64 for URLs of bytes')
+    is_ok(u('foo bar baz').b64url_encode(), 'Zm9vIGJhciBiYXo', 'right Base64 for URLs of a string')
+    isa_ok(u('-__-').b64url_decode(), Pyjo.String.Bytes.object, 'bytes of a string')
+    is_ok(u('-__-').b64url_decode(), b'\xfb\xff\xfe', 'right bytes of a string')
+    is_ok(b(b'Zm9vIGJhciBiYXo').b64url_decode(), b'foo bar baz', 'right bytes of bytes')
+    is_ok(u('foo').b64url_encode().b64url_decode().decode(), 'foo', 'chain')
+
 with subtest('url_escape'):
     is_ok(b(b'business;23').url_escape(), b'business%3B23', 'right URL escaped result')
 

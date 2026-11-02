@@ -102,6 +102,40 @@ def b64_encode(data: bytes, eol: str = '\n') -> str:
     return ''.join(b64[i : i + 76] + eol for i in range(0, len(b64), 76))
 
 
+# Not in Mojolicious: Base64 for URLs, as encode_base64url and decode_base64url of MIME::Base64 of Perl, for the tokens,
+# the signatures and the ids that go into URLs, file names and cookies
+def b64url_decode(b64: str | bytes) -> bytes:
+    """::
+
+        data = b64url_decode(b64)
+
+    Base64 decode the variant for URLs of :rfc:`4648`, with ``-`` and ``_``
+    in the place of ``+`` and ``/``, with or without the padding, as
+    :func:`b64_decode` does, ignoring the characters that are not Base64. ::
+
+        # b"\\xfb\\xff\\xfe"
+        b64url_decode('-__-')
+    """
+    if isinstance(b64, str):
+        b64 = b64.encode('latin-1', 'ignore')
+    return b64_decode(b64.translate(bytes.maketrans(b'-_', b'+/')))
+
+
+def b64url_encode(data: bytes) -> str:
+    """::
+
+        b64 = b64url_encode(data)
+
+    Base64 encode bytes in the variant for URLs of :rfc:`4648`, with ``-``
+    and ``_`` in the place of ``+`` and ``/``, and without the padding and
+    the line endings. ::
+
+        # "-__-"
+        b64url_encode(b'\\xfb\\xff\\xfe')
+    """
+    return b64_encode(data, '').rstrip('=').translate(str.maketrans('+/', '-_'))
+
+
 def camelize(string: str) -> str:
     """::
 
