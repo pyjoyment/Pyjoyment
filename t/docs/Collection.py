@@ -122,6 +122,46 @@ with subtest('head'):
     # "A B"
     is_ok(c('A', 'B', 'C', 'D', 'E').head(-3).join(' '), 'A B', 'head(-3)')
 
+with subtest('iterate'):
+    import Pyjo.DOM
+    import Pyjo.Promise
+
+    import types
+
+    # A user agent that answers without the network
+    class FakeUA:
+        def get_p(self, url):
+            return Pyjo.Promise.timer(
+                0.001,
+                types.SimpleNamespace(result=types.SimpleNamespace(dom=lambda: Pyjo.DOM.new(f'<title>{url}</title>'))),
+            )
+
+    ua = FakeUA()
+    urls = ['a', 'b', 'c', 'd']
+
+    # "2, 4, 6"
+    is_ok(c(1, 2, 3).iterate().map(lambda e: e * 2).join(', '), '2, 4, 6', 'map')
+
+    output = io.StringIO()
+
+    async def titles():
+        # Perform 3 requests at a time concurrently, in a coroutine
+        async for tx in c(*urls).iterate().map(ua.get_p, concurrency=3):
+            print(tx.result.dom().at('title').text)
+
+    with contextlib.redirect_stdout(output):
+        Pyjo.Promise.new(titles()).wait()
+    is_ok(output.getvalue(), 'a\nb\nc\nd\n', 'titles')
+
+    got = []
+
+    async def elements():
+        async for e in c(1, 2, 3):
+            got.append(e)
+
+    Pyjo.Promise.new(elements()).wait()
+    is_deeply_ok(got, [1, 2, 3], '__aiter__')
+
 with subtest('join'):
     collection = c('a', 'b')
     output = io.StringIO()

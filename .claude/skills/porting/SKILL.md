@@ -19,6 +19,9 @@ Perl's `Test::More`), `Pyjo.Prove` (inspired by Perl's `prove`),
 `Pyjo.String.*`, `Pyjo.GetOpt` (inspired by `Getopt::Long::Parser`, the engine
 of `getopt` of `Pyjo.Util`, where Perl has references to variables as the
 targets of the options), `Pyjo.IOLoop.Datagram` (inspired by `dgram` of Node.js),
+`Pyjo.Iterator` (a lazy iterator of the elements of an iterable or of an
+asynchronous iterable, for `for` and `async for` alike, inspired by the
+iterator helpers of JavaScript, with the methods of `Pyjo.Collection`),
 `Pyjo.App` (inspired by `Mojo` of Mojolicious 6, the base class of
 `Mojolicious` until Mojolicious 7, as `Pyjo_App` is of `Pyjoyment_App`),
 `Pyjo.HelloWorld` (an application of pure Pyjo, where `Mojo::HelloWorld` is

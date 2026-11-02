@@ -301,6 +301,7 @@ strict = [
   "Pyjo/IOLoop/Stream.py",
   "Pyjo/IOLoop/Subprocess.py",
   "Pyjo/IOLoop/TLS.py",
+  "Pyjo/Iterator.py",
   "Pyjo/JSON/__init__.py",
   "Pyjo/JSON/Pointer.py",
   "Pyjo/JSON/RPC.py",
