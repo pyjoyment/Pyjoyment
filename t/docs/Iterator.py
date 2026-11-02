@@ -1,4 +1,5 @@
 import Pyjo.DOM
+import Pyjo.Iterator
 import Pyjo.Promise
 
 from Pyjo.Test import *
@@ -21,6 +22,15 @@ async def stream(*messages):
     for message in messages:
         await Pyjo.Promise.timer(0.001)
         yield message
+
+
+# The messages of a stream, as Pyjo.IOLoop.Messages gives them
+class FakeMessages:
+    def __init__(self, *messages):
+        self.messages = messages
+
+    def iterate(self):
+        return Pyjo.Iterator.new(stream(*self.messages))
 
 
 # A coroutine of the test, run by the reactor until it is done
@@ -75,12 +85,12 @@ with subtest('Synopsis'):
 with subtest('Description'):
     import Pyjo.JSON
 
-    messages = stream(b'{"id": 1}', b'{"id": 2}')
+    messages = FakeMessages(b'{"id": 1}', b'{"id": 2}')
     requests = []
 
     async def decode():
         # The messages of a stream as JSON, in a coroutine
-        async for request in Pyjo.Iterator.new(messages).map(Pyjo.JSON.decode_json):
+        async for request in messages.iterate().map(Pyjo.JSON.decode_json):
             requests.append(request)
 
     run(decode())
@@ -99,7 +109,7 @@ with subtest('each'):
     is_ok(output.getvalue(), '1: a\n2: b\n', 'numbered list')
 
 with subtest('each_p'):
-    messages = stream(b'first', b'second')
+    messages = FakeMessages(b'first', b'second')
     handled = []
 
     def handle(message, num):
@@ -107,7 +117,7 @@ with subtest('each_p'):
 
     async def each():
         # Process the messages one after another
-        await Pyjo.Iterator.new(messages).each_p(handle)
+        await messages.iterate().each_p(handle)
 
     run(each())
     is_deeply_ok(handled, [b'first', b'second'], 'messages')

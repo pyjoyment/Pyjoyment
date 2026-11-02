@@ -152,6 +152,7 @@ import Pyjo.Base
 import Pyjo.EventEmitter
 import Pyjo.Exception
 import Pyjo.IOLoop.Stream
+import Pyjo.Iterator
 import Pyjo.Promise
 
 import os
@@ -422,7 +423,7 @@ class Pyjo_IOLoop_Messages(Pyjo.EventEmitter.object):
 
         Same as :meth:`iterate`.
         """
-        return self.iterate()
+        return aiter(self.iterate())
 
     def close(self) -> None:
         """::
@@ -467,20 +468,24 @@ class Pyjo_IOLoop_Messages(Pyjo.EventEmitter.object):
         self.close_gracefully()
         return promise
 
-    def iterate(self) -> AsyncIterator[bytes]:
+    def iterate(self) -> Pyjo.Iterator.object[bytes]:
         """::
 
             async for message in messages.iterate():
                 ...
 
-        The messages as an asynchronous iterator, until the end of the stream,
+        The messages as a :mod:`Pyjo.Iterator`, until the end of the stream,
         which :meth:`message_p` takes. ::
 
             # Echo in capitals, one message after another
             async for message in messages:
                 await messages.send_p(message.upper())
+
+            # The messages as JSON, in a chain
+            async for request in messages.iterate().map(Pyjo.JSON.decode_json):
+                ...
         """
-        return self._messages().iterate()
+        return Pyjo.Iterator.object(self._messages().iterate())
 
     @property
     def max_message_size(self) -> int:

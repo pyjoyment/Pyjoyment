@@ -147,6 +147,23 @@ with subtest('__aiter__, iterate, message_p and send_p'):
     is_deeply_ok(got, [b'HELLO', b'HELLO'], 'echoed')
     is_ok(messages.message_p().wait(), None, 'end')
 
+    import Pyjo.JSON
+
+    stream, peer = pair()
+    messages = Pyjo.IOLoop.Messages.new(stream)
+    requests = []
+
+    @Pyjo.Promise.coroutine
+    async def decode():
+        # The messages as JSON, in a chain
+        async for request in messages.iterate().map(Pyjo.JSON.decode_json):
+            requests.append(request)
+
+    promise = decode()
+    peer.write(b'{"id": 1}\n{"id": 2}\n').close_gracefully()
+    promise.wait()
+    is_deeply_ok(requests, [{'id': 1}, {'id': 2}], 'JSON')
+
     stream, peer = pair()
     messages = Pyjo.IOLoop.Messages.new(stream)
     printed = []

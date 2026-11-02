@@ -173,6 +173,21 @@ with subtest('__aiter__ and iterate'):
     promise.wait()
     is_deeply_ok(echoed, [b'ABC'], 'echo')
 
+    # The same in a chain
+    stream, peer = pair()
+    echoed = []
+
+    @Pyjo.Promise.coroutine
+    async def chain():
+        async for chunk in stream.iterate().map(bytes.upper):
+            await stream.write_p(chunk)
+
+    peer.on('read', lambda peer, chunk: (echoed.append(chunk), peer.close()))
+    promise = chain()
+    peer.write(b'abc')
+    promise.wait()
+    is_deeply_ok(echoed, [b'ABC'], 'echo in a chain')
+
 with subtest('close_gracefully_p and once_p'):
     stream, peer = pair()
     data = peer.read_all_p()

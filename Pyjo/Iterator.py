@@ -44,7 +44,7 @@ method whose name ends with ``_p`` waits instead. ``for`` takes the elements of 
 asynchronous iterable, as a stream, the same way. ::
 
     # The messages of a stream as JSON, in a coroutine
-    async for request in Pyjo.Iterator.new(messages).map(Pyjo.JSON.decode_json):
+    async for request in messages.iterate().map(Pyjo.JSON.decode_json):
         ...
 
 See also
@@ -171,7 +171,7 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         each element. ::
 
             # Process the messages one after another
-            await Pyjo.Iterator.new(messages).each_p(handle)
+            await messages.iterate().each_p(handle)
         """
 
         async def each() -> Self:

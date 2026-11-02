@@ -1,5 +1,9 @@
 import Pyjo.Collection
+import Pyjo.EventEmitter
 import Pyjo.IOLoop
+import Pyjo.IOLoop.Datagram
+import Pyjo.IOLoop.Messages
+import Pyjo.IOLoop.Stream
 import Pyjo.Iterator
 import Pyjo.Promise
 
@@ -8,6 +12,7 @@ from Pyjo.Test import *
 
 import gc
 import re
+import socket
 import time
 import warnings
 
@@ -218,6 +223,38 @@ with subtest('Asynchronous iterable'):
     is_deeply_ok(list(Pyjo.Iterator.new(numbers(3))), [1, 2, 3], 'for')
     is_deeply_ok(run(Pyjo.Iterator.new(numbers(3)).map(lambda e: e * 2).to_list_p()), [2, 4, 6], 'async for')
     is_deeply_ok(Pyjo.Iterator.new(numbers(4)).grep(lambda e: e % 2).to_list(), [1, 3], 'chain for')
+
+with subtest('Streams'):
+
+    def stream_pair():
+        a, b = socket.socketpair()
+        a.setblocking(False)
+        b.setblocking(False)
+        streams = Pyjo.IOLoop.Stream.new(a), Pyjo.IOLoop.Stream.new(b)
+        for stream in streams:
+            stream.start()
+        return streams
+
+    reader, writer = stream_pair()
+    isa_ok(reader.iterate(), Pyjo.Iterator.object, 'iterate of a stream')
+    writer.write(b'abcdefg').close_gracefully()
+    is_deeply_ok(list(reader.iterate(3)), [b'abc', b'def', b'g'], 'for over the chunks of a stream')
+
+    reader, writer = stream_pair()
+    messages = Pyjo.IOLoop.Messages.new(reader)
+    isa_ok(messages.iterate(), Pyjo.Iterator.object, 'iterate of messages')
+    writer.write(b'one\ntwo\n').close_gracefully()
+    is_deeply_ok(list(messages.iterate().map(bytes.upper)), [b'ONE', b'TWO'], 'for over a chain of messages')
+
+    server = Pyjo.IOLoop.Datagram.new().bind(address='127.0.0.1')
+    isa_ok(server.iterate(), Pyjo.Iterator.object, 'iterate of a datagram socket')
+    server.close()
+
+    e = Pyjo.EventEmitter.new()
+    events = e.events('foo')
+    isa_ok(events, Pyjo.Iterator.object, 'events of an emitter')
+    e.emit('foo', 1).emit('foo', 2).emit('close')
+    is_deeply_ok(list(events.map(lambda args: args[0])), [1, 2], 'for over the events')
 
 with subtest('Errors'):
 

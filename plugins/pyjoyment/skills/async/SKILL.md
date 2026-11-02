@@ -69,6 +69,11 @@ app.start()
 - `Pyjo.Promise.all`, `all_settled`, `any` and `race` combine promises,
   `Pyjo.Promise.timer(seconds)` fulfills and `Pyjo.Promise.timeout(seconds,
   message)` rejects after a time, `Pyjo.Promise.map` limits the concurrency.
+- `Pyjo.Iterator` passes elements through a chain one by one:
+  `c(*urls).iterate().map(c.ua().get_p, concurrency=3)` with `async for` gives
+  each response in the order of the URLs, three requests at a time, and
+  `to_list_p()` gives all of them; a script iterates it with
+  `for`, which waits with the event loop.
 - `c.ua()` is the user agent of the application: `get_p`, `post_p`,
   `put_p` and the others give a promise of the transaction.
 

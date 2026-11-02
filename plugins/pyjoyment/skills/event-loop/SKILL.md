@@ -86,6 +86,9 @@ main().wait()
 
 - `client_p` gives the stream, `read_p` its next chunk, `write_p` waits until
   it is written; `async for chunk in stream` reads until the stream ends.
+- `stream.iterate()`, `messages.iterate()` and `e.events(name)` are
+  `Pyjo.Iterator` objects, whose chain, as `.map(bytes.upper)`, works with
+  `async for`, and with `for` in a script, which waits with the event loop.
 - `wait()` runs the event loop in a script until the promise settles; code
   that the event loop runs awaits instead.
 
