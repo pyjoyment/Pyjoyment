@@ -553,6 +553,7 @@ with subtest('generate lambda-zip'):
     is_ok(calls[0][:3], ['python', 'install', '--no-bin'], 'Python')
     is_ok(calls[0][-1], f'cpython-{version}-linux-x86_64-gnu', 'right Python')
     pip = next(call for call in calls if call[:2] == ['pip', 'install'])
+    is_ok(calls[calls.index(pip) - 1], ['python', 'install', '--no-bin', version], 'Python of the machine before')
     is_ok(pip[pip.index('--python') + 1], f'{version}+gil', 'Python with the GIL')
     is_ok(pip[pip.index('--python-platform') + 1], 'x86_64-manylinux_2_34', 'right platform')
     is_ok(pip[pip.index('-r') + 1], 'pyproject.toml', 'dependencies of the project')
@@ -626,6 +627,9 @@ with subtest('generate lambda-zip'):
     export = next(call for call in calls if call[0] == 'export')
     ok('--frozen' in export and '--no-dev' in export and '--no-emit-project' in export, 'locked dependencies')
     pip = next(call for call in calls if call[:2] == ['pip', 'install'])
+    is_ok(
+        calls[calls.index(pip) - 1], ['python', 'install', '--no-bin', '3.15t'], 'free-threaded Python of the machine'
+    )
     is_ok(pip[pip.index('--python') + 1], '3.15t', 'free-threaded Python')
     is_ok(pip[pip.index('--python-platform') + 1], 'aarch64-manylinux_2_34', 'right platform')
     is_ok(pip[pip.index('-r') + 1], export[export.index('-o') + 1], 'exported dependencies')
@@ -658,7 +662,11 @@ with subtest('generate lambda-zip'):
     with local(PYJO_EXE=None):
         output, calls = generate('--runtime', 'python3.14')
     unlike_ok(output, r'python\.zip', 'no layer of Python')
-    ok(not any(call[0] == 'python' for call in calls), 'no Python installed')
+    is_ok(
+        [call for call in calls if call[0] == 'python'],
+        [['python', 'install', '--no-bin', '3.14']],
+        'Python of the machine',
+    )
     ok(not os.path.exists(app.rel_file('dist/python.zip')), 'layer of Python of an earlier build removed')
     pip = next(call for call in calls if call[:2] == ['pip', 'install'])
     is_ok(pip[pip.index('--python') + 1], '3.14+gil', 'Python of the runtime')

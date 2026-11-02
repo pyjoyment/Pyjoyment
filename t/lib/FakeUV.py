@@ -30,7 +30,8 @@ def _main(args):
     if args[0] == os.environ.get('FAKE_UV_FAIL'):
         return 2
 
-    if args[:2] == ['python', 'install']:
+    # The Python of the layer, in its directory; the one of the machine is only logged
+    if args[:2] == ['python', 'install'] and '--install-dir' in args:
         # The directory of the full version, and the link of the minor version, which comes first in the order of names
         version = args[-1].split('-')[1]
         full = args[-1].replace(

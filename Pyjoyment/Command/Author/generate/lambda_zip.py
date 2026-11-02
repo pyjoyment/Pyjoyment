@@ -55,7 +55,9 @@ with ``#!``, as the wrapper of ``AWS_LAMBDA_EXEC_WRAPPER``, is executable.
 
 Python cannot write its bytecode in ``/var/task`` and ``/opt``, which are
 read-only, so the generator compiles it with the Python of the same version
-that uv finds or installs for the machine that it runs on, with the
+that uv installs for the machine that it runs on, which installs the
+dependencies too, without a link in the directory of the executables of uv,
+with the
 invalidation mode ``unchecked-hash``, which Python uses without checking the
 source. The files of the same input are the same, as the times in the ZIP are
 fixed, so that a deployment that compares their hashes, as the one of
@@ -235,6 +237,9 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                 self._uv('export', '--script', script or '', *frozen, '--no-hashes', *_FORMAT, requirements)
             platform = f'{machine}-manylinux_2_34'
             deps = tmp.child('deps')
+            # The Python of the machine, which uv pip install does not download, as uv run does, and which uv prefers
+            # to one of the system, so the bytecode is the same on every machine
+            self._uv('python', 'install', '--no-bin', version)
             self._uv(
                 'pip', 'install', '--target', deps, '--python', local, '--python-platform', platform, '-r', requirements
             )
