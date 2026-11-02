@@ -13,12 +13,12 @@ with subtest('Synopsis'):
 
     template = Template('https://api.github.com/repos/{owner}/{repo}/issues{?state,labels}')
     with contextlib.redirect_stdout(io.StringIO()) as stdout:
-        print(template.expand(owner='dex4er', repo='Pyjoyment', state='open'))
-        print(template.match('https://api.github.com/repos/dex4er/Pyjoyment/issues?state=open'))
+        print(template.expand(owner='pyjoyment', repo='Pyjoyment', state='open'))
+        print(template.match('https://api.github.com/repos/pyjoyment/Pyjoyment/issues?state=open'))
     is_ok(
         stdout.getvalue(),
-        'https://api.github.com/repos/dex4er/Pyjoyment/issues?state=open\n'
-        "{'owner': 'dex4er', 'repo': 'Pyjoyment', 'state': 'open'}\n",
+        'https://api.github.com/repos/pyjoyment/Pyjoyment/issues?state=open\n'
+        "{'owner': 'pyjoyment', 'repo': 'Pyjoyment', 'state': 'open'}\n",
         'printed',
     )
 
@@ -40,10 +40,10 @@ with subtest('Description'):
         'expand',
     )
 
-    # {'owner': 'dex4er', 'path': 'src/main.py'}
+    # {'owner': 'pyjoyment', 'path': 'src/main.py'}
     is_deeply_ok(
-        Pyjo.URL.Template.new('repo://{owner}/blob/{+path}').match('repo://dex4er/blob/src/main.py'),
-        {'owner': 'dex4er', 'path': 'src/main.py'},
+        Pyjo.URL.Template.new('repo://{owner}/blob/{+path}').match('repo://pyjoyment/blob/src/main.py'),
+        {'owner': 'pyjoyment', 'path': 'src/main.py'},
         'match',
     )
 
@@ -81,11 +81,11 @@ with subtest('expand'):
     url = tpl.expand({'q': 'Hello World!', 'lang': 'en'})
     is_ok(url, '/search?q=Hello%20World%21&lang=en', 'url')
 
-    # "/repos/dex4er/Pyjoyment/issues?labels=bug,docs"
+    # "/repos/pyjoyment/Pyjoyment/issues?labels=bug,docs"
     template = Pyjo.URL.Template.new('/repos/{owner}/{repo}/issues{?labels}')
     is_ok(
-        template.expand(owner='dex4er', repo='Pyjoyment', labels=['bug', 'docs']),
-        '/repos/dex4er/Pyjoyment/issues?labels=bug,docs',
+        template.expand(owner='pyjoyment', repo='Pyjoyment', labels=['bug', 'docs']),
+        '/repos/pyjoyment/Pyjoyment/issues?labels=bug,docs',
         'list',
     )
 

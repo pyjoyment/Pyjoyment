@@ -17,14 +17,14 @@ installing Pyjoyment first: ::
 
 The development version is installed from the Git repository: ::
 
-    pip install git+https://github.com/dex4er/Pyjoyment
+    pip install git+https://github.com/pyjoyment/Pyjoyment
 
 The skills for coding agents that write applications with Pyjoyment are a
 plugin of `Claude Code <https://code.claude.com/docs/en/plugins>`_, whose
 ``SKILL.md`` files other agents read too: ::
 
-    /plugin install pyjoyment --marketplace dex4er/Pyjoyment
+    /plugin install pyjoyment --marketplace pyjoyment/Pyjoyment
 
 or from the shell, as the extensions of the editors have no ``/plugin``: ::
 
-    claude plugin install pyjoyment --marketplace dex4er/Pyjoyment
+    claude plugin install pyjoyment --marketplace pyjoyment/Pyjoyment

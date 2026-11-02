@@ -437,5 +437,5 @@ else:
     zod, whose schemas validate a value, as the JSON of a response. ::
 
         $ python -m Pyjo 'z.object(port=z.int()).validate(j(f("config.json").slurp()))'
-        $ python -m Pyjo 'z.object(id=z.int()).validate(g("api.github.com/repos/dex4er/Pyjoyment").json()).is_valid'
+        $ python -m Pyjo 'z.object(id=z.int()).validate(g("api.github.com/repos/pyjoyment/Pyjoyment").json()).is_valid'
     """

@@ -50,7 +50,7 @@ r = backend.routes
 
 @r.get('/search/repositories')
 def search(c):
-    c.render(json={'items': [{'full_name': f'dex4er/{c.param("q")}', 'owner': {'login': 'dex4er'}}]})
+    c.render(json={'items': [{'full_name': f'pyjoyment/{c.param("q")}', 'owner': {'login': 'pyjoyment'}}]})
 
 
 @r.get('/hideout')
@@ -403,11 +403,11 @@ with subtest('Web server embedding'):
 with subtest('Backend web services'):
     with cookbook('backend') as t, remote(t.app.ua):
         t.get_ok('/').status_is(200).text_is('title', 'GitHub results for "pyjoyment"')
-        t.text_is('p', 'dex4er/pyjoyment')
+        t.text_is('p', 'pyjoyment/pyjoyment')
 
 with subtest('Synchronizing non-blocking operations'):
     with cookbook('synchronizing') as t, remote(t.app.ua):
-        t.get_ok('/').status_is(200).json_is({'pyjo': 'dex4er/pyjoyment', 'mojo': 'dex4er/mojolicious'})
+        t.get_ok('/').status_is(200).json_is({'pyjo': 'pyjoyment/pyjoyment', 'mojo': 'pyjoyment/mojolicious'})
 
     # Wrap a user agent method with a promise
     with Pyjo.UserAgent.new() as ua, remote(ua):
@@ -454,7 +454,7 @@ with subtest('async/await'):
 
         with contextlib.redirect_stdout(io.StringIO()) as out:
             search_github_p(['pyjoyment', 'mojolicious']).wait()
-        is_ok(out.getvalue(), 'dex4er/pyjoyment\ndex4er/mojolicious\n', 'sequentially')
+        is_ok(out.getvalue(), 'pyjoyment/pyjoyment\npyjoyment/mojolicious\n', 'sequentially')
 
         # Search GitHub non-blocking for multiple terms concurrently
         @Pyjo.Promise.coroutine
@@ -469,7 +469,7 @@ with subtest('async/await'):
 
         with contextlib.redirect_stdout(io.StringIO()) as out:
             search_github_p(['pyjoyment', 'mojolicious']).wait()
-        is_ok(out.getvalue(), 'dex4er/pyjoyment\ndex4er/mojolicious\n', 'concurrently')
+        is_ok(out.getvalue(), 'pyjoyment/pyjoyment\npyjoyment/mojolicious\n', 'concurrently')
 
     # Catch a non-blocking exception
     @Pyjo.Promise.coroutine
@@ -640,7 +640,7 @@ with subtest('JSON web services'):
         url = Pyjo.URL.new('https://api.github.com/search/repositories')
         url.query = {'q': 'pyjoyment', 'sort': 'updated'}
         items = [f'{item["full_name"]} ({item["owner"]["login"]})' for item in ua.get(url).result.json('/items')]
-        is_deeply_ok(items, ['dex4er/pyjoyment (dex4er)'], 'repositories')
+        is_deeply_ok(items, ['pyjoyment/pyjoyment (pyjoyment)'], 'repositories')
 
 with subtest('Basic authentication'):
     with Pyjo.UserAgent.new() as ua, remote(ua):
@@ -725,15 +725,15 @@ with subtest('Large file downloads and uploads'):
     with tempfile.TemporaryDirectory() as tmp:
         # Fetch the latest Pyjoyment tarball
         with Pyjo.UserAgent.new(max_redirects=5) as ua, remote(ua):
-            tx = ua.get('https://github.com/dex4er/Pyjoyment/tarball/main')
+            tx = ua.get('https://github.com/pyjoyment/Pyjoyment/tarball/main')
             tx.result.save_to(Pyjo.File.path(tmp, 'pyjoyment.tar.gz').to_str())
-        like_ok(Pyjo.File.path(tmp, 'pyjoyment.tar.gz').slurp(), re.compile(rb'dex4er/Pyjoyment/tarball/main'))
+        like_ok(Pyjo.File.path(tmp, 'pyjoyment.tar.gz').slurp(), re.compile(rb'pyjoyment/Pyjoyment/tarball/main'))
 
         # Download the latest Pyjoyment tarball directly into a file
         with Pyjo.UserAgent.new(max_redirects=10, max_response_size=0) as ua, remote(ua):
             target = Pyjo.File.path(tmp, 'download.tar.gz')
-            ok(target.download('https://github.com/dex4er/Pyjoyment/tarball/main', ua=ua), 'downloaded')
-        like_ok(target.slurp(), re.compile(rb'dex4er/Pyjoyment/tarball/main'), 'file')
+            ok(target.download('https://github.com/pyjoyment/Pyjoyment/tarball/main', ua=ua), 'downloaded')
+        like_ok(target.slurp(), re.compile(rb'pyjoyment/Pyjoyment/tarball/main'), 'file')
 
         # Increase limit to 10GiB
         with Pyjo.UserAgent.new() as ua:
@@ -790,7 +790,7 @@ with subtest('Non-blocking'):
     with Pyjo.UserAgent.new() as ua, remote(ua):
         titles = []
         ua.get(
-            'https://github.com/dex4er/Pyjoyment', lambda ua, pyjo: titles.append(pyjo.result.dom().at('title').text)
+            'https://github.com/pyjoyment/Pyjoyment', lambda ua, pyjo: titles.append(pyjo.result.dom().at('title').text)
         )
         ua.get(
             'https://github.com/mojolicious/mojo', lambda ua, mojo: titles.append(mojo.result.dom().at('title').text)
@@ -851,7 +851,7 @@ with subtest('Non-blocking'):
 with subtest('Concurrent blocking requests'):
     # Synchronize non-blocking requests with promises
     with Pyjo.UserAgent.new() as ua, remote(ua):
-        pyjo_promise = ua.get_p('https://github.com/dex4er/Pyjoyment')
+        pyjo_promise = ua.get_p('https://github.com/pyjoyment/Pyjoyment')
         mojo_promise = ua.get_p('https://github.com/mojolicious/mojo')
 
         with contextlib.redirect_stdout(io.StringIO()) as out:

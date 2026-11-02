@@ -1041,9 +1041,9 @@ Pyjoyment that is published already serves in its place.
     $ ./myapp.py generate lambda-zip --arch arm64 --runtime python3.14
 
 The directories `examples/lambda
-<https://github.com/dex4er/Pyjoyment/tree/main/examples/lambda>`_ and
+<https://github.com/pyjoyment/Pyjoyment/tree/main/examples/lambda>`_ and
 `examples/lambda_zip
-<https://github.com/dex4er/Pyjoyment/tree/main/examples/lambda_zip>`_ of the
+<https://github.com/pyjoyment/Pyjoyment/tree/main/examples/lambda_zip>`_ of the
 repository deploy such functions with OpenTofu.
 
 The same function runs locally, mounted in an application with
@@ -1090,7 +1090,7 @@ site-packages for the wrapper, as
 :mod:`Pyjo.App.Lambda` streams the function locally the same way, with
 ``PYJO_LAMBDA_INVOKE_MODE`` in its attribute ``env``, and the directory
 `examples/lambda_stream
-<https://github.com/dex4er/Pyjoyment/tree/main/examples/lambda_stream>`_ of the
+<https://github.com/pyjoyment/Pyjoyment/tree/main/examples/lambda_stream>`_ of the
 repository deploys such a function with OpenTofu.
 
 Standard input and output
@@ -1864,7 +1864,7 @@ permanent file with :meth:`Pyjo.Message.Pyjo_Message.save_to`.
 
     # Fetch the latest Pyjoyment tarball
     ua = Pyjo.UserAgent.new(max_redirects=5)
-    tx = ua.get('https://github.com/dex4er/Pyjoyment/tarball/main')
+    tx = ua.get('https://github.com/pyjoyment/Pyjoyment/tarball/main')
     tx.result.save_to('pyjoyment.tar.gz')
 
 With :meth:`Pyjo.File.Pyjo_File.download` you can also stream file downloads
@@ -1876,7 +1876,7 @@ resumed at a later time.
     import Pyjo.File
 
     # Download the latest Pyjoyment tarball directly into a file
-    Pyjo.File.path('/home/sri/pyjoyment.tar.gz').download('https://github.com/dex4er/Pyjoyment/tarball/main')
+    Pyjo.File.path('/home/sri/pyjoyment.tar.gz').download('https://github.com/pyjoyment/Pyjoyment/tarball/main')
 
 To protect you from excessively large files there is also a limit of 2GiB by
 default, which you can tweak with the attribute
@@ -1979,7 +1979,7 @@ time.
 
     # Concurrent non-blocking requests
     ua = Pyjo.UserAgent.new()
-    ua.get('https://github.com/dex4er/Pyjoyment', lambda ua, pyjo: print(pyjo.result.dom().at('title').text))
+    ua.get('https://github.com/pyjoyment/Pyjoyment', lambda ua, pyjo: print(pyjo.result.dom().at('title').text))
     ua.get('https://github.com/mojolicious/mojo', lambda ua, mojo: print(mojo.result.dom().at('title').text))
 
     # Start event loop if necessary
@@ -2057,7 +2057,7 @@ them to work inside an already running event loop or start one on demand.
 
     # Synchronize non-blocking requests with promises
     ua = Pyjo.UserAgent.new()
-    pyjo_promise = ua.get_p('https://github.com/dex4er/Pyjoyment')
+    pyjo_promise = ua.get_p('https://github.com/pyjoyment/Pyjoyment')
     mojo_promise = ua.get_p('https://github.com/mojolicious/mojo')
 
 

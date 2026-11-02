@@ -288,11 +288,11 @@ migration from Flask, FastAPI and Django, of the tests, the templates, the
 APIs and the deployment:
 
 ```sh
-claude plugin install pyjoyment --marketplace dex4er/Pyjoyment
+claude plugin install pyjoyment --marketplace pyjoyment/Pyjoyment
 ```
 
 Other agents read their files, the `SKILL.md` of each skill, in
-https://github.com/dex4er/Pyjoyment/tree/main/plugins/pyjoyment/skills.
+https://github.com/pyjoyment/Pyjoyment/tree/main/plugins/pyjoyment/skills.
 
 @@ claude
 @AGENTS.md

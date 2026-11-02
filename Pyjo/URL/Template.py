@@ -6,8 +6,8 @@ Pyjo.URL.Template - URI Templates
     from Pyjo.URL.Template import Template
 
     template = Template('https://api.github.com/repos/{owner}/{repo}/issues{?state,labels}')
-    print(template.expand(owner='dex4er', repo='Pyjoyment', state='open'))
-    print(template.match('https://api.github.com/repos/dex4er/Pyjoyment/issues?state=open'))
+    print(template.expand(owner='pyjoyment', repo='Pyjoyment', state='open'))
+    print(template.match('https://api.github.com/repos/pyjoyment/Pyjoyment/issues?state=open'))
 
     # Or import the module, as in Google Python Style Guide
 
@@ -36,8 +36,8 @@ last expression of the template. Every other expression ends at the first
 character of what follows it in the template, as ``{name}`` ends at the
 ``/`` of ``{name}/raw``. ::
 
-    # {'owner': 'dex4er', 'path': 'src/main.py'}
-    Pyjo.URL.Template.new('repo://{owner}/blob/{+path}').match('repo://dex4er/blob/src/main.py')
+    # {'owner': 'pyjoyment', 'path': 'src/main.py'}
+    Pyjo.URL.Template.new('repo://{owner}/blob/{+path}').match('repo://pyjoyment/blob/src/main.py')
 
 A template is for the URIs that a protocol gives as templates, as the resource
 templates of the Model Context Protocol. A request of an application is
@@ -284,9 +284,9 @@ class Pyjo_URL_Template(Pyjo.Base.object):
         and an empty dict are undefined, which their expressions leave out. A
         prefix modifier of a list or a dict raises a :mod:`Pyjo.Exception`. ::
 
-            # "/repos/dex4er/Pyjoyment/issues?labels=bug,docs"
+            # "/repos/pyjoyment/Pyjoyment/issues?labels=bug,docs"
             template = Pyjo.URL.Template.new('/repos/{owner}/{repo}/issues{?labels}')
-            template.expand(owner='dex4er', repo='Pyjoyment', labels=['bug', 'docs'])
+            template.expand(owner='pyjoyment', repo='Pyjoyment', labels=['bug', 'docs'])
         """
         values = {**(variables or {}), **kwargs}
         return Pyjo.String.Unicode.new(

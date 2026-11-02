@@ -376,7 +376,7 @@ ok(os.path.exists(app.rel_file('my_app/templates/example/welcome.html.ep').to_st
 # Not in Mojolicious: the guide of the coding agents, which CLAUDE.md imports
 agents = app.rel_file('my_app/AGENTS.md').slurp('UTF-8')
 like_ok(agents, r'uv run python -m MyApp daemon', 'AGENTS.md with the commands')
-like_ok(agents, r'claude plugin install pyjoyment --marketplace dex4er/Pyjoyment', 'AGENTS.md with the skills')
+like_ok(agents, r'claude plugin install pyjoyment --marketplace pyjoyment/Pyjoyment', 'AGENTS.md with the skills')
 is_ok(app.rel_file('my_app/CLAUDE.md').slurp('UTF-8'), '@AGENTS.md\n', 'CLAUDE.md imports AGENTS.md')
 # Not in Mojolicious: the application starts with the configuration of a test, which has no secrets, as Perl takes the
 # value of a missing key for undef

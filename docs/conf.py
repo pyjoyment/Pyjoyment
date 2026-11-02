@@ -49,7 +49,7 @@ COMMIT = (
     or 'main'
 )
 
-SOURCE = f'https://github.com/dex4er/Pyjoyment/blob/{COMMIT}'
+SOURCE = f'https://github.com/pyjoyment/Pyjoyment/blob/{COMMIT}'
 
 
 # The link [source] of a class, a function or a method goes to the lines of its source on GitHub; an object without
@@ -129,7 +129,7 @@ exclude_patterns = ['_build']
 
 html_theme = 'alabaster'
 html_theme_options = {
-    'github_user': 'dex4er',
+    'github_user': 'pyjoyment',
     'github_repo': 'Pyjoyment',
     'show_powered_by': False,
     # The sans-serif font of the system, where Alabaster has Georgia

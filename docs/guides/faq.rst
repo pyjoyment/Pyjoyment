@@ -61,7 +61,7 @@ Where can I discuss my patches for Pyjoyment?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We'd love to discuss your contributions to :mod:`Pyjoyment` on the `GitHub
-issue tracker <https://github.com/dex4er/Pyjoyment/issues>`_.
+issue tracker <https://github.com/pyjoyment/Pyjoyment/issues>`_.
 
 Which versions of Python are supported by Pyjoyment?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,7 +83,7 @@ reliability issues. Some of the more advanced features, such as
 :mod:`Hot <Pyjo.Server.Hot>` web server, will also require the use of the
 `Windows Subsystem for Linux <https://learn.microsoft.com/windows/wsl/>`_.
 The port to Windows is followed in `its issue
-<https://github.com/dex4er/Pyjoyment/issues/253>`_.
+<https://github.com/pyjoyment/Pyjoyment/issues/253>`_.
 
 .. Left out from Mojolicious: "Is Perl's taint mode supported by Mojolicious?", as Python has no taint mode
 

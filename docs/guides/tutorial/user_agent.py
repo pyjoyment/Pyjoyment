@@ -6,7 +6,7 @@ from Pyjoyment.Lite import *
 # Non-blocking with async and await
 @get('/headers')
 async def headers(c):
-    url = c.param('url') or 'https://github.com/dex4er/Pyjoyment'
+    url = c.param('url') or 'https://github.com/pyjoyment/Pyjoyment'
     tx = await c.ua().get_p(url)
     c.render(json=tx.result.dom().find('h1, h2, h3').map('text').to_list())
 
@@ -21,7 +21,7 @@ def title(c):
 @get('/titles')
 def titles(c):
     mojo = c.ua().get_p('https://github.com/mojolicious/mojo')
-    pyjo = c.ua().get_p('https://github.com/dex4er/Pyjoyment')
+    pyjo = c.ua().get_p('https://github.com/pyjoyment/Pyjoyment')
     Pyjo.Promise.all(mojo, pyjo).then(
         lambda mojo, pyjo: c.render(
             json={

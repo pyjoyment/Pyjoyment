@@ -495,7 +495,7 @@ The skills for the coding agents that write applications with Pyjoyment are
 the plugin `pyjoyment` of Claude Code in `plugins/pyjoyment`, a skill in each
 `skills/<name>/SKILL.md`, which the marketplace of
 `.claude-plugin/marketplace.json` of the repository lists, so that
-`/plugin install pyjoyment --marketplace dex4er/Pyjoyment` installs it. The
+`/plugin install pyjoyment --marketplace pyjoyment/Pyjoyment` installs it. The
 plugin is not in the root of the repository, as Claude Code warns of the
 `CLAUDE.md` of the root of a plugin. It has no version, so that Claude Code
 updates it with each commit, instead of a version that a change of a skill
@@ -558,9 +558,13 @@ environment. The action of PyPI runs on x86-64, as its image has no build for
 ARM.
 
 ```sh
-gh attestation verify pyjoyment-0.1.0.tar.gz -R dex4er/Pyjoyment
-gh attestation verify pyjoyment-0.1.0.tar.gz -R dex4er/Pyjoyment --predicate-type https://spdx.dev/Document/v2.3
+gh attestation verify pyjoyment-0.1.1.tar.gz -R pyjoyment/Pyjoyment
+gh attestation verify pyjoyment-0.1.1.tar.gz -R pyjoyment/Pyjoyment --predicate-type https://spdx.dev/Document/v2.3
 ```
+
+The attestations stay with the owner of the repository that made them, so
+the releases attested before the repository moved to the organization
+`pyjoyment`, as 0.1.0, verify with `-o dex4er` instead of `-R`.
 
 ## Commits and Pull Requests
 

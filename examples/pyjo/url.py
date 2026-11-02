@@ -1,8 +1,8 @@
 import Pyjo.URL
 
 
-# 'ssh+git://git@github.com/dex4er/Pyjoyment.git'
-url = Pyjo.URL.new('https://github.com/dex4er/Pyjoyment')
+# 'ssh+git://git@github.com/pyjoyment/Pyjoyment.git'
+url = Pyjo.URL.new('https://github.com/pyjoyment/Pyjoyment')
 print(url.set(scheme='ssh+git', userinfo='git', path=f'{url.path}.git').to_unsafe_str())
 
 # 'https://pypi.org/search/?q=Pyjoyment&o=&c=Programming+Language+%3A%3A+Python'

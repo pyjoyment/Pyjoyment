@@ -69,7 +69,7 @@ import Pyjo.UserAgent
 import sys
 
 
-urls = sys.argv[1:] or ['https://pyjoyment.readthedocs.io/', 'https://github.com/dex4er/Pyjoyment']
+urls = sys.argv[1:] or ['https://pyjoyment.readthedocs.io/', 'https://github.com/pyjoyment/Pyjoyment']
 ua = Pyjo.UserAgent.new(max_redirects=5, request_timeout=20)
 
 
@@ -106,7 +106,7 @@ print(dom)
 
 ```sh
 python -m Pyjo 'g("https://pyjoyment.readthedocs.io").dom().at("title").text'
-python -m Pyjo 'g("https://api.github.com/repos/dex4er/Pyjoyment").json("/stargazers_count")'
+python -m Pyjo 'g("https://api.github.com/repos/pyjoyment/Pyjoyment").json("/stargazers_count")'
 python -m Pyjo 'x("<p>Hello <b>World</b></p>").at("b").text'
 PYJO_MAX_REDIRECTS=0 python -m Pyjo 'g("http://github.com").code'
 ```

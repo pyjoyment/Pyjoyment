@@ -6,9 +6,9 @@ Please do not report security vulnerabilities in public issues, pull
 requests or discussions.
 
 Report them privately through GitHub instead: open the
-[Security tab](https://github.com/dex4er/Pyjoyment/security) of this
+[Security tab](https://github.com/pyjoyment/Pyjoyment/security) of this
 repository and choose **Report a vulnerability**, or go straight to
-[the reporting form](https://github.com/dex4er/Pyjoyment/security/advisories/new).
+[the reporting form](https://github.com/pyjoyment/Pyjoyment/security/advisories/new).
 Only you and the maintainers can see the report.
 
 Please send one report for each problem, and include:

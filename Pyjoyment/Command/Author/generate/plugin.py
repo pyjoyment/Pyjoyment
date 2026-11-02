@@ -256,11 +256,11 @@ The plugin of Claude Code for Pyjoyment has skills of its idioms, of plugins
 and distributions, of the tests and of the templates:
 
 ```sh
-claude plugin install pyjoyment --marketplace dex4er/Pyjoyment
+claude plugin install pyjoyment --marketplace pyjoyment/Pyjoyment
 ```
 
 Other agents read their files, the `SKILL.md` of each skill, in
-https://github.com/dex4er/Pyjoyment/tree/main/plugins/pyjoyment/skills.
+https://github.com/pyjoyment/Pyjoyment/tree/main/plugins/pyjoyment/skills.
 
 @@ claude
 @AGENTS.md

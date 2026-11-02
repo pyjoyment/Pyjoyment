@@ -7,7 +7,7 @@ This document explains the process of starting a :mod:`Pyjoyment.Lite`
 prototype from scratch and growing it into a well-structured
 :mod:`Pyjoyment` application. The final result of this guide is also
 available as an `example application
-<https://github.com/dex4er/Pyjoyment/tree/main/docs/guides/growing/login>`_.
+<https://github.com/pyjoyment/Pyjoyment/tree/main/docs/guides/growing/login>`_.
 
 Concepts
 --------

@@ -23,7 +23,7 @@ app = Pyjoyment.new()
 app.log.level = 'fatal'
 HTML = '<html><head><title>Mojolicious</title></head><body><h1>One</h1><h1>Two &amp; Three</h1></body></html>'
 app.routes.any('/', {'text': HTML})
-app.routes.get('/repos/dex4er/Pyjoyment', {'json': {'id': 1, 'name': 'Pyjoyment'}})
+app.routes.get('/repos/pyjoyment/Pyjoyment', {'json': {'id': 1, 'name': 'Pyjoyment'}})
 local = Pyjo.Server.Daemon.new(app=app, ioloop=Pyjo.IOLoop.singleton, listen=['http://127.0.0.1'], silent=True)
 port = local.start().ports()[0]
 
@@ -277,7 +277,9 @@ with subtest('z'):
     dir.child('config.json').spew(b'{"port": "3000"}')
     result = one_liner('z.object(port=z.int()).validate(j(f("config.json").slurp()))', cwd=dir.to_str())
     is_ok(result.stdout, '/port: Expected integer - got string.\n', 'file')
-    is_ok(z.object(id=z.int()).validate(g('api.github.com/repos/dex4er/Pyjoyment').json()).is_valid, True, 'response')
+    is_ok(
+        z.object(id=z.int()).validate(g('api.github.com/repos/pyjoyment/Pyjoyment').json()).is_valid, True, 'response'
+    )
 
 local.stop()
 

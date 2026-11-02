@@ -11,7 +11,7 @@ you a few of them.
 Reporting bugs
 --------------
 
-We use the `GitHub issue tracker <https://github.com/dex4er/Pyjoyment/issues>`_,
+We use the `GitHub issue tracker <https://github.com/pyjoyment/Pyjoyment/issues>`_,
 so you'll need to create a (free) GitHub account to be able to submit issues,
 comments and pull requests.
 
@@ -39,17 +39,17 @@ Reporting security issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Please report security issues privately, with `the form of GitHub
-<https://github.com/dex4er/Pyjoyment/security/advisories/new>`_ for
+<https://github.com/pyjoyment/Pyjoyment/security/advisories/new>`_ for
 reporting a vulnerability, and give us a few days to develop and release a
 proper fix. The `security policy
-<https://github.com/dex4er/Pyjoyment/blob/main/SECURITY.md>`_ says what a
+<https://github.com/pyjoyment/Pyjoyment/blob/main/SECURITY.md>`_ says what a
 report contains, what happens next and what is in scope.
 
 Resolving issues
 ----------------
 
 There are many ways in which you can help us resolve existing issues on the
-`GitHub issue tracker <https://github.com/dex4er/Pyjoyment/issues>`_.
+`GitHub issue tracker <https://github.com/pyjoyment/Pyjoyment/issues>`_.
 
 Can you replicate the problem on your computer? Add a comment saying that
 you're seeing the same. Perhaps you can provide additional information that
@@ -86,7 +86,7 @@ process, which usually ends when the maintainer has reviewed the changes.
 
 All code changes should emulate the style of the surrounding code, include
 tests that fail without them, and update relevant documentation. `AGENTS.md
-<https://github.com/dex4er/Pyjoyment/blob/main/AGENTS.md>`_ in the
+<https://github.com/pyjoyment/Pyjoyment/blob/main/AGENTS.md>`_ in the
 repository describes how the project works and why, how a module is ported
 from Mojolicious, and how the tests, the linters and the documentation are
 run, for people and coding agents alike.
@@ -98,7 +98,7 @@ While the :mod:`Pyjoyment` distribution covers a wide range of features, we
 are rather conservative when it comes to adding new ones. So if your
 contribution is not a simple bug fix, it is **strongly recommended** that you
 discuss it in advance in the `GitHub issue tracker
-<https://github.com/dex4er/Pyjoyment/issues>`_, to avoid unnecessary work and
+<https://github.com/pyjoyment/Pyjoyment/issues>`_, to avoid unnecessary work and
 to increase its chances of getting accepted.
 
 The following mission statement and rules are the foundation of all

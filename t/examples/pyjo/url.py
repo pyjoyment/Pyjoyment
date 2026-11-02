@@ -3,10 +3,10 @@ if __name__ == '__main__':
 
     import Pyjo.URL
 
-    url = Pyjo.URL.new('https://github.com/dex4er/Pyjo')
+    url = Pyjo.URL.new('https://github.com/pyjoyment/Pyjoyment')
     is_ok(
         url.set(scheme='ssh+git', userinfo='git', path=f'{url.path}.git').to_unsafe_str(),
-        'ssh+git://git@github.com/dex4er/Pyjo.git',
+        'ssh+git://git@github.com/pyjoyment/Pyjoyment.git',
         'new github.com url',
     )
 

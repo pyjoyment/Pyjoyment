@@ -232,12 +232,12 @@ with subtest('Matching literals'):
     is_ok(match('/static', '/other'), None, 'other literal')
     is_ok(match('/static', '/static/'), None, 'more')
     is_deeply_ok(
-        match('repo://{owner}/{repo}/raw', 'repo://dex4er/Pyjoyment/raw'),
-        {'owner': 'dex4er', 'repo': 'Pyjoyment'},
+        match('repo://{owner}/{repo}/raw', 'repo://pyjoyment/Pyjoyment/raw'),
+        {'owner': 'pyjoyment', 'repo': 'Pyjoyment'},
         'right variables',
     )
-    is_ok(match('repo://{owner}/{repo}/raw', 'repo://dex4er/Pyjoyment/raw/x'), None, 'more after the literal')
-    is_ok(match('repo://{owner}/{repo}/raw', 'file://dex4er/Pyjoyment/raw'), None, 'other scheme')
+    is_ok(match('repo://{owner}/{repo}/raw', 'repo://pyjoyment/Pyjoyment/raw/x'), None, 'more after the literal')
+    is_ok(match('repo://{owner}/{repo}/raw', 'file://pyjoyment/Pyjoyment/raw'), None, 'other scheme')
     is_deeply_ok(match('docs://{name}.md', 'docs://a.b.md'), {'name': 'a.b'}, 'last expression to the end')
     is_deeply_ok(match('{a}.{b}.txt', 'x.y.z.txt'), {'a': 'x', 'b': 'y.z'}, 'first one to the first literal')
     is_deeply_ok(match('/a%20b/{var}', '/a%20b/x'), {'var': 'x'}, 'encoded literal')
@@ -249,8 +249,8 @@ with subtest('Matching reserved and fragment expansions'):
     is_deeply_ok(match('{+hello}', 'Hello%20World!'), {'hello': 'Hello World!'}, 'decoded')
     is_deeply_ok(match('file:///{+path}', 'file:///a/b/c.txt'), {'path': 'a/b/c.txt'}, 'right variables')
     is_deeply_ok(
-        match('repo://{owner}/blob/{+path}{.ext}', 'repo://dex4er/blob/src/main.tar.gz'),
-        {'owner': 'dex4er', 'path': 'src/main.tar', 'ext': 'gz'},
+        match('repo://{owner}/blob/{+path}{.ext}', 'repo://pyjoyment/blob/src/main.tar.gz'),
+        {'owner': 'pyjoyment', 'path': 'src/main.tar', 'ext': 'gz'},
         'expressions on both sides',
     )
     is_deeply_ok(
@@ -305,16 +305,16 @@ with subtest('Matching parameters'):
     is_ok(match('{?x}', 'x=1'), None, 'no question mark')
 
 with subtest('Matching a URL'):
-    url = Pyjo.URL.new('https://api.github.com/repos/dex4er/Pyjoyment/issues?state=open')
+    url = Pyjo.URL.new('https://api.github.com/repos/pyjoyment/Pyjoyment/issues?state=open')
     is_deeply_ok(
         match('https://api.github.com/repos/{owner}/{repo}/issues{?state,labels}', url),
-        {'owner': 'dex4er', 'repo': 'Pyjoyment', 'state': 'open'},
+        {'owner': 'pyjoyment', 'repo': 'Pyjoyment', 'state': 'open'},
         'Pyjo.URL object',
     )
 
 with subtest('Round trips'):
     for template, variables in (
-        ('repo://{owner}/{repo}/blob/{+path}', {'owner': 'dex4er', 'repo': 'Pyjoyment', 'path': 'a/b c/d.py'}),
+        ('repo://{owner}/{repo}/blob/{+path}', {'owner': 'pyjoyment', 'repo': 'Pyjoyment', 'path': 'a/b c/d.py'}),
         ('/search{?q,lang}', {'q': 'Hello World!', 'lang': 'pl'}),
         ('file:///project{/path*}', {'path': ['src', 'zażółć.py']}),
         ('{/a,b}{?c}', {'a': '1', 'b': '2', 'c': '3'}),

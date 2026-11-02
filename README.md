@@ -1,18 +1,18 @@
-[![Home](https://img.shields.io/badge/%F0%9F%8F%A0-Pyjoyment-02a7a0)](https://github.com/dex4er/Pyjoyment)
-[![GitHub](https://img.shields.io/github/stars/dex4er/Pyjoyment?style=flat&label=GitHub%20%E2%AD%90&logo=github)](https://github.com/dex4er/Pyjoyment)
+[![Home](https://img.shields.io/badge/%F0%9F%8F%A0-Pyjoyment-02a7a0)](https://github.com/pyjoyment/Pyjoyment)
+[![GitHub](https://img.shields.io/github/stars/pyjoyment/Pyjoyment?style=flat&label=GitHub%20%E2%AD%90&logo=github)](https://github.com/pyjoyment/Pyjoyment)
 [![Documentation](https://img.shields.io/badge/docs-Read_the_Docs-blue?logo=readthedocs&logoColor=white)](https://pyjoyment.readthedocs.io/en/latest/)
-[![DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/dex4er/Pyjoyment)
-[![License](https://img.shields.io/github/license/dex4er/Pyjoyment.svg)](https://github.com/dex4er/Pyjoyment/blob/main/LICENSE)
+[![DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/pyjoyment/Pyjoyment)
+[![License](https://img.shields.io/github/license/pyjoyment/Pyjoyment.svg)](https://github.com/pyjoyment/Pyjoyment/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/Pyjoyment?logo=pypi&logoColor=white)](https://pypi.org/project/Pyjoyment/)
-[![Tests](https://github.com/dex4er/Pyjoyment/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/dex4er/Pyjoyment/actions/workflows/tests.yaml)
-[![Trunk Check](https://github.com/dex4er/Pyjoyment/actions/workflows/trunk-check.yaml/badge.svg?branch=main)](https://github.com/dex4er/Pyjoyment/actions/workflows/trunk-check.yaml)
+[![Tests](https://github.com/pyjoyment/Pyjoyment/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/pyjoyment/Pyjoyment/actions/workflows/tests.yaml)
+[![Trunk Check](https://github.com/pyjoyment/Pyjoyment/actions/workflows/trunk-check.yaml/badge.svg?branch=main)](https://github.com/pyjoyment/Pyjoyment/actions/workflows/trunk-check.yaml)
 
 # Pyjoyment
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/dex4er/Pyjoyment/main/Pyjoyment/resources/public/pyjo/logo-white-4x.png">
-    <img src="https://raw.githubusercontent.com/dex4er/Pyjoyment/main/Pyjoyment/resources/public/pyjo/logo-black-4x.png" alt="Pyjoyment" width="322">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pyjoyment/Pyjoyment/main/Pyjoyment/resources/public/pyjo/logo-white-4x.png">
+    <img src="https://raw.githubusercontent.com/pyjoyment/Pyjoyment/main/Pyjoyment/resources/public/pyjo/logo-black-4x.png" alt="Pyjoyment" width="322">
   </picture>
 </p>
 
@@ -87,7 +87,7 @@ run there, and `Pyjo.Server.Prethread` runs the workers in threads instead.
 The event loop watches up to 512 sockets there, with the `select` of Windows,
 and a server stops with Ctrl-C, gracefully, or with Ctrl-Break, immediately.
 
-The progress is tracked in [GitHub Issues](https://github.com/dex4er/Pyjoyment/issues).
+The progress is tracked in [GitHub Issues](https://github.com/pyjoyment/Pyjoyment/issues).
 
 ## Installation
 
@@ -114,7 +114,7 @@ uvx --from Pyjoyment pyjo generate lite-app myapp.py
 The development version is installed from the Git repository:
 
 ```sh
-pip install git+https://github.com/dex4er/Pyjoyment
+pip install git+https://github.com/pyjoyment/Pyjoyment
 ```
 
 The skills for coding agents that write applications with Pyjoyment are a
@@ -122,13 +122,13 @@ plugin of [Claude Code](https://code.claude.com/docs/en/plugins), whose
 `SKILL.md` files other agents read too:
 
 ```text
-/plugin install pyjoyment --marketplace dex4er/Pyjoyment
+/plugin install pyjoyment --marketplace pyjoyment/Pyjoyment
 ```
 
 or from the shell, as the extensions of the editors have no `/plugin`:
 
 ```sh
-claude plugin install pyjoyment --marketplace dex4er/Pyjoyment
+claude plugin install pyjoyment --marketplace pyjoyment/Pyjoyment
 ```
 
 ## Quick start
@@ -323,8 +323,8 @@ for n in tx.res.dom('#named-character-references-table tbody > tr').each():
 import Pyjo.URL
 
 
-# 'ssh+git://git@github.com/dex4er/Pyjoyment.git'
-url = Pyjo.URL.new('https://github.com/dex4er/Pyjoyment')
+# 'ssh+git://git@github.com/pyjoyment/Pyjoyment.git'
+url = Pyjo.URL.new('https://github.com/pyjoyment/Pyjoyment')
 print(url.set(scheme='ssh+git', userinfo='git', path=f'{url.path}.git').to_unsafe_str())
 
 # 'https://pypi.org/search/?q=Pyjoyment&o=&c=Programming+Language+%3A%3A+Python'
