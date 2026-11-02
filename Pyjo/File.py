@@ -537,7 +537,7 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         except OSError as e:
             _croak(e, f'Can\'t open file "{self._path}"')
         try:
-            content = b''
+            content = bytearray()
             while buffer := os.read(fd, 131072):
                 content += buffer
         except OSError as e:
@@ -545,7 +545,8 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         finally:
             os.close(fd)
 
-        return decode(encoding, content) if encoding else content
+        data = bytes(content)
+        return decode(encoding, data) if encoding else data
 
     def spew(self, content: bytes | str, encoding: str | None = None) -> Self:
         """::

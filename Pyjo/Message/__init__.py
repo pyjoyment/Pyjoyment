@@ -737,7 +737,7 @@ class Pyjo_Message(Pyjo.EventEmitter.object):
         return list(self._parse_formdata()['uploads'])
 
     def _build(self, method: Callable[[int], bytes | None]) -> bytes:
-        buffer, offset = b'', 0
+        buffer, offset = bytearray(), 0
         while True:
             # No chunk yet, try again
             if (chunk := method(offset)) is None:
@@ -750,7 +750,7 @@ class Pyjo_Message(Pyjo.EventEmitter.object):
             offset += length
             buffer += chunk
 
-        return buffer
+        return bytes(buffer)
 
     def _cache[T: Pyjo.Cookie.object | Pyjo.Upload.object](
         self, method: str, objects: Callable[[], Sequence[T]], name: str

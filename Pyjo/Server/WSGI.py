@@ -173,9 +173,10 @@ class Pyjo_Server_WSGI(Pyjo.Server.object):
         # Not in Mojolicious: a request body of unknown length, as a server that removes the chunked framing marks it
         body = None
         if not env.get('CONTENT_LENGTH') and wsgi_input is not None and environ.get('wsgi.input_terminated'):
-            body = b''
+            buffer = bytearray()
             while chunk := wsgi_input.read(131072):
-                body += chunk
+                buffer += chunk
+            body = bytes(buffer)
             if len(body):
                 env['CONTENT_LENGTH'] = str(len(body))
 

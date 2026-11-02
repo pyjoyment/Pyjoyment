@@ -210,12 +210,12 @@ class Pyjo_Server_ASGI(Pyjo.Server.object):
         # Request body of unknown length, as the ASGI server removes the chunked framing
         body: bytes | None = None
         if 'CONTENT_LENGTH' not in env:
-            whole = b''
+            whole = bytearray()
             async for chunk in _body(receive):
                 whole += chunk
-            if len(whole):
-                env['CONTENT_LENGTH'] = str(len(whole))
-            body = whole
+            body = bytes(whole)
+            if len(body):
+                env['CONTENT_LENGTH'] = str(len(body))
 
         tx = self._build(scope)
         req = tx.req.parse(env)

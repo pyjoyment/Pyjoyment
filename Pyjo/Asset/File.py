@@ -337,7 +337,7 @@ class Pyjo_Asset_File(Pyjo.Asset.object):
         """
         handle = self.handle
         handle.seek(0, os.SEEK_SET)
-        content = b''
+        content = bytearray()
         try:
             while buffer := handle.read(131072):
                 content += buffer
@@ -345,7 +345,7 @@ class Pyjo_Asset_File(Pyjo.Asset.object):
             error = type(e)(f"Can't read from asset: {e.strerror}" if e.strerror else "Can't read from asset")
             error.errno = e.errno
             raise error from e
-        return content
+        return bytes(content)
 
     def to_file(self) -> Self:
         """::
