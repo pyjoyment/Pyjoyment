@@ -171,6 +171,17 @@ copy:
   helper returns it, is `Pyjo.String.HTML`, `html(...)`: escaping leaves only
   what has the method `__html__`, so a string that `u()` or
   `Pyjo.Collection.join` makes is escaped.
+- A function of `Mojo::Util`, and a method of `Mojo::ByteStream` or
+  `Mojo::File`, is the one of `Pyjo.Util`, `Pyjo.String` or `Pyjo.File`, also
+  in code of the framework that Mojo does not have, where the standard library
+  would do the same: `b64_encode(data, '')` for
+  `base64.b64encode(data).decode()`, `sha1_sum`, `sha256_sum`,
+  `hmac_sha256_sum`, `secure_compare`, `url_escape`, and
+  `Pyjo.File.path(path).slurp()`, so that the framework does a thing one way
+  and its values chain. The standard library stays where the function of
+  Pyjoyment means something else: `b64_decode` leaves out what is not Base64,
+  as `MIME::Base64` does, so a format that validates its Base64, as `!!binary`
+  of YAML, decodes it with `base64.b64decode(..., validate=True)`.
 - Perl code in a template of `Mojo::Template` is Python code in
   `Pyjo.Template`, and the templates of a Mojo test are translated with it:
   `@_` is `args`, a block of Perl in braces is a block of Python, with braces
