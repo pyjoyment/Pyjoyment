@@ -1,6 +1,6 @@
 {
   "name": "pyjoyment",
-  "description": "Skills for writing applications with Pyjoyment, the real-time web framework for Python ported from Mojolicious",
+  "description": "Skills for writing applications with Pyjoyment, which glues, runs and ships Python applications with zero dependencies",
   "author": {
     "name": "Pyjoyment project",
     "url": "https://github.com/pyjoyment"

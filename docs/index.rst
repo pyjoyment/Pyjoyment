@@ -2,8 +2,7 @@
 Pyjoyment |release| documentation
 =================================
 
-A real-time web framework for the Python programming language, ported from
-`Mojolicious <https://mojolicious.org>`_.
+Glue, run and ship Python applications. Zero dependencies.
 
 Contents:
 

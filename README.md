@@ -16,8 +16,7 @@
   </picture>
 </p>
 
-**Compose, run, integrate and deploy Python applications, with nothing but
-the Python standard library.**
+**Glue, run and ship Python applications. Zero dependencies.**
 
 Pyjoyment is one environment for the whole life of a Python service: the
 toolkit it is made of, the framework that puts its parts together with the
