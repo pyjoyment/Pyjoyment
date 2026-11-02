@@ -15,10 +15,6 @@ installing Pyjoyment first: ::
     uvx --from Pyjoyment pyjo generate app MyApp
     uvx --from Pyjoyment pyjo generate lite-app myapp.py
 
-The development version is installed from the Git repository: ::
-
-    pip install git+https://github.com/pyjoyment/Pyjoyment
-
 The skills for coding agents that write applications with Pyjoyment are a
 plugin of `Claude Code <https://code.claude.com/docs/en/plugins>`_, whose
 ``SKILL.md`` files other agents read too: ::
