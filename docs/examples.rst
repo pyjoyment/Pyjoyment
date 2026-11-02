@@ -1,8 +1,65 @@
 Examples
 ========
 
-Quick start
+Foundation
+----------
+
+Web scraping
+~~~~~~~~~~~~
+
+The user agent requests the HTML specification, and the lazy chain of
+``iterate`` of its DOM prints the rows of the table of the named character
+references one by one:
+
+    .. include:: ../examples/ua/entities.py
+       :code: python
+
+
+URL manipulation
+~~~~~~~~~~~~~~~~
+
+    .. include:: ../examples/pyjo/url.py
+       :code: python
+
+
+Non-blocking TCP client/server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    .. include:: ../examples/pyjo/ioloop.py
+       :code: python
+
+
+Standalone HTTP server serving embedded template file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    .. include:: ../examples/servers/http_server.py
+       :code: python
+
+
+Requests on a timer
+~~~~~~~~~~~~~~~~~~~
+
+The user agent requests the server every second, in the same event loop, without
+blocking it:
+
+    .. include:: ../examples/ua/user_agent.py
+       :code: python
+
+
+A request on a loopback
+~~~~~~~~~~~~~~~~~~~~~~~
+
+A blocking request of the user agent to the server, in the same event loop:
+
+    .. include:: ../examples/ua/loopback.py
+       :code: python
+
+
+Composition
 -----------
+
+Quick start
+~~~~~~~~~~~
 
 A whole web application of ``Pyjoyment.Lite``:
 
@@ -10,17 +67,8 @@ A whole web application of ``Pyjoyment.Lite``:
        :code: python
 
 
-Duct tape for the HTML5 web
----------------------------
-
-A WebSocket service used by the template to extract the title from a website:
-
-    .. include:: ../examples/pyjoyment/title.py
-       :code: python
-
-
 JSON-RPC
---------
+~~~~~~~~
 
 A calculator with Bootstrap, which is a client of the server of JSON-RPC of the
 same application, whose methods validate their parameters with the schema of
@@ -31,7 +79,14 @@ their type hints, and shows the request and the response of each call:
 
 
 Applications of other frameworks
---------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A WSGI application, an ASGI application and an event function of AWS
+Lambda, each in a file of its own, under the paths of an application of
+``Pyjoyment.Lite``, on one server:
+
+    .. include:: ../examples/mount/compose.py
+       :code: python
 
 A WSGI application, in a file of its own, under a path of an application of
 ``Pyjoyment.Lite``:
@@ -131,8 +186,11 @@ in the same file, which its process imports:
        :code: python
 
 
+Both sides of the interface
+---------------------------
+
 Servers
--------
+~~~~~~~
 
 ``Pyjo.HelloWorld`` natively, on the web server of Pyjoyment:
 
@@ -149,6 +207,13 @@ On `Werkzeug <https://werkzeug.palletsprojects.com/>`_, a WSGI server:
     .. include:: ../examples/servers/hello_world_werkzeug.py
        :code: python
 
+
+Deployment
+----------
+
+AWS Lambda
+~~~~~~~~~~
+
 As an event function of `AWS Lambda <https://aws.amazon.com/lambda/>`_:
 
     .. include:: ../examples/servers/hello_world_lambda.py
@@ -161,8 +226,22 @@ runs it with the runtime client of Pyjoyment:
        :code: sh
 
 
+Integration
+-----------
+
+WebSocket
+~~~~~~~~~
+
+A page of the application opens a WebSocket to it and sends it a URL, which
+the application requests with its user agent, without blocking the other
+connections, and sends back the title of the page:
+
+    .. include:: ../examples/pyjoyment/title.py
+       :code: python
+
+
 Amazon S3
----------
+~~~~~~~~~
 
 A bucket of Amazon S3 as a website, with `aiobotocore
 <https://github.com/aio-libs/aiobotocore>`_, the asynchronous AWS SDK, whose
@@ -171,49 +250,4 @@ object, as it comes, ``index.html`` of a folder, or the list of its folders
 and objects:
 
     .. include:: ../examples/aws/s3.py
-       :code: python
-
-
-Requests on a timer
--------------------
-
-The user agent requests the server every second, in the same event loop, without
-blocking it:
-
-    .. include:: ../examples/ua/user_agent.py
-       :code: python
-
-A request on a loopback
------------------------
-
-A blocking request of the user agent to the server, in the same event loop:
-
-    .. include:: ../examples/ua/loopback.py
-       :code: python
-
-Web scraping
-------------
-
-    .. include:: ../examples/ua/entities.py
-       :code: python
-
-
-URL manipulation
-----------------
-
-    .. include:: ../examples/pyjo/url.py
-       :code: python
-
-
-Non-blocking TCP client/server
-------------------------------
-
-    .. include:: ../examples/pyjo/ioloop.py
-       :code: python
-
-
-Standalone HTTP server serving embedded template file
------------------------------------------------------
-
-    .. include:: ../examples/servers/http_server.py
        :code: python

@@ -6,7 +6,8 @@ another library is a distribution of its own, and so is what follows a
 specification that is revised more often than Pyjoyment is released. A
 distribution adds a module to a namespace of Pyjoyment, as ``Pyjo.Reactor``
 for a reactor, ``Pyjoyment.Plugin`` for a plugin or ``Pyjo`` for a protocol.
-They are installed from their Git repositories until they are on PyPI.
+A distribution is installed from PyPI, as ``pip install Pyjo-MCP``, or from its
+Git repository while it is not there.
 
 Reactors
 --------
