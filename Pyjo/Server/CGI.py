@@ -229,29 +229,31 @@ def _write(res: Pyjo.Message.Response.object, method: str, decode: '_Chunks | No
 # writes before them
 class _Chunks:
     def __init__(self) -> None:
-        self.buffer = b''
+        self.buffer = bytearray()
         self.left = 0
 
     def __call__(self, chunk: bytes) -> bytes:
-        self.buffer += chunk
-        body = b''
-        while len(self.buffer):
+        buffer = self.buffer
+        buffer += chunk
+        body = bytearray()
+        while len(buffer):
             if self.left:
-                part = self.buffer[: self.left]
+                part = buffer[: self.left]
                 body += part
-                self.buffer = self.buffer[len(part) :]
+                del buffer[: len(part)]
                 self.left -= len(part)
                 continue
 
             # The size of the next chunk, after the end of the one before, and none at the end
-            if (m := re.match(rb'(?:\r\n)?([0-9a-fA-F]+)\r\n', self.buffer)) is None:
+            if (m := re.match(rb'(?:\r\n)?([0-9a-fA-F]+)\r\n', buffer)) is None:
                 break
-            self.buffer = self.buffer[m.end() :]
-            if not (left := int(m[1], 16)):
-                self.buffer = b''
+            left = int(m[1], 16)
+            del buffer[: m.end()]
+            if not left:
+                buffer.clear()
                 break
             self.left = left
-        return body
+        return bytes(body)
 
 
 new = Pyjo_Server_CGI.new
