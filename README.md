@@ -53,6 +53,8 @@ its own, without the framework:
 - Templates and template strings, with automatic escaping.
 - Containers for URLs, paths, query strings, headers, cookies and HTTP
   messages.
+- Collections and lazy iterators, whose chains run with `for` and `async for`
+  alike.
 - Command line options, event emitter, logger and utility functions.
 - Test library and test harness.
 
@@ -64,9 +66,9 @@ prints, as `Aacute; U+000C1`.
 The processing is concurrent. The request blocks here, as a script expects,
 and the same request is non-blocking with `get_p`, whose promise is awaited
 or chained, so that a script or an application runs many of them at once in
-its event loop and processes each response as it comes. The steps of the
-chain pass the elements on one by one, as an iterator does, so that the first
-row is printed before the last one is picked:
+its event loop and processes each response as it comes. The DOM is searched
+with `iterate`, a lazy chain, which passes the elements on one by one, so that
+the first row is printed before the last one is picked:
 
 ```python
 import Pyjo.UserAgent
@@ -76,7 +78,7 @@ from Pyjo.String.Unicode import u
 
 # Extract named character references from HTML spec
 tx = Pyjo.UserAgent.new().get('https://html.spec.whatwg.org')
-for n in tx.res.dom('#named-character-references-table tbody > tr').each():
+for n in tx.res.dom().iterate('#named-character-references-table tbody > tr'):
     u(n.at('td > code').text + ' ' + n.children('td')[1].text).trim().say()
 ```
 
