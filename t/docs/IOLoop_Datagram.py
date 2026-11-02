@@ -284,4 +284,26 @@ with subtest('__aiter__, iterate, recv_p and send_p'):
     promise.wait()
     is_deeply_ok(got, [b'one'], 'until the close')
 
+    got = []
+    server = Pyjo.IOLoop.Datagram.new().bind(address='127.0.0.1')
+    trusted = None
+
+    @Pyjo.Promise.coroutine
+    async def one_peer():
+        # The datagrams of one peer, in a chain
+        async for data, peer in server.iterate().grep(lambda message: message[1] == trusted):
+            got.append((data, peer))
+
+    promise = one_peer()
+    sender, other = Pyjo.IOLoop.Datagram.new().bind(address='127.0.0.1'), Pyjo.IOLoop.Datagram.new()
+    trusted = ('127.0.0.1', sender.port)
+    other.send_p(b'other', ('127.0.0.1', server.port)).wait()
+    sender.send_p(b'trusted', ('127.0.0.1', server.port)).wait()
+    Pyjo.Promise.timer(0.1).wait()
+    server.close()
+    sender.close()
+    other.close()
+    promise.wait()
+    is_deeply_ok(got, [(b'trusted', trusted)], 'one peer')
+
 done_testing()

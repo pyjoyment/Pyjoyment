@@ -177,6 +177,13 @@ with subtest('h'):
     res = h('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
     is_ok(res.code, 200, 'JSON')
 
+with subtest('i'):
+    iterator = i(range(1, 4))
+    is_deeply_ok(list(iterator), [1, 2, 3], 'iterator')
+
+    # "2, 4, 6"
+    is_ok(i(range(1, 4)).map(lambda n: n * 2).join(', '), '2, 4, 6', 'chain')
+
 with subtest('j'):
     data = j([1, 2, 3])
     is_ok(data, b'[1,2,3]', 'list')

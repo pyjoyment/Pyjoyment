@@ -91,7 +91,7 @@ import os
 import sys
 import time
 
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Callable, Iterable
 from pkgutil import extend_path
 from typing import TYPE_CHECKING, Any
 
@@ -100,6 +100,7 @@ if TYPE_CHECKING:
     import Pyjo.Collection
     import Pyjo.DOM
     import Pyjo.File
+    import Pyjo.Iterator
     import Pyjo.JSON.Schema
     import Pyjo.Message.Response
     import Pyjo.String.Bytes
@@ -115,7 +116,7 @@ __path__ = extend_path(__path__, __name__)
 
 # The functions of ojo, which the modules they use are imported for when they are called, so that a module of Pyjo
 # does not import them
-__all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 't', 'u', 'w', 'x', 'z']
+__all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 't', 'u', 'w', 'x', 'z']
 
 _agent: 'Pyjo.UserAgent.object | None' = None
 
@@ -239,6 +240,23 @@ def h(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
     return resulting :mod:`Pyjo.Message.Response` object.
     """
     return _ua().head(*args, **kwargs).result
+
+
+# Not in Mojolicious: a lazy iterator, as c makes a collection
+def i[T](iterable: Iterable[T] | AsyncIterable[T] = ()) -> 'Pyjo.Iterator.object[T]':
+    """::
+
+        iterator = i(range(1, 4))
+
+    Turn iterable or asynchronous iterable into a :mod:`Pyjo.Iterator`
+    object. ::
+
+        # "2, 4, 6"
+        i(range(1, 4)).map(lambda n: n * 2).join(', ')
+    """
+    import Pyjo.Iterator
+
+    return Pyjo.Iterator.new(iterable)
 
 
 def j(value: Any) -> Any:

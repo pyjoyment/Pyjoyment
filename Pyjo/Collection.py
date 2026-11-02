@@ -58,8 +58,12 @@ import functools
 import random
 import re
 
-from collections.abc import Callable, Iterable, Iterator
-from typing import Any, Self, cast, overload
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
+from typing import TYPE_CHECKING, Any, Self, cast, overload
+
+
+if TYPE_CHECKING:
+    import Pyjo.Iterator
 
 
 type Anything = builtins.object
@@ -73,6 +77,17 @@ class Pyjo_Collection[T](list[T]):
 
     def __repr__(self) -> str:
         return f'{self.__module__}.new({", ".join(map(repr, self))})'
+
+    # Not in Mojolicious: the elements in a coroutine, as Pyjo.Iterator takes them
+    def __aiter__(self) -> AsyncIterator[T]:
+        """::
+
+            async for e in collection:
+                ...
+
+        Same as :meth:`iterate`.
+        """
+        return aiter(self.iterate())
 
     def __json__(self) -> list[T]:
         """::
@@ -246,6 +261,27 @@ class Pyjo_Collection[T](list[T]):
             c('A', 'B', 'C', 'D', 'E').head(-3).join(' ')
         """
         return type(self)(self[:size])
+
+    # Not in Mojolicious: a lazy chain, for and async for alike
+    def iterate(self) -> 'Pyjo.Iterator.object[T]':
+        """::
+
+            iterator = collection.iterate()
+
+        Turn collection into a lazy :mod:`Pyjo.Iterator`, whose chain passes
+        each element on as soon as it has it, and waits for the promises of
+        its callbacks. ::
+
+            # "2, 4, 6"
+            c(1, 2, 3).iterate().map(lambda e: e * 2).join(', ')
+
+            # Perform 3 requests at a time concurrently, in a coroutine
+            async for tx in c(*urls).iterate().map(ua.get_p, concurrency=3):
+                print(tx.result.dom().at('title').text)
+        """
+        import Pyjo.Iterator
+
+        return Pyjo.Iterator.object(self)
 
     def join(self, string: str | None = None) -> 'Pyjo.String.Unicode.object':
         r"""::

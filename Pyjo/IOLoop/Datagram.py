@@ -115,6 +115,7 @@ from typing import TYPE_CHECKING, Any, Self
 
 
 if TYPE_CHECKING:
+    import Pyjo.Iterator
     import Pyjo.Promise
 
 
@@ -202,7 +203,7 @@ class Pyjo_IOLoop_Datagram(Pyjo.EventEmitter.object):
 
         Same as :meth:`iterate`.
         """
-        return self.iterate()
+        return aiter(self.iterate())
 
     @property
     def reactor(self) -> Pyjo.Reactor.object:
@@ -554,21 +555,27 @@ class Pyjo_IOLoop_Datagram(Pyjo.EventEmitter.object):
         self.connect(**options)
         return promise
 
-    def iterate(self) -> AsyncIterator[tuple[bytes, Any]]:
+    def iterate(self) -> 'Pyjo.Iterator.object[tuple[bytes, Any]]':
         """::
 
             async for data, peer in datagram.iterate():
                 ...
 
-        The datagrams that arrive as an asynchronous iterator, with the address
+        The datagrams that arrive as a :mod:`Pyjo.Iterator`, with the address
         of their sender, until the socket is closed, which :meth:`recv_p`
         takes. ::
 
             # Echo server, one datagram after another
             async for data, peer in datagram:
                 await datagram.send_p(b'Echo: ' + data, peer)
+
+            # The datagrams of one peer, in a chain
+            async for data, peer in datagram.iterate().grep(lambda message: message[1] == trusted):
+                ...
         """
-        return self._messages().iterate()
+        import Pyjo.Iterator
+
+        return Pyjo.Iterator.object(self._messages().iterate())
 
     def once_p(self, name: str) -> 'Pyjo.Promise.object':
         """::

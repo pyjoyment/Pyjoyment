@@ -123,6 +123,18 @@ with subtest('events'):
         promise.wait()
     is_ok(stdout.getvalue(), 'Message: hi\n', 'printed')
 
+    @Pyjo.Promise.coroutine
+    async def capitals(events):
+        # The messages in capitals, in a chain
+        async for message in events:
+            print(f'Message: {message}')
+
+    with contextlib.redirect_stdout(io.StringIO()) as stdout:
+        promise = capitals(ws.events('message').map(lambda args: args[0].upper()))
+        ws.emit('message', 'hi').emit('close')
+        promise.wait()
+    is_ok(stdout.getvalue(), 'Message: HI\n', 'printed in capitals')
+
 with subtest('has_subscribers'):
     e = Pyjo.EventEmitter.new()
     boolean = e.has_subscribers('foo')

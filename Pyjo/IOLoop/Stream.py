@@ -117,6 +117,7 @@ from typing import TYPE_CHECKING, Any, Self
 
 
 if TYPE_CHECKING:
+    import Pyjo.Iterator
     import Pyjo.Promise
 
 
@@ -190,7 +191,7 @@ class Pyjo_IOLoop_Stream(Pyjo.EventEmitter.object):
 
         Same as :meth:`iterate`.
         """
-        return self.iterate()
+        return aiter(self.iterate())
 
     @property
     def reactor(self) -> Pyjo.Reactor.object:
@@ -350,7 +351,7 @@ class Pyjo_IOLoop_Stream(Pyjo.EventEmitter.object):
         return bool(len(self._buffer)) or self.has_subscribers('drain')
 
     # Not in Mojolicious: the chunks as an asynchronous iterator, as iterate of promise-readable
-    def iterate(self, size: int | None = None) -> AsyncIterator[bytes]:
+    def iterate(self, size: int | None = None) -> 'Pyjo.Iterator.object[bytes]':
         """::
 
             async for chunk in stream.iterate():
@@ -358,14 +359,20 @@ class Pyjo_IOLoop_Stream(Pyjo.EventEmitter.object):
             async for chunk in stream.iterate(1024):
                 ...
 
-        The chunks as an asynchronous iterator, at most ``size`` bytes each,
+        The chunks as a :mod:`Pyjo.Iterator`, at most ``size`` bytes each,
         until the end of the stream, which :meth:`read_p` takes. ::
 
             # Echo in capitals
             async for chunk in stream:
                 await stream.write_p(chunk.upper())
+
+            # The same in a chain
+            async for chunk in stream.iterate().map(bytes.upper):
+                await stream.write_p(chunk)
         """
-        return self._chunks().iterate(size)
+        import Pyjo.Iterator
+
+        return Pyjo.Iterator.object(self._chunks().iterate(size))
 
     # Not in Mojolicious: the event close of a stream that is closed already, as once of promise-writable
     def once_p(self, name: str) -> 'Pyjo.Promise.object':

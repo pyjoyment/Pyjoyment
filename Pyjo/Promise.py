@@ -648,6 +648,19 @@ class Pyjo_Promise(Pyjo.Base.object):
         while not done:
             loop.start()
 
+    # Not in Mojolicious: the value of the promise for a caller that cannot await it, as the for of Pyjo.Iterator, which
+    # waits for it with the event loop, or fails in an event loop that runs already, where wait() returns at once
+    def _wait_value(self) -> Any:
+        if not self._status:
+            if self.ioloop.is_running:
+                raise RuntimeError('A promise cannot be waited for in a running event loop, await it instead')
+            self.wait()
+        self._handled = True
+        results: tuple[Any, ...] = self._results or ()
+        if self._status == 'resolve':
+            return _result(results)
+        raise _exception(results)
+
     @staticmethod
     def _settle(
         self_or_cls: 'Pyjo_Promise | type[Pyjo_Promise]', status: str, results: tuple[Any, ...]

@@ -87,11 +87,12 @@ import collections
 import os
 import weakref
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Self, cast, overload
 
 
 if TYPE_CHECKING:
+    import Pyjo.Iterator
     import Pyjo.Promise
 
 
@@ -162,21 +163,27 @@ class Pyjo_EventEmitter(Pyjo.Base.object):
         return self
 
     # Not in Mojolicious: the events as an asynchronous iterator, as events.on of Node.js
-    def events(self, name: str) -> AsyncIterator[tuple[Any, ...]]:
+    def events(self, name: str) -> 'Pyjo.Iterator.object[tuple[Any, ...]]':
         """::
 
             async for args in e.events('foo'):
                 ...
 
-        The arguments of the events as an asynchronous iterator, as a tuple
-        for each event, which are queued until they are taken, and which ends
-        at the event ``close`` or ``end``, and raises the error of the event
+        The arguments of the events as a :mod:`Pyjo.Iterator`, as a tuple for
+        each event, which are queued until they are taken, and which ends at
+        the event ``close`` or ``end``, and raises the error of the event
         ``error``. ::
 
             async for message, in ws.events('message'):
                 print(f'Message: {message}')
+
+            # The messages in capitals, in a chain
+            async for message in ws.events('message').map(lambda args: args[0].upper()):
+                print(f'Message: {message}')
         """
-        return _Pull(self, name, False).iterate()
+        import Pyjo.Iterator
+
+        return Pyjo.Iterator.object(_Pull(self, name, False).iterate())
 
     def has_subscribers(self, name: str) -> bool:
         """::
