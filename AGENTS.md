@@ -562,10 +562,6 @@ gh attestation verify pyjoyment-0.1.1.tar.gz -R pyjoyment/Pyjoyment
 gh attestation verify pyjoyment-0.1.1.tar.gz -R pyjoyment/Pyjoyment --predicate-type https://spdx.dev/Document/v2.3
 ```
 
-The attestations stay with the owner of the repository that made them, so
-the releases attested before the repository moved to the organization
-`pyjoyment`, as 0.1.0, verify with `-o dex4er` instead of `-R`.
-
 ## Commits and Pull Requests
 
 - Commit subjects are short and in the imperative or descriptive style of the
