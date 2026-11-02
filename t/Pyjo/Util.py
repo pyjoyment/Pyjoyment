@@ -30,6 +30,8 @@ from Pyjo.Util import (
     gzip,
     header_params,
     hmac_sha1_sum,
+    hmac_sha256_sum,
+    hmac_sha512_sum,
     html_attr_unescape,
     html_unescape,
     humanize_bytes,
@@ -48,6 +50,10 @@ from Pyjo.Util import (
     setenv,
     sha1_bytes,
     sha1_sum,
+    sha256_bytes,
+    sha256_sum,
+    sha512_bytes,
+    sha512_sum,
     slugify,
     slurp,
     split_cookie_header,
@@ -566,6 +572,48 @@ with subtest('hmac_sha1_sum'):
         hmac_sha1_sum(b'Hi there', b'abc1234567890'),
         '5344f37e1948dd3ffb07243a4d9201a227abd6e1',
         'right hmac sha1 checksum',
+    )
+
+# Not in Mojolicious: SHA-256 and SHA-512, and their HMAC with the test case 2 of RFC 4231
+RFC4231 = (b'what do ya want for nothing?', b'Jefe')
+SHA512 = (
+    'bce50343a56f01dc7cf2d4c82127be4fff3a83ddb8b783b1a28fb6574637ceb7'
+    '1ef594b1f03a8e9b7d754341831292bcad1a3cb8a12fd2ded7a57b1b173b3bf7'
+)
+
+with subtest('sha256_bytes'):
+    is_ok(
+        sha256_bytes(b'foo bar baz').hex(),
+        'dbd318c1c462aee872f41109a4dfd3048871a03dedd0fe0e757ced57dad6f2d7',
+        'right binary sha256 checksum',
+    )
+
+with subtest('sha256_sum'):
+    is_ok(
+        sha256_sum(b'foo bar baz'),
+        'dbd318c1c462aee872f41109a4dfd3048871a03dedd0fe0e757ced57dad6f2d7',
+        'right sha256 checksum',
+    )
+
+with subtest('sha512_bytes'):
+    is_ok(sha512_bytes(b'foo bar baz').hex(), SHA512, 'right binary sha512 checksum')
+
+with subtest('sha512_sum'):
+    is_ok(sha512_sum(b'foo bar baz'), SHA512, 'right sha512 checksum')
+
+with subtest('hmac_sha256_sum'):
+    is_ok(
+        hmac_sha256_sum(*RFC4231),
+        '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843',
+        'right hmac sha256 checksum',
+    )
+
+with subtest('hmac_sha512_sum'):
+    is_ok(
+        hmac_sha512_sum(*RFC4231),
+        '164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea250554'
+        '9758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737',
+        'right hmac sha512 checksum',
     )
 
 with subtest('secure_compare'):

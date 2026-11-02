@@ -193,6 +193,30 @@ class Pyjo_String_Unicode(str):
         """
         return self.new(Pyjo.Util.hmac_sha1_sum(self.to_bytes(), _bytes(secret)))
 
+    # Not in Mojolicious: HMAC-SHA256 and HMAC-SHA512, as Pyjo.Util has them
+    def hmac_sha256_sum(self, secret: str | bytes) -> Self:
+        """::
+
+            string = string.hmac_sha256_sum('passw0rd')
+
+        Generate HMAC-SHA256 checksum for string with
+        :func:`Pyjo.Util.hmac_sha256_sum`. ::
+
+            # "cfd435b7e14cb5ed539ee154ce73ef0edea9ad480d54d2ca8894075b79386471"
+            u('foo bar baz').hmac_sha256_sum('secr3t')
+        """
+        return self.new(Pyjo.Util.hmac_sha256_sum(self.to_bytes(), _bytes(secret)))
+
+    def hmac_sha512_sum(self, secret: str | bytes) -> Self:
+        """::
+
+            string = string.hmac_sha512_sum('passw0rd')
+
+        Generate HMAC-SHA512 checksum for string with
+        :func:`Pyjo.Util.hmac_sha512_sum`.
+        """
+        return self.new(Pyjo.Util.hmac_sha512_sum(self.to_bytes(), _bytes(secret)))
+
     def html_unescape(self) -> Self:
         """::
 
@@ -310,6 +334,45 @@ class Pyjo_String_Unicode(str):
         Generate SHA1 checksum for string with :func:`Pyjo.Util.sha1_sum`.
         """
         return self.new(Pyjo.Util.sha1_sum(self.to_bytes()))
+
+    # Not in Mojolicious: SHA-256 and SHA-512, as Pyjo.Util has them
+    def sha256_bytes(self) -> 'Pyjo.String.Bytes.object':
+        """::
+
+            data = string.sha256_bytes()
+
+        Generate binary SHA256 checksum for string with
+        :func:`Pyjo.Util.sha256_bytes`.
+        """
+        return Pyjo.String.Bytes.new(Pyjo.Util.sha256_bytes(self.to_bytes()))
+
+    def sha256_sum(self) -> Self:
+        """::
+
+            string = string.sha256_sum()
+
+        Generate SHA256 checksum for string with :func:`Pyjo.Util.sha256_sum`.
+        """
+        return self.new(Pyjo.Util.sha256_sum(self.to_bytes()))
+
+    def sha512_bytes(self) -> 'Pyjo.String.Bytes.object':
+        """::
+
+            data = string.sha512_bytes()
+
+        Generate binary SHA512 checksum for string with
+        :func:`Pyjo.Util.sha512_bytes`.
+        """
+        return Pyjo.String.Bytes.new(Pyjo.Util.sha512_bytes(self.to_bytes()))
+
+    def sha512_sum(self) -> Self:
+        """::
+
+            string = string.sha512_sum()
+
+        Generate SHA512 checksum for string with :func:`Pyjo.Util.sha512_sum`.
+        """
+        return self.new(Pyjo.Util.sha512_sum(self.to_bytes()))
 
     @property
     def size(self) -> int:

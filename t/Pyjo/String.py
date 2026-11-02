@@ -1,3 +1,4 @@
+import Pyjo.String.Bytes
 import Pyjo.String.Unicode
 
 from Pyjo.String.Bytes import b
@@ -5,6 +6,7 @@ from Pyjo.String.Unicode import u
 from Pyjo.Test import *
 
 import contextlib
+import hashlib
 import io
 import re
 
@@ -100,6 +102,34 @@ with subtest('hmac_sha1_sum'):
         '5344f37e1948dd3ffb07243a4d9201a227abd6e1',
         'right hmac sha1 checksum',
     )
+
+# Not in Mojolicious: SHA-256 and SHA-512, and their HMAC, of bytes and of strings, which chain
+with subtest('sha256 and sha512'):
+    sha256 = 'dbd318c1c462aee872f41109a4dfd3048871a03dedd0fe0e757ced57dad6f2d7'
+    sha512 = (
+        'bce50343a56f01dc7cf2d4c82127be4fff3a83ddb8b783b1a28fb6574637ceb7'
+        '1ef594b1f03a8e9b7d754341831292bcad1a3cb8a12fd2ded7a57b1b173b3bf7'
+    )
+    for string in (b(b'foo bar baz'), u('foo bar baz')):
+        name = type(string).__name__
+        isa_ok(string.sha256_bytes(), Pyjo.String.Bytes.object, f'binary sha256 of {name}')
+        is_ok(string.sha256_bytes().hex(), sha256, f'right binary sha256 checksum of {name}')
+        isa_ok(string.sha256_sum(), Pyjo.String.Unicode.object, f'sha256 of {name}')
+        is_ok(string.sha256_sum(), sha256, f'right sha256 checksum of {name}')
+        is_ok(string.sha512_bytes().hex(), sha512, f'right binary sha512 checksum of {name}')
+        is_ok(string.sha512_sum(), sha512, f'right sha512 checksum of {name}')
+        is_ok(
+            string.hmac_sha256_sum(b'secr3t'),
+            'cfd435b7e14cb5ed539ee154ce73ef0edea9ad480d54d2ca8894075b79386471',
+            f'right hmac sha256 checksum of {name}',
+        )
+        is_ok(
+            string.hmac_sha512_sum('secr3t'),
+            'd36109e634778df63a9aea191ab5cbe260c1eed5c0ad946b02380dab74d42df3'
+            '35154654619b608e2eac85f0f7a227d93e0be66f512c8b768a80fd71b87e015e',
+            f'right hmac sha512 checksum of {name}',
+        )
+    is_ok(b(b'foo').sha256_bytes().sha256_sum(), hashlib.sha256(hashlib.sha256(b'foo').digest()).hexdigest(), 'chain')
 
 with subtest('secure_compare'):
     ok(u('hello').secure_compare('hello'), 'values are equal')

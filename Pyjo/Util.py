@@ -512,6 +512,33 @@ def hmac_sha1_sum(data: bytes, secret: bytes) -> str:
     return hmac.new(secret, data, hashlib.sha1).hexdigest()
 
 
+# Not in Mojolicious: HMAC-SHA256 and HMAC-SHA512, as the signatures of webhooks and of the APIs of the cloud ask for them
+def hmac_sha256_sum(data: bytes, secret: bytes) -> str:
+    """::
+
+        checksum = hmac_sha256_sum(data, b'passw0rd')
+
+    Generate HMAC-SHA256 checksum for bytes with :mod:`hmac`. ::
+
+        # "e54ce0e8e81828088bc8e81b9f2d96816e4a56ffe691d40f1426365e83623c8c"
+        hmac_sha256_sum(b'foo', b'passw0rd')
+    """
+    return hmac.new(secret, data, hashlib.sha256).hexdigest()
+
+
+def hmac_sha512_sum(data: bytes, secret: bytes) -> str:
+    """::
+
+        checksum = hmac_sha512_sum(data, b'passw0rd')
+
+    Generate HMAC-SHA512 checksum for bytes with :mod:`hmac`. ::
+
+        # "cd43bd8e691c5aff08152da9918221d91cc1c0f4cb63a80b5e1160387b98791f..."
+        hmac_sha512_sum(b'foo', b'passw0rd')
+    """
+    return hmac.new(secret, data, hashlib.sha512).hexdigest()
+
+
 def html_attr_unescape(string: str) -> str:
     """::
 
@@ -838,6 +865,53 @@ def sha1_sum(data: bytes) -> str:
         sha1_sum(b'foo')
     """
     return hashlib.sha1(data).hexdigest()
+
+
+# Not in Mojolicious: SHA-256 and SHA-512, as the digests of the APIs of the cloud and of the integrity of packages
+def sha256_bytes(data: bytes) -> bytes:
+    """::
+
+        checksum = sha256_bytes(data)
+
+    Generate binary SHA256 checksum for bytes with :mod:`hashlib`.
+    """
+    return hashlib.sha256(data).digest()
+
+
+def sha256_sum(data: bytes) -> str:
+    """::
+
+        checksum = sha256_sum(data)
+
+    Generate SHA256 checksum for bytes with :mod:`hashlib`. ::
+
+        # "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+        sha256_sum(b'foo')
+    """
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha512_bytes(data: bytes) -> bytes:
+    """::
+
+        checksum = sha512_bytes(data)
+
+    Generate binary SHA512 checksum for bytes with :mod:`hashlib`.
+    """
+    return hashlib.sha512(data).digest()
+
+
+def sha512_sum(data: bytes) -> str:
+    """::
+
+        checksum = sha512_sum(data)
+
+    Generate SHA512 checksum for bytes with :mod:`hashlib`. ::
+
+        # "f7fbba6e0636f890e56fbbf3283e524c6fa3204ae298382d624741d0dc663832..."
+        sha512_sum(b'foo')
+    """
+    return hashlib.sha512(data).hexdigest()
 
 
 def slurp(path: str | os.PathLike[str], charset: str = 'utf-8') -> str:
