@@ -102,6 +102,10 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
   containers when the database is down: liveness is `/livez`.
 - A blocking request handler under `daemon` blocks every connection: more
   workers of `prefork`, `-c 1`, or code that does not block.
+- The log goes to the standard error, which a container, Kubernetes and AWS
+  Lambda collect as it is written; `PYJO_LOG_FORMAT=json` makes each line
+  JSON for a collector of logs, and `PYJO_LOG_LEVEL` its level. `print` goes
+  to the standard output, which is buffered in blocks there, without a level.
 
 ## Documentation
 

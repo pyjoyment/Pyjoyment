@@ -224,6 +224,12 @@ python myapp.py inflate                       # a script of Lite: its templates 
   actions, or the workers of `prefork`.
 - `self.secrets` is set before the first session, from the configuration, not
   from the code that is committed.
+- `print` in an action, a hook or a command goes to the standard output,
+  which a pipe, as the one of a container or of CI, buffers in blocks, and has
+  no time and no level: `c.log().info(...)` in an action, with the request
+  id, and `self.app.log.info(...)` in a command or `startup`, write to the
+  standard error at once, as JSON with `PYJO_LOG_FORMAT=json`. The standard
+  output is for what a command gives as its result, as JSON for a program.
 
 ## Documentation
 

@@ -230,6 +230,10 @@ PYJO_MODE=production python app.py daemon
   raises `Route pattern "/files/*path" contains a reserved stash value`.
 - An action that returns `'Hello'` or a dict renders nothing: Pyjoyment
   reports it, `Action returned a str, which is not a response`.
+- `print` in an action goes to the standard output, which a pipe, as the one
+  of a container, buffers in blocks, without the time and the request:
+  `c.log().info(...)` writes to the standard error at once, with the request
+  id, as JSON with `PYJO_LOG_FORMAT=json`, and `app.log` outside a request.
 
 ## Documentation
 
