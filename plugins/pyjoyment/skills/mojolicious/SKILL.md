@@ -128,6 +128,7 @@ done_testing()
 | `$promise->then(sub ($v) {...})->catch(...)->finally(...)`   | `promise.then(lambda v: ...).catch(...).lastly(...)`               |
 | `$dom->find('a')->map(attr => 'href')->join("\n")`           | `dom.find('a').map('attr', 'href').join('\n')`                     |
 | `use Mojo::Util qw(b64_encode sha1_sum);`, `b($s)->sha1_sum` | `from Pyjo.Util import b64_encode, sha1_sum`, `b(s).sha1_sum()`    |
+| `use MIME::Base64 qw(encode_base64url);`                     | `from Pyjo.Util import b64url_encode`                              |
 | `path($file)->slurp`, `tempdir`                              | `Pyjo.File.path(file).slurp()`, `Pyjo.File.tempdir()`              |
 | `die`, `Mojo::Exception->throw`, `->continue`, `$t->or`      | `raise`, `Pyjo.Exception.throw`, `.proceed()`, `t.otherwise`       |
 | `is`, `is_deeply`, `like`                                    | `is_ok`, `is_deeply_ok`, `like_ok`                                 |

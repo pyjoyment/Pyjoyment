@@ -175,7 +175,8 @@ copy:
   `Mojo::File`, is the one of `Pyjo.Util`, `Pyjo.String` or `Pyjo.File`, also
   in code of the framework that Mojo does not have, where the standard library
   would do the same: `b64_encode(data, '')` for
-  `base64.b64encode(data).decode()`, `sha1_sum`, `sha256_sum`,
+  `base64.b64encode(data).decode()`, `b64url_encode(data)` for
+  `base64.urlsafe_b64encode(data).decode().rstrip('=')`, `sha1_sum`, `sha256_sum`,
   `hmac_sha256_sum`, `secure_compare`, `url_escape`, and
   `Pyjo.File.path(path).slurp()`, so that the framework does a thing one way
   and its values chain. The standard library stays where the function of
