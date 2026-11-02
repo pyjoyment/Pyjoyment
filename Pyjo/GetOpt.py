@@ -279,8 +279,7 @@ class Pyjo_GetOpt(Pyjo.Base.object):
             raise Pyjo.Exception.new(f'Error in option spec: "{spec}"')
         # A target that is not one, as a default given in its place, fails here, as in Getopt::Long, and not when the option
         # is given
-        linkage = target is None or isinstance(target, (list, dict)) or callable(target)
-        if not linkage:
+        if not _is_target(target):
             raise Pyjo.Exception.new(f'Invalid option linkage for "{spec}"')
         names = m[1].split('|')
         name = next((name for name in names if len(name) > 1), names[0]).replace('-', '_')
@@ -517,6 +516,11 @@ def _is_value(type: str, arg: str) -> bool:
     if type == 's':
         return not arg.startswith('-') or arg == '-'
     return (_RE_FLOAT if type == 'f' else _RE_INT).fullmatch(arg) is not None
+
+
+# Whether a value is a target of an option, as a bool, which leaves the type of the target as it is
+def _is_target(target: Any) -> bool:
+    return target is None or isinstance(target, (list, dict)) or callable(target)
 
 
 def _store(option: _Option, values: dict[str, Any], value: Any) -> None:
