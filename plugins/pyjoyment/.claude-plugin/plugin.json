@@ -2,8 +2,8 @@
   "name": "pyjoyment",
   "description": "Skills for writing applications with Pyjoyment, the real-time web framework for Python ported from Mojolicious",
   "author": {
-    "name": "Piotr Roszatycki",
-    "url": "https://github.com/dex4er"
+    "name": "Pyjoyment project",
+    "url": "https://github.com/pyjoyment"
   },
   "homepage": "https://pyjoyment.readthedocs.io/",
   "repository": "https://github.com/pyjoyment/Pyjoyment",
