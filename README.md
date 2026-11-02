@@ -176,11 +176,12 @@ The servers of Pyjoyment run an application on its event loop, from one
 process to many:
 
 - `daemon`, the non-blocking HTTP and WebSocket server, with TLS;
-- `prefork`, with worker processes;
-- `prethread`, with worker threads, also on the free-threaded build of
-  Python;
+- `prefork`, with worker processes, for Linux, macOS and other systems with
+  `fork`;
+- `prethread`, with worker threads, for Windows, and for the free-threaded
+  build of Python anywhere;
 - `pyjo-hot`, with worker processes and deployment without downtime, which
-  `HUP` starts;
+  `HUP` starts, for systems with `fork`;
 - `pyjo-reload`, for development, which restarts the server when a file
   changes.
 
@@ -288,6 +289,45 @@ nothing else:
 ```sh
 pip install Pyjo-MCP
 ```
+
+## Interoperability
+
+The tests of Pyjoyment run it with the software on the other side of each
+interface:
+
+- **WSGI:** on Gunicorn, uWSGI, Waitress and Werkzeug, and Flask mounted in
+  Pyjoyment.
+- **ASGI:** on uvicorn and Hypercorn, both on asyncio and on uvloop, on Daphne
+  and on Granian, and Starlette and the servers of the MCP SDK mounted in
+  Pyjoyment.
+- **FastCGI:** behind Caddy, and PHP on php-fpm mounted in Pyjoyment.
+- **CGI**, for the legacy applications: on the CGI server of `http.server`
+  and on uWSGI, and the CGI scripts of Python and of PHP on php-cgi mounted in
+  Pyjoyment.
+- **AWS Lambda:** on the images of Lambda for Python and on the custom runtime
+  `provided.al2023`, with the emulator of the Runtime API, and Starlette on
+  Mangum as an event function that Pyjoyment runs.
+- **Containers:** the image of `generate dockerfile` on Docker, and the
+  manifests of `generate kubernetes` on a cluster of kind.
+- **Event loops:** asyncio, the loop of `Pyjo.Reactor.Poll`, and Twisted,
+  whose reactor passes the whole test suite of Pyjoyment.
+- **Libraries:** pytest, with pytest-xdist, the asynchronous AWS SDK on the
+  event loop of the server, and the JSON Schemas of pydantic next to those of
+  the type hints of `Pyjo.JSON.Schema`.
+
+Inside the application, the classes of `Pyjo` take the types of the Python
+standard library and turn back into them, so that the code around Pyjoyment
+needs no adapters:
+
+- `Pyjo.URL` from and to the `SplitResult` of `urllib.parse`;
+- `Pyjo.Date` from and to `datetime`, and `float(date)` is the epoch;
+- `Pyjo.File` is a path-like object, and `to_path()` is a `pathlib.Path`;
+- `Pyjo.Headers` from and to the `Message` of `email.message`;
+- the requests and the responses of HTTP from and to those of
+  `urllib.request` and `http.client`;
+- the cookies from the `Morsel` of `http.cookies`;
+- `Pyjo.Collection` is a `list`, `Pyjo.String.Unicode` a `str`, and a promise
+  is awaited in a coroutine of asyncio.
 
 ## Installation
 
