@@ -17,9 +17,9 @@ variable "pyjoyment_layer" {
 }
 
 variable "public_layers" {
-  description = "Take the public layers of Pyjoyment-Lambda-Layers, for a build with \"--function-only\""
+  description = "Take the public layers of Pyjoyment-Lambda-Layers, for a build with \"--function-only\", or the layers of function/dist"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "python" {
