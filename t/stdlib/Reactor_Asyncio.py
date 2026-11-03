@@ -326,6 +326,43 @@ b.close()
         is_ok(process.stdout, "True [b'io'] True [b'io']\n", 'a new loop in the child, the loop of the parent in it')
         is_ok(process.stderr, '', 'no warning')
 
+with subtest('The child of a fork does not close the loops of the parent at its exit'):
+    if not hasattr(os, 'fork'):
+        skip('no os.fork', 3)
+    else:
+        script = """
+import Pyjo.Reactor.Asyncio, asyncio, gc, os, sys
+
+reactor = Pyjo.Reactor.Asyncio.new()
+reactor.timer(0, lambda reactor: reactor.stop())
+reactor.start()
+pid = os.fork()
+if not pid:
+    reactor.timer(0, lambda reactor: reactor.stop())
+    reactor.start()
+    sys.exit(0)
+os.waitpid(pid, 0)
+
+
+async def follow():
+    reactor.loop
+    pid = os.fork()
+    if not pid:
+        gc.collect()
+        os._exit(0)
+    os.waitpid(pid, 0)
+
+
+asyncio.run(follow())
+print('done')
+"""
+        root = os.path.join(os.path.dirname(__file__), '..', '..')
+        env = {**os.environ, 'PYTHONPATH': root, 'PYTHONWARNINGS': 'always::ResourceWarning,error::DeprecationWarning'}
+        process = subprocess.run([sys.executable, '-c', script], env=env, capture_output=True, text=True, timeout=30)
+        is_ok(process.returncode, 0, 'exit status')
+        is_ok(process.stdout, 'done\n', 'the parent goes on')
+        is_ok(process.stderr, '', 'neither the exit of the child nor its garbage collector closes them')
+
 with subtest('The threshold of a slow callback of a loop of its own'):
     duration = os.environ.pop('PYJO_ASYNCIO_SLOW_CALLBACK', None)
     try:

@@ -229,11 +229,15 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
         return self._loop
 
     # The child of a fork moves to a new loop, as the selector of the old one, epoll or kqueue, is the one of the parent;
-    # the old loop is kept, not closed, which would close the files of the parent
+    # the old loop, and the loop of its own when it follows another one, are kept, not closed, neither at the exit nor by
+    # the garbage collector, which would close the files of the parent
     def _fork(self) -> None:
         if self._fixed or self._loop is None:
             return
-        _FORKED.append(self._loop)
+        for loop in (self._loop, self._own):
+            if loop is not None:
+                _FORKED.append(loop)
+                _OWN.discard(loop)
         if self._finalizer is not None:
             self._finalizer.detach()
         self._loop = self._own = None
