@@ -119,6 +119,19 @@ def one_liner(code, **kwargs):
     return subprocess.run([sys.executable, '-m', 'Pyjo', code], env=env, capture_output=True, text=True, **kwargs)
 
 
+def in_process(code, *args):
+    # python -m Pyjo in the process of the test, whose user agent requests the local daemon
+    import Pyjo.__main__
+
+    argv = sys.argv
+    try:
+        with output() as stdout:
+            Pyjo.__main__.main([code, *args])
+    finally:
+        sys.argv = argv
+    return stdout.getvalue()
+
+
 with subtest('One-liners'):
     is_ok(g('mojolicious.org').dom().at('title').text, 'Mojolicious', 'g')
     is_ok(g('example.com').code, 200, 'PYJO_MAX_REDIRECTS=0')
@@ -126,14 +139,14 @@ with subtest('One-liners'):
     like_ok(g('https://127.0.0.1:3000').body, rb'<title>', 'PYJO_INSECURE=1')
     result = one_liner('import os; print(os.environ["PYJO_LOG_LEVEL"])')
     is_ok(result.stdout, 'fatal\n', 'PYJO_LOG_LEVEL')
+    is_ok(in_process('g(sys.argv[1]).code', 'example.com'), '200\n', 'sys.argv')
 
 with subtest('b'):
     stream = b(b'lalala')
     isa_ok(stream, Pyjo.String.Bytes.object, 'stream')
-    stdout = io.TextIOWrapper(io.BytesIO(), write_through=True)
-    with contextlib.redirect_stdout(stdout):
-        b(g('mojolicious.org').body).html_unescape().say()
-    like_ok(stdout.buffer.getvalue(), rb'<h1>Two & Three</h1>', 'say')
+    printed = in_process('b(g("mojolicious.org").body).html_unescape()')
+    like_ok(printed, r'<h1>Two & Three</h1>', 'one-liner')
+    is_ok(printed.count('<h1>One</h1>'), 1, 'printed once')
 
 with subtest('c'):
     collection = c(1, 2, 3)
@@ -256,9 +269,9 @@ with subtest('t'):
 with subtest('u'):
     stream = u('lalala')
     isa_ok(stream, Pyjo.String.Unicode.object, 'stream')
-    with output() as stdout:
-        u(g('mojolicious.org').text).html_unescape().say()
-    like_ok(stdout.getvalue(), r'<h1>Two & Three</h1>', 'say')
+    printed = in_process('u(g("mojolicious.org").text).html_unescape()')
+    like_ok(printed, r'<h1>Two & Three</h1>', 'one-liner')
+    is_ok(printed.count('<h1>One</h1>'), 1, 'printed once')
 
 with subtest('w'):
     res = w('example.com')

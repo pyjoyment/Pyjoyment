@@ -52,8 +52,13 @@ One-liners
 A collection of functions for fun Python one-liners, which
 ``from Pyjo import *`` imports, and with which ``python -m Pyjo`` runs its
 code: the value of an expression is printed, and the arguments after the code
-are in :data:`sys.argv`. Ten redirects will be followed by default, you can
-change this behavior with the ``PYJO_MAX_REDIRECTS`` environment variable. ::
+are in :data:`sys.argv`, whose module :mod:`sys` the code has without an
+import. ::
+
+    $ python -m Pyjo 'g(sys.argv[1]).code' example.com
+
+Ten redirects will be followed by default, you can change this behavior with
+the ``PYJO_MAX_REDIRECTS`` environment variable. ::
 
     $ PYJO_MAX_REDIRECTS=0 python -m Pyjo 'g("example.com").code'
 
@@ -165,7 +170,7 @@ def b(*parts: object) -> 'Pyjo.String.Bytes.object':
 
     Turn bytes into a :mod:`Pyjo.String.Bytes` object. ::
 
-        $ python -m Pyjo 'b(g("mojolicious.org").body).html_unescape().say()'
+        $ python -m Pyjo 'b(g("mojolicious.org").body).html_unescape()'
     """
     import Pyjo.String.Bytes
 
@@ -395,7 +400,7 @@ def u(*parts: object) -> 'Pyjo.String.Unicode.object':
 
     Turn string into a :mod:`Pyjo.String.Unicode` object. ::
 
-        $ python -m Pyjo 'u(g("mojolicious.org").text).html_unescape().say()'
+        $ python -m Pyjo 'u(g("mojolicious.org").text).html_unescape()'
     """
     import Pyjo.String.Unicode
 

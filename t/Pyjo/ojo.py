@@ -129,6 +129,7 @@ with subtest('python -m Pyjo'):
     is_ok(one_liner('print(c(1, 2, 3).join("-"))').stdout, '1-2-3\n', 'statement')
     is_ok(one_liner('z.object(a=z.int()).validate({"a": 1}).is_valid').stdout, 'True\n', 'builder of JSON Schema')
     is_ok(one_liner('import sys; print(sys.argv)', 'a', 'b').stdout, "['-c', 'a', 'b']\n", 'arguments')
+    is_ok(one_liner('sys.argv[1:]', 'a', 'b').stdout, "['a', 'b']\n", 'arguments of an expression')
     is_ok(one_liner('import os; print(os.environ["PYJO_LOG_LEVEL"])').stdout, 'fatal\n', 'silent')
     is_ok(
         one_liner('import os; print(os.environ["PYJO_LOG_LEVEL"])', PYJO_LOG_LEVEL='debug').stdout,
