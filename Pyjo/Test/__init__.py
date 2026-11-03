@@ -93,7 +93,8 @@ which runs a callback: ::
     subtest('Callback', lambda: ok(True, 'third'))
 
 A subtest has an implicit :func:`done_testing`. ``plan(skip_all=...)`` skips
-the rest of the subtest, and a subtest that runs no tests fails.
+the rest of the subtest, and a subtest that runs no tests fails. A subtest of
+a remote host runs again after a failure with ``reruns`` of :func:`subtest`.
 
 Chains
 ------
@@ -186,6 +187,7 @@ import inspect
 import os
 import re
 import sys
+import time
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -267,6 +269,8 @@ class _Step:
 type _Pattern = str | bytes | re.Pattern[Any] | tuple[str | bytes, str]
 
 _stack: list[_State] = [_State()]
+# The output of the runs of the subtests with reruns, which a failed run turns into diagnostic messages
+_buffers: list[list[tuple[TextIO, str]]] = []
 _used = False
 _died = False
 _bailed_out = False
@@ -821,16 +825,48 @@ class Subtest:
     of its tests passed.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, reruns: int = 0, reruns_delay: float = 0) -> None:
         self.name = name
+        self.reruns = reruns
+        self.reruns_delay = reruns_delay
         self.passed: bool | None = None
+        self._called = False
 
     def __call__[F: Callable[[], object]](self, fn: F) -> F:
-        with self:
-            fn()
+        self._called = True
+        for rerun in range(1, self.reruns + 2):
+            parent = _current()
+            count, failed = parent.count, parent.failed
+            again = False
+            error: list[str] = []
+            _buffers.append([])
+            try:
+                with self:
+                    fn()
+                again = not self.passed and rerun <= self.reruns
+            except Exception as e:
+                again = rerun <= self.reruns
+                if not again:
+                    raise
+                error.append(f'{type(e).__name__}: {e}')
+            finally:
+                output = _buffers.pop()
+                if again:
+                    indent = '    ' * parent.depth
+                    lines = [line.removeprefix(indent) for line in ''.join(text for _, text in output).splitlines()]
+                    _diag_lines([*lines, *error, f'Rerunning subtest "{self.name}" ({rerun} of {self.reruns})'])
+                else:
+                    for stream, text in output:
+                        _write(stream, text)
+            if not again:
+                break
+            parent.count, parent.failed = count, failed
+            time.sleep(self.reruns_delay)
         return fn
 
     def __enter__(self) -> Self:
+        if self.reruns and not self._called:
+            raise Error('A subtest with reruns runs a function, not a block of a with statement')
         _use()
         if not _raising:
             _print(f'# Subtest: {self.name}')
@@ -884,14 +920,16 @@ class Subtest:
 
 
 @overload
-def subtest(name: str, fn: None = None) -> Subtest: ...
+def subtest(name: str, fn: None = None, *, reruns: int = 0, reruns_delay: float = 0) -> Subtest: ...
 
 
 @overload
-def subtest(name: str, fn: Callable[[], object]) -> bool: ...
+def subtest(name: str, fn: Callable[[], object], *, reruns: int = 0, reruns_delay: float = 0) -> bool: ...
 
 
-def subtest(name: str, fn: Callable[[], object] | None = None) -> Subtest | bool:
+def subtest(
+    name: str, fn: Callable[[], object] | None = None, *, reruns: int = 0, reruns_delay: float = 0
+) -> Subtest | bool:
     """::
 
         with subtest('Parse'):
@@ -907,8 +945,20 @@ def subtest(name: str, fn: Callable[[], object] | None = None) -> Subtest | bool
     returns a :class:`Subtest`, which works as a context manager and as a
     decorator; with a callback it runs it at once and returns whether the
     subtest passed.
+
+    A subtest that fails or raises an exception runs again, up to ``reruns``
+    times, after ``reruns_delay`` seconds, as a test of a remote host does
+    after a failure of the network: ::
+
+        @subtest('Remote host', reruns=2, reruns_delay=10)
+        def _():
+            ok(Pyjo.UserAgent.new().get('https://mojolicious.org').result.is_success, 'online request')
+
+    Only its last run counts, for the parent and its plan; the runs before it
+    are diagnostic messages. Such a subtest is a decorator or has a callback,
+    as the block of a ``with`` statement runs only once.
     """
-    test = Subtest(name)
+    test = Subtest(name, reruns, reruns_delay)
     if fn is None:
         return test
     test(fn)
@@ -1201,10 +1251,7 @@ def _print(*lines: str, stream: TextIO | None = None, depth: int | None = None) 
     encoding = getattr(stream, 'encoding', None)
     if not encoding or encoding.lower().replace('-', '') != 'utf8':
         text = text.encode('ascii', 'backslashreplace').decode('ascii')
-    if stream is sys.stderr:
-        sys.stdout.flush()
-    stream.write(text)
-    stream.flush()
+    _write(stream, text)
 
 
 def _regex(expected: _Pattern) -> re.Pattern[Any]:
@@ -1226,6 +1273,16 @@ def _use() -> None:
     global _used
     if not _raising:
         _used = True
+
+
+def _write(stream: TextIO, text: str) -> None:
+    if _buffers:
+        _buffers[-1].append((stream, text))
+        return
+    if stream is sys.stderr:
+        sys.stdout.flush()
+    stream.write(text)
+    stream.flush()
 
 
 _original_except_hook = sys.excepthook

@@ -15,7 +15,7 @@ def run(code):
         p = subprocess.run([sys.executable, script.name], capture_output=True, text=True, env=os.environ)
     finally:
         os.unlink(script.name)
-    stderr = re.sub(r'(?m)^(\s*#   at ).*( line \d+\.)$', r'\1SCRIPT\2', p.stderr)
+    stderr = re.sub(r'(?m)^([\s#]*#   at ).*( line \d+\.)$', r'\1SCRIPT\2', p.stderr)
     return p.stdout, stderr, p.returncode
 
 
@@ -258,6 +258,111 @@ with subtest('Callback returns the result'):
     """)
     like_ok(out, r'# True\n', 'passed subtest returns True')
     like_ok(out, r'# False\n', 'failed subtest returns False')
+
+with subtest('Subtest with reruns'):
+    out, err, code = run("""
+        from Pyjo.Test import *
+        plan(tests=2)
+        ok(True, 'first')
+        runs = []
+
+        @subtest('Flaky', reruns=2)
+        def _():
+            runs.append(1)
+            ok(True, 'good')
+            if len(runs) == 1:
+                raise RuntimeError('boom')
+            ok(len(runs) == 3, f'run {len(runs)}')
+    """)
+    is_ok(
+        out,
+        '1..2\nok 1 - first\n# Subtest: Flaky\n    ok 1 - good\n    ok 2 - run 3\n    1..2\nok 2 - Flaky\n',
+        'only the last run counts',
+    )
+    is_ok(
+        err,
+        '# # Subtest: Flaky\n'
+        '#     ok 1 - good\n'
+        '#     1..1\n'
+        '# not ok 2 - Flaky\n'
+        "# #   Failed test 'Flaky'\n"
+        '# #   at SCRIPT line 7.\n'
+        '# RuntimeError: boom\n'
+        '# Rerunning subtest "Flaky" (1 of 2)\n'
+        '# # Subtest: Flaky\n'
+        '#     ok 1 - good\n'
+        '#     not ok 2 - run 2\n'
+        "#     #   Failed test 'run 2'\n"
+        '#     #   at SCRIPT line 13.\n'
+        '#     1..2\n'
+        '#     # Looks like you failed 1 test of 2.\n'
+        '# not ok 2 - Flaky\n'
+        "# #   Failed test 'Flaky'\n"
+        '# #   at SCRIPT line 7.\n'
+        '# Rerunning subtest "Flaky" (2 of 2)\n',
+        'the failed runs are diagnostic messages',
+    )
+    is_ok(code, 0, 'right exit status')
+
+    out, err, code = run("""
+        from Pyjo.Test import *
+        with subtest('Outer'):
+            subtest('Inner', lambda: ok(False, 'never'), reruns=1)
+        done_testing()
+    """)
+    is_ok(
+        out,
+        '# Subtest: Outer\n'
+        '    # Subtest: Inner\n'
+        '        not ok 1 - never\n'
+        '        1..1\n'
+        '    not ok 1 - Inner\n'
+        '    1..1\n'
+        'not ok 1 - Outer\n'
+        '1..1\n',
+        'the last run fails',
+    )
+    like_ok(err, r'(?m)^    #     not ok 1 - never\n', 'the failed run in the nested subtest')
+    like_ok(err, r'(?m)^    # Rerunning subtest "Inner" \(1 of 1\)\n', 'rerun')
+    is_ok(code, 1, 'right exit status')
+
+    out, err, code = run("""
+        from Pyjo.Test import *
+        subtest('Dies', lambda: 1 / 0, reruns=1)
+    """)
+    is_ok(out, '# Subtest: Dies\n    1..0\nnot ok 1 - Dies\n', 'the last exception')
+    like_ok(err, r'(?m)^# ZeroDivisionError: division by zero\n# Rerunning', 'rerun after the exception')
+    like_ok(err, r'(?m)^ZeroDivisionError: division by zero\n', 'raised again')
+    is_ok(code, 255, 'right exit status')
+
+    out, err, code = run("""
+        from Pyjo.Test import *
+        subtest('Inner', lambda: bail_out('no database'), reruns=1)
+    """)
+    is_ok(out, '# Subtest: Inner\nBail out!  no database\n', 'no rerun of a bail out')
+    is_ok(code, 255, 'right exit status')
+
+    out, err, code = run("""
+        import Pyjo.Test
+        from Pyjo.Test import *
+        try:
+            with subtest('Block', reruns=1):
+                ok(True)
+        except Pyjo.Test.Error as e:
+            print(e)
+    """)
+    is_ok(out, 'A subtest with reruns runs a function, not a block of a with statement\n', 'not a with statement')
+
+    out, err, code = run("""
+        import Pyjo.Test
+        from Pyjo.Test import *
+        Pyjo.Test.raise_failures()
+        runs = []
+        print(subtest('Flaky', lambda: runs.append(1) or ok(len(runs) == 2, 'second'), reruns=1))
+    """)
+    is_ok(out, 'True\n', 'no TAP')
+    is_ok(err, '# AssertionError: Failed test \'second\'\n# Rerunning subtest "Flaky" (1 of 1)\n', 'rerun')
+    is_ok(code, 0, 'right exit status')
 
 with subtest('Exception'):
     out, err, code = run("""

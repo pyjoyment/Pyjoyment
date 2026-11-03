@@ -646,6 +646,40 @@ with subtest('subtest'):
         'three subtests',
     )
 
+    # The user agent fails the first time, and the delay is recorded instead of slept
+    out, err, code = run(
+        """
+        @subtest('Remote host', reruns=2, reruns_delay=10)
+        def _():
+            ok(Pyjo.UserAgent.new().get('https://mojolicious.org').result.is_success, 'online request')
+        """,
+        setup="""
+        import Pyjo.UserAgent
+
+        import time
+        import types
+
+        requests, delays = [], []
+
+        def new():
+            requests.append(1)
+            result = types.SimpleNamespace(is_success=len(requests) > 1)
+            return types.SimpleNamespace(get=lambda url: types.SimpleNamespace(result=result))
+
+        Pyjo.UserAgent.new = new
+        time.sleep = delays.append
+        """,
+        after="is_ok(delays, [10], 'delayed once')\ndone_testing()",
+    )
+    is_ok(
+        out,
+        '# Subtest: Remote host\n    ok 1 - online request\n    1..1\nok 1 - Remote host\nok 2 - delayed once\n1..2\n',
+        'the last run',
+    )
+    like_ok(err, r'(?m)^#     not ok 1 - online request\n', 'the failed run is a diagnostic message')
+    like_ok(err, r'(?m)^# Rerunning subtest "Remote host" \(1 of 2\)\n', 'rerun')
+    is_ok(code, 0, 'right exit status')
+
 with subtest('that'):
     out, err, code = run("that(answer).isa(int).is_(42, 'meaning of life')", setup='answer = 42')
     is_ok(out, "ok 1 - An object of class 'int' isa 'int'\nok 2 - meaning of life\n1..2\n", 'no test of its own')
