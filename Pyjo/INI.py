@@ -182,9 +182,13 @@ def load(string: str, *, comments: bool = False, unquote: bool = False) -> dict[
 
         # {'PHP': {'error_log': '/var/log/php.log'}}
         load('[PHP]\\nerror_log = "/var/log/php.log"\\n', unquote=True)
+
+    A byte order mark at the start of the string, which an editor on Windows
+    writes, is not a part of its first line.
     """
     loader = _Loader(comments, unquote)
-    for number, line in enumerate(string.splitlines(), 1):
+    # The byte order mark, which would be the start of the name of the first section, where configparser raises an error
+    for number, line in enumerate(string.removeprefix('\ufeff').splitlines(), 1):
         loader.line(number, line)
     loader.end()
     return loader.result

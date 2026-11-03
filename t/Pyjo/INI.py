@@ -61,6 +61,9 @@ with subtest('Load sections and keys'):
     is_deeply_ok(load('a =\nb = \n'), {'a': '', 'b': ''}, 'empty values')
     is_deeply_ok(load('a = 1\r\n[b]\r\nc = 2\r\n'), {'a': '1', 'b': {'c': '2'}}, 'CRLF')
     is_deeply_ok(load('[b]\n'), {'b': {}}, 'empty section')
+    is_deeply_ok(load('\ufeff[s]\na = 1\n'), {'s': {'a': '1'}}, 'byte order mark')
+    is_deeply_ok(load('\ufeffa = 1\n'), {'a': '1'}, 'byte order mark before a key')
+    is_deeply_ok(load('[s]\n\ufeffa = 1\n'), {'s': {'\ufeffa': '1'}}, 'byte order mark after the start')
 
 with subtest('Load comments'):
     is_deeply_ok(
