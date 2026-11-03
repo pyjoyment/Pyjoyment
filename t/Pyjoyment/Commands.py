@@ -11,6 +11,7 @@ import re
 import socket
 import subprocess
 import sys
+import sysconfig
 import types
 import zipfile
 
@@ -618,6 +619,20 @@ with subtest('generate lambda-zip'):
         zips,
         'same files',
     )
+
+    # The same bytecode on another number of processors, which a free-threaded Python would give otherwise to the
+    # modules that a process compiles after others
+    compiled = []
+    for cpus in ('1', '4'):
+        modules = Pyjo.File.tempdir()
+        for module in Pyjo.File.path(sysconfig.get_paths()['stdlib']).list().grep(re.compile(r'\.py$')):
+            module.copy_to(modules)
+        with local(PYTHONHASHSEED='0', PYTHON_CPU_COUNT=cpus):
+            code = Pyjoyment.Command.Author.generate.lambda_zip._COMPILE
+            subprocess.run([sys.executable, '-c', code, modules.to_str(), '/opt/python'], check=True)
+        compiled.append({path.basename(): path.slurp() for path in modules.child('__pycache__').list()})
+    ok(len(compiled[0]) > 64, 'modules of more than one chunk')
+    is_deeply_ok([name for name, data in compiled[0].items() if compiled[1].get(name) != data], [], 'same bytecode')
 
     # The architecture, the free-threaded build and the lock of the project
     app.rel_file('uv.lock').spew('')

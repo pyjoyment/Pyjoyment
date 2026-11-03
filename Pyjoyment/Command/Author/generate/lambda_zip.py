@@ -129,18 +129,26 @@ _PYJOYMENT = r'Pyjo|Pyjoyment|(?i:pyjoyment-[^-]+\.dist-info)'
 _FORMAT = ('--format', 'requirements.txt', '-o')
 
 # The bytecode of the modules of a directory, with their paths on Lambda, which compileall would join with the
-# separator of the machine, a backslash on Windows, and in processes of their own, as "compileall -j 0" does, which
-# are not forks of this one, whose state they would inherit
+# separator of the machine, a backslash on Windows. A free-threaded Python marshals a module otherwise after some
+# modules that its process has compiled before, so the modules are compiled in chunks of the same files in the same
+# order, each by a new interpreter, and not by a pool of processes, which gives a process the chunks in the order that
+# it is free, so that the same files give the same bytecode on every machine
 _COMPILE = r"""
-import concurrent.futures, itertools, multiprocessing, os, py_compile, sys
+import concurrent.futures, os, subprocess, sys
 root, prefix = sys.argv[1:]
 files = [os.path.join(d, f) for d, _, names in sorted(os.walk(root)) for f in sorted(names) if f.endswith('.py')]
-dfiles = [f'{prefix}/' + os.path.relpath(f, root).replace(os.sep, '/') for f in files]
-mode = itertools.repeat(py_compile.PycInvalidationMode.UNCHECKED_HASH)
-args = (files, itertools.repeat(None), dfiles, itertools.repeat(False), itertools.repeat(-1), mode, itertools.repeat(1))
-context = multiprocessing.get_context('forkserver') if multiprocessing.get_start_method() == 'fork' else None
-with concurrent.futures.ProcessPoolExecutor(mp_context=context) as pool:
-    sys.exit(not all(pool.map(py_compile.compile, *args, chunksize=64)))
+lines = [f + '\t' + f'{prefix}/' + os.path.relpath(f, root).replace(os.sep, '/') for f in files]
+chunks = [lines[i : i + 64] for i in range(0, len(lines), 64)]
+code = '''
+import py_compile, sys
+mode = py_compile.PycInvalidationMode.UNCHECKED_HASH
+pairs = [line.split('\\t') for line in sys.stdin.read().splitlines()]
+sys.exit(not all([py_compile.compile(f, None, d, False, -1, mode, 1) for f, d in pairs]))
+'''
+def compile(chunk):
+    return subprocess.run([sys.executable, '-c', code], input='\n'.join(chunk), text=True).returncode == 0
+with concurrent.futures.ThreadPoolExecutor(os.cpu_count()) as pool:
+    sys.exit(not all(pool.map(compile, chunks)))
 """
 
 
