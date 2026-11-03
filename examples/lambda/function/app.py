@@ -7,6 +7,7 @@
 # ///
 import Pyjo.App.FastCGI
 import Pyjo.File
+import Pyjo.INI
 import Pyjo.IOLoop
 import Pyjo.IOLoop.ChildProcess
 
@@ -40,9 +41,19 @@ PHP_FPM = os.environ.get('PHP_FPM', '/opt/bin/php-fpm')
 
 if os.path.exists(PHP_FPM):
     conf = Pyjo.File.tempfile(suffix='.conf').spew(
-        '[global]\nerror_log = /dev/stderr\ndaemonize = no\n'
-        '[www]\nlisten = /tmp/php-fpm.sock\npm = static\npm.max_children = 1\n'
-        'clear_env = no\ncatch_workers_output = yes\ndecorate_workers_output = no\n'
+        Pyjo.INI.dump(
+            {
+                'global': {'error_log': '/dev/stderr', 'daemonize': False},
+                'www': {
+                    'listen': '/tmp/php-fpm.sock',
+                    'pm': 'static',
+                    'pm.max_children': 1,
+                    'clear_env': False,
+                    'catch_workers_output': True,
+                    'decorate_workers_output': False,
+                },
+            }
+        )
     )
     # In a group of its own, which the end of the interpreter kills, with its workers
     php_fpm = Pyjo.IOLoop.ChildProcess.new().spawn([PHP_FPM, '-n', '-y', conf.to_str(), '-F'], detached=True)
