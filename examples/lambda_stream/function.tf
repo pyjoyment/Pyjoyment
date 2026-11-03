@@ -3,24 +3,32 @@
 # the same for the same files, so that a new build changes only what has changed
 locals {
   dist = "${path.module}/function/dist"
+
+  # The layer of the build, whose ZIP file is hashed only then, as OpenTofu validates the resources that are not
+  # enabled too, and "--function-only" writes no layer
+  pyjoyment_build = var.pyjoyment_layer == null && !var.public_layers
 }
 
 # The layer of Pyjoyment, in the site-packages of the Python of the function, unless the variable "pyjoyment_layer"
-# names one that is published already
+# names one that is published already or the function takes the public one
 resource "aws_lambda_layer_version" "pyjoyment" {
   layer_name               = "${var.name}-pyjoyment"
   filename                 = "${local.dist}/pyjoyment.zip"
-  source_code_hash         = filebase64sha256("${local.dist}/pyjoyment.zip")
+  source_code_hash         = local.pyjoyment_build ? filebase64sha256("${local.dist}/pyjoyment.zip") : null
   compatible_runtimes      = [var.runtime]
   compatible_architectures = ["arm64"]
 
   lifecycle {
-    enabled = var.pyjoyment_layer == null
+    enabled = local.pyjoyment_build
   }
 }
 
 locals {
-  pyjoyment_layer = var.pyjoyment_layer != null ? var.pyjoyment_layer : aws_lambda_layer_version.pyjoyment.arn
+  pyjoyment_layer = (
+    var.pyjoyment_layer != null ? var.pyjoyment_layer
+    : var.public_layers ? local.public_layers["pyjoyment-${local.python_name}"][data.aws_region.current.region]
+    : aws_lambda_layer_version.pyjoyment.arn
+  )
 }
 
 resource "aws_iam_role" "function" {

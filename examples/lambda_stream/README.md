@@ -3,8 +3,9 @@
 `function/app.py` is an application of `Pyjoyment.Lite` whose responses AWS
 Lambda streams through a Function URL, as they are written, which the OpenTofu
 of this directory deploys, with the ZIP files of `generate lambda-zip
---runtime`: the function with `app.py` and `wrapper.py`, and Pyjoyment in a
-layer of its own, with a Function URL of the invoke mode `RESPONSE_STREAM`.
+--runtime`: the function with `app.py` and `wrapper.py`, with the public layer
+of Pyjoyment or the one of its own build, with a Function URL of the invoke
+mode `RESPONSE_STREAM`.
 `/count` writes a line every half a second, which comes to the client as it is
 written.
 
@@ -39,15 +40,17 @@ uv run python -m Pyjo.Prove -l t/examples/lambda_stream/app.py
 
 ## Deploying to AWS
 
-The ZIP files go to `function/dist`, for the runtime of the variable
-`runtime`, `python3.15` by default, and the architecture of the function,
-`arm64`:
+The function takes the public layer of Pyjoyment of
+[Pyjoyment-Lambda-Layers](https://github.com/pyjoyment/Pyjoyment-Lambda-Layers),
+with `function.zip` alone, which `--function-only` writes to `function/dist`,
+for the runtime of the variable `runtime`, `python3.15` by default, and the
+architecture of the function, `arm64`:
 
 ```sh
-uv run --directory examples/lambda_stream/function python app.py generate lambda-zip --arch arm64 --runtime python3.15
+uv run --directory examples/lambda_stream/function python app.py generate lambda-zip --arch arm64 --runtime python3.15 --function-only
 ```
 
-OpenTofu 1.13 deploys them with the credentials and the region of the default
+OpenTofu 1.13 deploys it with the credentials and the region of the default
 chain of AWS, as `AWS_PROFILE` and `AWS_REGION`, and a new build of the same
 files changes nothing:
 
@@ -56,8 +59,24 @@ tofu -chdir=examples/lambda_stream init
 tofu -chdir=examples/lambda_stream apply
 ```
 
-`-var pyjoyment_layer=ARN` takes a layer of Pyjoyment that is published
-already, for the same Python, in the place of `function/dist/pyjoyment.zip`.
+The ARN of the layer of the version of Python of the runtime and of the region
+comes from the index of the latest release, `layers.json`, which `data "http"`
+reads and `jsondecode` turns into `{layer: {region: arn}}`. The generator tells
+the version of Pyjoyment of the dependencies, which the description of the
+layer says too: the inline metadata of the script takes Pyjoyment of the
+checkout, which can be newer than the one of the latest release.
+
+`-var public_layers=false` takes the layer of the build in the place of the
+public one, which the generator writes without `--function-only`:
+
+```sh
+uv run --directory examples/lambda_stream/function python app.py generate lambda-zip --arch arm64 --runtime python3.15
+tofu -chdir=examples/lambda_stream apply -var public_layers=false
+```
+
+`-var pyjoyment_layer=ARN` takes another layer of Pyjoyment that is published
+already, for the same Python, in the place of the public one or of
+`function/dist/pyjoyment.zip`.
 
 The output `url` is the Function URL, which the test takes in
 `TEST_LAMBDA_STREAM_URL`:

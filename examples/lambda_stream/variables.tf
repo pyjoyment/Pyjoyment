@@ -17,7 +17,13 @@ variable "runtime" {
 }
 
 variable "pyjoyment_layer" {
-  description = "The ARN of a published layer of Pyjoyment, in the place of function/dist/pyjoyment.zip"
+  description = "The ARN of a published layer of Pyjoyment, in the place of the public one or of function/dist/pyjoyment.zip"
   type        = string
   default     = null
+}
+
+variable "public_layers" {
+  description = "Take the public layer of Pyjoyment of Pyjoyment-Lambda-Layers, for a build with \"--function-only\", or the layer of function/dist"
+  type        = bool
+  default     = true
 }
