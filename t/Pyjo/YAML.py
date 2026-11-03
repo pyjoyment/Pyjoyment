@@ -138,6 +138,25 @@ with subtest('Block scalars with empty lines and comments'):
     is_ok(load('k: >\n  a\n  b\n\n  c\n   d\n  e\n')['k'], 'a b\nc\n d\ne\n', 'folding')
     is_deeply_ok(load('foo: |\nbar: x\n'), {'foo': '', 'bar': 'x'}, 'empty block')
     is_deeply_ok(load('a:\n  run: |-\n    one\n\n    two\n  b: 1\n'), {'a': {'run': 'one\n\ntwo', 'b': 1}}, 'nested')
+with subtest('Block scalars with the indicator of the indentation'):
+    # The results of PyYAML; go-yaml writes them for the descriptions of the CRDs of Kubernetes that start with a space
+    is_ok(load('k: |2\n   a\n  b\n')['k'], ' a\nb\n', 'literal')
+    is_ok(load('k: |2-\n   a\n  b\n')['k'], ' a\nb', 'with the chomping indicator after it')
+    is_ok(load('k: |-2\n   a\n  b\n')['k'], ' a\nb', 'with the chomping indicator before it')
+    is_ok(load('k: |+2\n   a\n\n\nnext: 1\n')['k'], ' a\n\n\n', 'keep')
+    is_ok(load('k: >2\n   a\n  b\n  c\n')['k'], ' a\nb c\n', 'folded')
+    is_ok(load('k: |2 # comment\n   a\n')['k'], ' a\n', 'comment')
+    is_ok(load('k: |2\n\n   a\n')['k'], '\n a\n', 'leading empty line')
+    is_deeply_ok(load('a:\n  b: |2-\n     x\n    y\n  c: 1\n'), {'a': {'b': ' x\ny', 'c': 1}}, 'nested mapping')
+    is_deeply_ok(load('- |1\n  x\n'), [' x\n'], 'item')
+    is_deeply_ok(load('- k: |2\n     x\n    y\n'), [{'k': ' x\ny\n'}], 'mapping in an item')
+    is_deeply_ok(load('k:\n- |1\n  x\n'), {'k': [' x\n']}, 'sequence at the indentation of the key')
+    is_ok(load('--- |2\n   a\n  b\n'), ' a\nb\n', 'document')
+    throws_ok(lambda: load('k: |0\n  a\n'), re.compile(r'^YAML does not support a feature'), 'zero')
+    throws_ok(
+        lambda: load('k: |2+-\n  a\n'), re.compile(r'^YAML does not support a feature'), 'two chomping indicators'
+    )
+
 
 with subtest('Multi-line scalars'):
     is_deeply_ok(load('k: some\n  text\nnext: 1\n'), {'k': 'some text', 'next': 1}, 'plain')
@@ -253,7 +272,6 @@ with subtest('Errors'):
     throws_ok(lambda: load('foo: [a, b] c\n'), re.compile(r'^YAML found illegal characters after the flow'), 'after')
     throws_ok(lambda: load('foo: [a b c, ]x]\n'), re.compile(r'^YAML'), 'flow syntax')
     throws_ok(lambda: load('foo: "open\n'), re.compile(r'^YAML failed to find the end of the quoted scalar'), 'quote')
-    throws_ok(lambda: load('foo: |2\n  x\n'), re.compile(r'^YAML does not support a feature'), 'indentation indicator')
 
     # Not in CPAN::Meta::YAML: an unknown alias is an error, not a string
     throws_ok(lambda: load('foo: *alias\n'), re.compile(r"^YAML found an unknown alias '\*alias'"), 'alias')

@@ -33,8 +33,9 @@ standard library:
   quotes (with the escapes ``\\n``, ``\\t``, ``\\xHH``, ``\\uHHHH`` and the
   others of YAML),
   over several lines too, and the literal ``|`` and folded ``>`` block
-  scalars, with their empty lines, and the indicators ``-`` and ``+`` that
-  strip and keep the final line breaks;
+  scalars, with their empty lines, the indicators ``-`` and ``+`` that
+  strip and keep the final line breaks, and the indicator of the
+  indentation, as ``|2-``, of a block whose first line starts with a space;
 * comments, documents that ``---`` starts and ``...`` ends, a scalar after
   ``---`` and the directive ``%YAML``.
 
@@ -67,9 +68,8 @@ keys of the mapping itself. ::
     # {'base': {'a': 1, 'b': 1}, 'copy': {'a': 1, 'b': 2}}
     load('base: &base\\n  a: 1\\n  b: 1\\ncopy:\\n  <<: *base\\n  b: 2\\n')
 
-Other tags, complex keys and the indicator of the indentation of a block
-scalar are not supported, and raise an error, as do lines that the subset
-does not know.
+Other tags and complex keys are not supported, and raise an error, as do
+lines that the subset does not know.
 
 :func:`dump` writes what the loader reads, in the block style of
 configuration files: a :class:`dict` is a mapping, a :class:`list` and a
@@ -426,13 +426,15 @@ class _Loader:
         return self.anchors[name]
 
     def block(self, string: str, indent: int | None) -> str:
-        if not (m := re.search(r'^([|>])([+-]?)\s*(?:#.*)?\Z', string)):
+        if not (m := re.search(r'^([|>])(?:([+-]?)([1-9]?)|([1-9])([+-]))\s*(?:#.*)?\Z', string)):
             raise _error(f"does not support a feature in line '{string}'")
+        style, chomping, indentation = m[1], m[2] or m[5], m[3] or m[4]
 
-        # The lines more indented than the key, with the empty ones among them
+        # The lines more indented than the key, with the empty ones among them, from the indentation of the collection
+        # and its indicator, which a block whose first line starts with a space needs
         lines = self.lines
         block: list[str] = []
-        depth: int | None = None
+        depth = max(indent or 0, 0) + int(indentation) if indentation else None
         while lines:
             if not lines[0].strip():
                 block.append('')
@@ -448,10 +450,10 @@ class _Loader:
 
         # The empty lines at the end, which the chomping indicator keeps, strips or clips to one line break
         trailing = len(block) - len(content := _rstrip_empty(block))
-        text = '\n'.join(content) if m[1] == '|' else _fold(content)
-        if m[2] == '-' or not content:
+        text = '\n'.join(content) if style == '|' else _fold(content)
+        if chomping == '-' or not content:
             return text
-        return text + '\n' * (1 + trailing if m[2] == '+' else 1)
+        return text + '\n' * (1 + trailing if chomping == '+' else 1)
 
     def documents(self) -> list[Any]:
         documents: list[Any] = []
