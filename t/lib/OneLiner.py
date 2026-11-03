@@ -42,11 +42,6 @@ def remote(c):
     c.render(text='Not Found', status=404)
 
 
-ua = Pyjo._ua()
-ua.server.app = mock
-
-
-@ua.on('prepare')
 def prepare(ua, tx):
     url = tx.req.url
     if url.is_abs:
@@ -54,5 +49,18 @@ def prepare(ua, tx):
         url.scheme = url.host = url.port = None
 
 
+def main(argv):
+    ua = Pyjo._ua()
+    ua.server.app = mock
+    ua.on('prepare', prepare)
+    Pyjo.__main__.main(argv)
+
+
+# A one-liner with its code, and without it a helper module, which the harness runs as every file of t
 if __name__ == '__main__':
-    Pyjo.__main__.main(sys.argv[1:])
+    if sys.argv[1:]:
+        main(sys.argv[1:])
+    else:
+        from Pyjo.Test import plan
+
+        plan(skip_all='helper module, not a test')
