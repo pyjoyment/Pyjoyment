@@ -8,17 +8,19 @@ locals {
 # The layer of Pyjoyment, in the site-packages of the Python of the function, unless the variable "pyjoyment_layer"
 # names one that is published already
 resource "aws_lambda_layer_version" "pyjoyment" {
-  count = var.pyjoyment_layer == null ? 1 : 0
-
   layer_name               = "${var.name}-pyjoyment"
   filename                 = "${local.dist}/pyjoyment.zip"
   source_code_hash         = filebase64sha256("${local.dist}/pyjoyment.zip")
   compatible_runtimes      = [var.runtime]
   compatible_architectures = ["arm64"]
+
+  lifecycle {
+    enabled = var.pyjoyment_layer == null
+  }
 }
 
 locals {
-  pyjoyment_layer = var.pyjoyment_layer != null ? var.pyjoyment_layer : aws_lambda_layer_version.pyjoyment[0].arn
+  pyjoyment_layer = var.pyjoyment_layer != null ? var.pyjoyment_layer : aws_lambda_layer_version.pyjoyment.arn
 }
 
 resource "aws_iam_role" "function" {

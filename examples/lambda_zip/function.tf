@@ -7,37 +7,41 @@ locals {
 
 # The layer of Python, unless the function takes the public one
 resource "aws_lambda_layer_version" "python" {
-  count = var.public_layers ? 0 : 1
-
   layer_name               = "${var.name}-python"
   filename                 = "${local.dist}/python.zip"
   source_code_hash         = filebase64sha256("${local.dist}/python.zip")
   compatible_runtimes      = ["provided.al2023"]
   compatible_architectures = [var.arch]
+
+  lifecycle {
+    enabled = !var.public_layers
+  }
 }
 
 # The layer of Pyjoyment, in the site-packages of the Python of the function, unless the variable "pyjoyment_layer"
 # names one that is published already or the function takes the public one
 resource "aws_lambda_layer_version" "pyjoyment" {
-  count = var.pyjoyment_layer == null && !var.public_layers ? 1 : 0
-
   layer_name               = "${var.name}-pyjoyment"
   filename                 = "${local.dist}/pyjoyment.zip"
   source_code_hash         = filebase64sha256("${local.dist}/pyjoyment.zip")
   compatible_runtimes      = ["provided.al2023"]
   compatible_architectures = [var.arch]
+
+  lifecycle {
+    enabled = var.pyjoyment_layer == null && !var.public_layers
+  }
 }
 
 locals {
   region = data.aws_region.current.region
   python_layer = (
     var.public_layers ? local.public_layers["${local.python_name}-${var.arch}"][local.region]
-    : aws_lambda_layer_version.python[0].arn
+    : aws_lambda_layer_version.python.arn
   )
   pyjoyment_layer = (
     var.pyjoyment_layer != null ? var.pyjoyment_layer
     : var.public_layers ? local.public_layers["pyjoyment-${local.python_name}"][local.region]
-    : aws_lambda_layer_version.pyjoyment[0].arn
+    : aws_lambda_layer_version.pyjoyment.arn
   )
 }
 

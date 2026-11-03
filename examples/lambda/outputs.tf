@@ -7,7 +7,7 @@ output "url" {
 
 output "alb_url" {
   description = "The URL of the function behind the load balancer, for TEST_LAMBDA_ALB_URL"
-  value       = var.alb ? "http://${aws_lb.this[0].dns_name}" : null
+  value       = var.alb ? "http://${aws_lb.this.dns_name}" : null
 }
 
 output "function_name" {
