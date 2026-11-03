@@ -283,15 +283,17 @@ URLs of the plugin with those of the fork, whose files have the same names.
 Biome reads `biome.jsonc`, which leaves out the files that
 Pyjoyment keeps as they are, as the bundled libraries, the sources of the
 images and the files of the tests, so that the extension of Biome of an
-editor, which takes Biome from `node_modules`, checks the same files.
-The version of Biome is the one of `package.json`, which Renovate bumps
-together with the pinned one of `.trunk/trunk.yaml`, where `!` keeps it from
-`trunk upgrade`. Renovate cannot run `biome migrate`, so the workflow Biome
-Migrate migrates `biome.jsonc` on its branch and commits it with the token of
-the workflow, as Bundle Check does, as the author that `gitIgnoredAuthors`
-of `.renovaterc.json` names, so that Renovate keeps updating the branch, and
+editor checks the same files.
+The version of Biome is the pinned one of `.trunk/trunk.yaml`, where `!` keeps
+it from `trunk upgrade`, and which Renovate bumps: `package.json` has only the
+packages that the bundle and the tests need. Renovate cannot run
+`biome migrate`, so the workflow Biome Migrate runs it with
+`npx --yes @biomejs/biome@<version>` of that version, migrates `biome.jsonc`
+on the branch of Renovate and commits it with the token of the workflow, as
+Bundle Check does, as the author that `gitIgnoredAuthors` of
+`.renovaterc.json` names, so that Renovate keeps updating the branch, and
 starts the checks of the commit with `workflow_dispatch`; anywhere else, a
-`biome.jsonc` that the Biome of `package.json` would migrate fails the check.
+`biome.jsonc` that this Biome would migrate fails the check.
 The definition of Biome in `.trunk/trunk.yaml` runs it in the sandbox of Trunk
 with a copy of `biome.jsonc`, as Biome takes the options of its parser, as
 the front matter of Markdown, only for the files under the directory of its

@@ -47,11 +47,6 @@
       "groupName": "dependency groups"
     },
     {
-      "description": "Biome, in package.json and in .trunk/trunk.yaml, in one pull request, on whose branch Biome Migrate migrates biome.jsonc to the new version.",
-      "matchPackageNames": ["@biomejs/biome"],
-      "groupName": "Biome"
-    },
-    {
       "description": "The JavaScript libraries of the bundled templates, which Bundle Check copies into Pyjoyment/resources/public/pyjo. A major release can change the API that the templates call, and the tests do not run JavaScript, so it waits for an approval in the Dependency Dashboard.",
       "matchManagers": ["npm"],
       "matchDepTypes": ["dependencies"],

@@ -1,7 +1,7 @@
 {
   "name": "pyjoyment-bundled",
   "private": true,
-  "description": "The JavaScript libraries of the bundled templates of Pyjoyment, which npm run bundle copies into Pyjoyment/resources/public/pyjo, zod, whose schemas the tests compare with the ones of Pyjo.JSON.Schema, JSON-Schema-Test-Suite, which the tests run on its validation, and Biome, which formats and lints CSS, HTML, JavaScript, JSON, Markdown and YAML",
+  "description": "The JavaScript libraries of the bundled templates of Pyjoyment, which npm run bundle copies into Pyjoyment/resources/public/pyjo, zod, whose schemas the tests compare with the ones of Pyjo.JSON.Schema, and JSON-Schema-Test-Suite, which the tests run on its validation",
   "license": "Artistic-2.0",
   "scripts": {
     "bundle": "node --input-type=module --eval \"import fs from 'node:fs'; const { bundle } = JSON.parse(fs.readFileSync('package.json')).pyjoyment; for (const [to, from] of Object.entries(bundle)) fs.copyFileSync('node_modules/' + from, to);\""
@@ -22,7 +22,6 @@
     }
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
     "json-schema-test-suite": "github:json-schema-org/JSON-Schema-Test-Suite#89e83a74014617ffbe79a56d83d14d054cd11417",
     "zod": "4.6.7"
   }
