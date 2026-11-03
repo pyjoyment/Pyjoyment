@@ -698,6 +698,28 @@ with subtest('generate lambda-zip'):
         bootstrap = archive.read('bootstrap').decode()
     like_ok(bootstrap, rf'(?m)^exec "\$LAMBDA_TASK_ROOT/python/bin/python{version}" -m ', 'interpreter of the function')
 
+    # Only the function, for the layers that are published already, and the layers of an earlier build
+    generate()
+    with local(PYJO_EXE=None):
+        output, calls = generate('--function-only', '-p', '3.14.2')
+    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.14\n', 'version of Pyjoyment')
+    unlike_ok(output, r'python\.zip|pyjoyment\.zip', 'no layers')
+    ok(not os.path.exists(app.rel_file('dist/python.zip')), 'layer of Python of an earlier build removed')
+    ok(not os.path.exists(app.rel_file('dist/pyjoyment.zip')), 'layer of Pyjoyment of an earlier build removed')
+    ok(not any(call[-1].startswith('cpython-') for call in calls), 'no Python of a layer')
+    function = entries('dist/function.zip')
+    ok('MyApp/__init__.py' in function, 'application')
+    unlike_ok(' '.join(function), r'(?:^| )(?:python/|Pyjo)', 'no Python and Pyjoyment')
+    with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
+        bootstrap = archive.read('bootstrap').decode()
+    like_ok(bootstrap, r'(?m)^exec /opt/python/bin/python3\.14 -m ', 'Python of the layer')
+    with local(PYJO_EXE=None):
+        output, calls = generate('--function-only', '-p', '3.15t')
+    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.15t\n', 'version of the free-threaded Python')
+    with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
+        bootstrap = archive.read('bootstrap').decode()
+    like_ok(bootstrap, r'(?m)^exec /opt/python/bin/python3\.15t -m ', 'free-threaded Python of the layer')
+
     # The runtime of Python of Lambda, without Python and the bootstrap, and the layers of an earlier build
     generate()
     with local(PYJO_EXE=None):
@@ -743,6 +765,11 @@ with subtest('generate lambda-zip'):
     throws_ok(lambda: lambda_zip.run('-a', 'riscv64'), re.compile(r'^Unknown architecture: riscv64'), 'architecture')
     throws_ok(lambda: lambda_zip.run('-p', 'pypy3.11'), re.compile(r'^Unknown version of Python: pypy3\.11'), 'version')
     throws_ok(lambda: lambda_zip.run('-r', 'provided.al2'), re.compile(r'^Unknown runtime: provided\.al2$'), 'runtime')
+    throws_ok(
+        lambda: lambda_zip.run('--function-only', '--no-layer'),
+        re.compile(r'^Options --function-only and --no-layer exclude each other'),
+        'only the function and no layer',
+    )
     throws_ok(
         lambda: lambda_zip.run('-r', 'python3.14', '-p', '3.15'),
         re.compile(r'^Option --python is not for the runtime python3\.14'),

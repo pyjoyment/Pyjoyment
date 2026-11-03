@@ -11,10 +11,13 @@ Pyjoyment.Command.Author.generate.lambda_zip - Lambda ZIP generator command
       python -m MyApp generate lambda-zip --python 3.15t
       python -m MyApp generate lambda-zip --no-layer
       python -m MyApp generate lambda-zip --runtime python3.14
+      python -m MyApp generate lambda-zip --function-only
 
     Options:
       -a, --arch <name>        Architecture of the function, "arm64" or "x86_64",
                                defaults to "x86_64"
+          --function-only      Only the ZIP of the function, for layers of Python
+                               and Pyjoyment that are published already
       -h, --help               Show this summary of available options
           --no-layer           Put Python and Pyjoyment into the ZIP of the
                                function, without layers
@@ -82,6 +85,15 @@ as ``app.handler`` for a script ``app.py`` that ends with
 With ``--no-layer``, Python and Pyjoyment are in ``function.zip``, Python in
 the directory ``python``, and the function needs no layer, at the cost of a
 larger ZIP for each deployment.
+
+With ``--function-only``, the generator writes ``function.zip`` alone, for
+the layers of Python and of Pyjoyment that are published already, as the
+public ones of `Pyjoyment-Lambda-Layers
+<https://github.com/pyjoyment/Pyjoyment-Lambda-Layers>`_, which the same
+generator builds, so that the ``bootstrap`` finds the Python of the layer in
+``/opt/python/bin``. The function leaves out Pyjoyment, as with its own layer,
+and the generator tells the version of Pyjoyment of its dependencies, which
+the layer of Pyjoyment is to have.
 
 This is a core command, that means it is always enabled and its code a good
 example for learning to build new commands, you're welcome to fork it.
@@ -188,10 +200,14 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
         Run this command.
         """
         arguments = list(args)
-        if not (
-            opts := getopt(arguments, {'a|arch=s': None, 'no-layer': None, 'p|python=s': None, 'r|runtime=s': None})
-        ):
+        opts = getopt(
+            arguments,
+            {'a|arch=s': None, 'function-only': None, 'no-layer': None, 'p|python=s': None, 'r|runtime=s': None},
+        )
+        if not opts:
             raise Pyjo.Exception.new(self.usage)
+        if opts.function_only and opts.no_layer:
+            raise Pyjo.Exception.new('Options --function-only and --no-layer exclude each other')
 
         arch: str = opts.arch or 'x86_64'
         if (machine := _MACHINES.get(arch)) is None:
@@ -207,6 +223,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
         if not re.fullmatch(r'3\.\d+(?:\.\d+)?t?', version):
             raise Pyjo.Exception.new(f'Unknown version of Python: {version}')
         layer = not opts.no_layer
+        only = bool(opts.function_only)
 
         # The script of Pyjoyment.Lite or the package of the application, and the dependencies of the inline metadata of
         # PEP 723 of the script, if it has them and there is no pyproject.toml, as generate dockerfile has them
@@ -226,6 +243,9 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
             prefix = '/opt/python' if layer else '/var/task/python'
             if managed:
                 interpreter = f'python{version}'
+            elif only:
+                # The interpreter of a layer that is published already, of the minor version
+                interpreter = re.sub(r'^(3\.\d+)(?:\.\d+)?', r'python\1', version)
             else:
                 install = tmp.child('install')
                 self._uv(
@@ -265,6 +285,9 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                 site.make_path()
                 for name in filter(lambda n: re.fullmatch(_PYJOYMENT, n), names):
                     shutil.move(deps.child(name).to_str(), site.child(name).to_str())
+                    # The version of Pyjoyment, which a layer that is published already is to have
+                    if only and (metadata := re.fullmatch(r'(?i)pyjoyment-([^-]+)\.dist-info', name)):
+                        self._loud(f'  [layer] Pyjoyment {metadata[1]} for Python {interpreter[6:]}')
             if os.path.isdir(deps):
                 top = os.fspath(deps)
                 shutil.copytree(
@@ -289,9 +312,9 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                 )
 
             # The bytecode, as /var/task and /opt are read-only
-            if not managed:
+            if not managed and not only:
                 self._compile(local, python, prefix)
-            if layer:
+            if layer and not only:
                 self._compile(local, site, f'/opt/python/lib/{interpreter}/site-packages')
             self._compile(local, function, '/var/task')
 
@@ -300,12 +323,12 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
             self.create_dir(dist)
             for name in ('python.zip', 'pyjoyment.zip'):
                 dist.child(name).remove()
-            if layer and not managed:
+            if layer and not managed and not only:
                 _zip(python.dirname(), dist.child('python.zip'), {f'python/bin/{interpreter}'})
                 self._loud(f'  [write] {dist.child("python.zip")}')
-            elif not managed:
+            elif not managed and not layer:
                 shutil.copytree(python, function.child('python'))
-            if layer:
+            if layer and not only:
                 _zip(pyjoyment, dist.child('pyjoyment.zip'), set())
                 self._loud(f'  [write] {dist.child("pyjoyment.zip")}')
             _zip(function, dist.child('function.zip'), executables)
