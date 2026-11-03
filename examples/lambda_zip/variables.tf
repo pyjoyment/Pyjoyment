@@ -11,7 +11,7 @@ variable "region" {
 }
 
 variable "pyjoyment_layer" {
-  description = "The ARN of a published layer of Pyjoyment, in the place of function/dist/pyjoyment.zip"
+  description = "The ARN of a published layer of Pyjoyment, in the place of the public one or of function/dist/pyjoyment.zip"
   type        = string
   default     = null
 }
