@@ -95,6 +95,9 @@ its thread),
 `Mojolicious::Plugin::EPLRenderer`), `Pyjoyment.Plugin.TOMLConfig` (inspired
 by `Mojolicious::Plugin::NotYAMLConfig`, for the format of configuration of
 the standard library), `Pyjo.TOML` (the dumper of TOML, which the standard library only reads),
+`Pyjoyment.Plugin.INIConfig` (inspired by `Mojolicious::Plugin::NotYAMLConfig`, for the INI
+of `~/.aws/config`, `php.ini` and others), `Pyjo.INI` (the INI of those files, whose
+tests compare it with the parser of botocore),
 `Pyjo.JSON.Schema` (JSON Schema 2020-12 from the type hints of Python and
 from a builder inspired by zod, and its validation, written from the
 specification, whose tests compare the schemas with the ones of pydantic and

@@ -121,7 +121,8 @@ Because when you initiate a zero downtime software upgrade (hot deployment),
 you are only really sending a ``HUP`` signal to the already running server,
 and no other information can be passed along. What you can do instead, is to
 use a :mod:`Pyjoyment.Plugin.Config`, :mod:`Pyjoyment.Plugin.JSONConfig`,
-:mod:`Pyjoyment.Plugin.YAMLConfig` or :mod:`Pyjoyment.Plugin.TOMLConfig`
+:mod:`Pyjoyment.Plugin.YAMLConfig`,
+:mod:`Pyjoyment.Plugin.TOMLConfig` or :mod:`Pyjoyment.Plugin.INIConfig`
 configuration file.
 
 .. code-block:: python

@@ -354,6 +354,7 @@ This is the class hierarchy of the :mod:`Pyjoyment` distribution.
 
       - :mod:`Pyjoyment.Plugin.JSONConfig`
 
+        - :mod:`Pyjoyment.Plugin.INIConfig`
         - :mod:`Pyjoyment.Plugin.TOMLConfig`
         - :mod:`Pyjoyment.Plugin.YAMLConfig`
 
@@ -383,6 +384,7 @@ This is the class hierarchy of the :mod:`Pyjoyment` distribution.
   - :mod:`Pyjoyment.Validator.Validation`
 
 - :mod:`Pyjo.Collection`
+- :mod:`Pyjo.INI`
 - :mod:`Pyjo.JSON`
 - :mod:`Pyjo.Loader`
 - :mod:`Pyjo.Prove`

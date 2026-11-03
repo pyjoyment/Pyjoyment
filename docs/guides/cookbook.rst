@@ -663,8 +663,9 @@ with :meth:`Pyjo.App.Pyjo_App.config`, for a full list see
     :caption: myapp.py
 
 Or just add a ``hot`` section to your :mod:`Pyjoyment.Plugin.Config`,
-:mod:`Pyjoyment.Plugin.JSONConfig`, :mod:`Pyjoyment.Plugin.YAMLConfig` or
-:mod:`Pyjoyment.Plugin.TOMLConfig` configuration file.
+:mod:`Pyjoyment.Plugin.JSONConfig`, :mod:`Pyjoyment.Plugin.YAMLConfig`,
+:mod:`Pyjoyment.Plugin.TOMLConfig` or :mod:`Pyjoyment.Plugin.INIConfig`
+configuration file.
 
 .. code-block:: python
     :caption: myapp.conf
@@ -1225,8 +1226,8 @@ and group of the server, ``SetUserGroup``, do not need to be included in your
 application code. They can also be loaded later on via the reserved
 ``plugins`` value for :mod:`Pyjoyment` applications that are using any one of
 the built-in configuration plugins :mod:`Pyjoyment.Plugin.Config`,
-:mod:`Pyjoyment.Plugin.JSONConfig`, :mod:`Pyjoyment.Plugin.YAMLConfig` or
-:mod:`Pyjoyment.Plugin.TOMLConfig`.
+:mod:`Pyjoyment.Plugin.JSONConfig`, :mod:`Pyjoyment.Plugin.YAMLConfig`,
+:mod:`Pyjoyment.Plugin.TOMLConfig` or :mod:`Pyjoyment.Plugin.INIConfig`.
 
 .. code-block:: python
     :caption: myapp.conf
@@ -2339,8 +2340,9 @@ helper ``config`` of :mod:`Pyjoyment.Plugin.DefaultHelpers`.
 
 Alternatively you can also use configuration files in the JSON format with
 :mod:`Pyjoyment.Plugin.JSONConfig`, in YAML with
-:mod:`Pyjoyment.Plugin.YAMLConfig` or in TOML with
-:mod:`Pyjoyment.Plugin.TOMLConfig`.
+:mod:`Pyjoyment.Plugin.YAMLConfig`, in TOML with
+:mod:`Pyjoyment.Plugin.TOMLConfig` or in INI with
+:mod:`Pyjoyment.Plugin.INIConfig`.
 
 Adding a plugin to your application
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

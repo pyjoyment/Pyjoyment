@@ -26,11 +26,11 @@ deploy them, and the clients that connect them to the services around them.
 ## Zero dependencies
 
 Pyjoyment has no runtime dependencies. The HTTP and WebSocket server and
-client, the event loop, the parsers of HTML, JSON, YAML and TOML, JSON
-Schema, the templates and the test harness are all in its package, on top of
-the Python standard library. An application that installs Pyjoyment adds one
-package to its supply chain, and nothing that the package would pull in
-after it. Each release comes with the attestations of its build and an SBOM.
+client, the event loop, the parsers of HTML, JSON, YAML, TOML and INI,
+JSON Schema, the templates and the test harness are all in its package, on
+top of the Python standard library. An application that installs Pyjoyment
+adds one package to its supply chain, and nothing that the package would
+pull in after it. Each release comes with the attestations of its build and an SBOM.
 
 ## Next to other frameworks
 
@@ -48,7 +48,7 @@ its own, without the framework:
   domain sockets, timers and child processes.
 - HTML/XML parser with CSS selectors.
 - JSON with JSON Pointers and JSON Schema, from type hints and validated,
-  YAML and TOML, all loaded and dumped.
+  YAML, TOML and INI, all loaded and dumped.
 - JSON-RPC 2.0, its server and its client, over HTTP or any other transport.
 - Templates and template strings, with automatic escaping.
 - Containers for URLs, paths, query strings, headers, cookies and HTTP
@@ -113,9 +113,9 @@ fixture `t`, the `Pyjo.Test.Pyjo` of the application.
 ## Composition
 
 `Pyjoyment` is the framework: routes, controllers, the renderer with
-templates and template strings, plugins, configuration in Python, JSON, YAML
-and TOML files, the commands, and `Pyjoyment.Lite`, where a single file is a
-whole application:
+templates and template strings, plugins, configuration in Python, JSON, YAML,
+TOML and INI files, the commands, and `Pyjoyment.Lite`, where a single file
+is a whole application:
 
 ```python
 from Pyjoyment.Lite import *

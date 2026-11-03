@@ -45,6 +45,9 @@ examples.
 :mod:`Pyjoyment.Plugin.HeaderCondition`
     Route condition for all kinds of headers, loaded automatically.
 
+:mod:`Pyjoyment.Plugin.INIConfig`
+    INI configuration files.
+
 :mod:`Pyjoyment.Plugin.JSONConfig`
     JSON configuration files.
 

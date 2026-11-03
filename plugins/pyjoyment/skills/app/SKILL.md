@@ -195,7 +195,7 @@ done_testing()
   helper, `notes = Pyjoyment.Controller.Helper(notes)`, which `startup`
   registers by its name.
 - `self.plugin('YAMLConfig')` reads `my_app.yml`, and `my_app.production.yml`
-  in the mode `production`; `TOMLConfig` and `JSONConfig` read the others.
+  in the mode `production`; `TOMLConfig`, `INIConfig` and `JSONConfig` read the others.
 - A name of a route is the string after its pattern, as `'note'`, which
   `url_for` and `link_to` take with the values of its placeholders.
 
