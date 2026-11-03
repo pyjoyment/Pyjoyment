@@ -1,4 +1,4 @@
-from Pyjo.INI import dump, load
+from Pyjo.INI import Comment, dump, load
 from Pyjo.Test import *
 
 import datetime
@@ -229,9 +229,59 @@ with subtest('Dump errors'):
         )
     throws_ok(lambda: dump({'a': '\nx = 1'}), re.compile(r'value of the key "a", which would be a dict'), 'dict')
 
+with subtest('Comments'):
+    comment = Comment('#', 1)
+    ok(isinstance(comment, str), 'string')
+    is_ok(str.__str__(comment), '#', 'line')
+    is_ok(comment.occurrence, 1, 'occurrence')
+    is_ok(Comment('#').occurrence, 0, 'first')
+    is_ok(repr(comment), "Comment('#', 1)", 'repr')
+    ok(comment == Comment('#', 1) and comment != Comment('#', 0) and comment != '#', 'equality')
+    is_ok(len({Comment('#', 0), Comment('#', 1), Comment('#', 0)}), 2, 'hash')
+
+with subtest('Load comments'):
+    is_deeply_ok(
+        load('# top\n# top\n[s]\n  ; the key\nkey = 1\n#\n', comments=True),
+        {
+            Comment('# top', 0): None,
+            Comment('# top', 1): None,
+            's': {Comment('; the key', 0): None, 'key': '1', Comment('#', 0): None},
+        },
+        'in the order of the file',
+    )
+    is_deeply_ok(
+        load('a = one\n# inside\n  two\nb = 2\n', comments=True),
+        {'a': 'one\ntwo', Comment('# inside', 0): None, 'b': '2'},
+        'inside a value, after its key',
+    )
+    is_deeply_ok(load('a = one\n# inside\n  two\n'), {'a': 'one\ntwo'}, 'left out by default')
+    is_deeply_ok(
+        load('[s]\n#\n[t]\n#\n', comments=True),
+        {'s': {Comment('#', 0): None}, 't': {Comment('#', 0): None}},
+        'each dict',
+    )
+
+with subtest('Dump comments'):
+    is_ok(
+        dump({'; top': None, 's': {Comment('#', 0): None, 'a': 1, Comment('#', 1): None}}),
+        '; top\n\n[s]\n#\na = 1\n#\n',
+        'lines',
+    )
+    for key in ('; a\n; b', '; a '):
+        throws_ok(
+            lambda key=key: dump({key: None}), re.compile(r'^INI does not support the comment '), f'comment {key!r}'
+        )
+    throws_ok(lambda: dump({'; a': 1}), re.compile(r'^INI does not support the key "; a"'), 'with a value')
+    throws_ok(
+        lambda: dump({'s': {'a': {'; b': None}}}), re.compile(r'^INI does not support the key "; b"'), 'in a dict'
+    )
+
 with subtest('Dump round trip'):
     for name, string in (('~/.aws/config', AWS_CONFIG), ('php.ini', PHP_INI)):
         value = load(string)
         is_deeply_ok(load(dump(value)), value, name)
+        value = load(string, comments=True)
+        is_deeply_ok(load(dump(value), comments=True), value, f'{name} with comments')
+    is_ok(dump(load(PHP_INI, comments=True)), PHP_INI, 'php.ini with comments, as it is')
 
 done_testing()

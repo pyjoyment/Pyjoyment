@@ -28,6 +28,15 @@ there are no comments after a value, as in :mod:`configparser`. ::
     # {'root': 'true', '*.py': {'indent_size': '4'}}
     load('root = true\\n\\n[*.py]\\nindent_size = 4\\n')
 
+The comments are left out, or kept with ``comments``, each line a key of the
+value ``None``, in the order of the file, which :func:`dump` writes as it is,
+so that a file that is changed keeps them. The key is a :class:`Comment`, a
+string that counts the same comments before it in its dict, so that a
+comment that comes again is a key of its own. ::
+
+    # {Comment('; the region', 0): None, 'region': 'eu-central-1'}
+    load('; the region\\nregion = eu-central-1\\n', comments=True)
+
 A value is a string. A line indented more than its key continues its value,
 whose lines are joined with ``\\n``, and a blank line ends it. An empty value
 whose lines are all ``key = value`` is a dict, as the nested settings of
@@ -42,12 +51,16 @@ values, in their order, as ``extension`` of ``php.ini``. ::
 
 :func:`dump` writes the same: the keys at the top first, then the sections, a
 dict of a dict, a list as its key again for each of its values, a dict in a
-section as an indented block, ``None`` as a key alone, and ``True`` and
-``False`` as ``true`` and ``false``. A key is never quoted, as php-fpm takes a
-key with a dot, as ``pm.max_children``, only as it is. ::
+section as an indented block, ``None`` as a key alone, a key that starts with
+``;`` or ``#`` of the value ``None`` as a comment, and ``True`` and ``False`` as
+``true`` and ``false``. A key is never quoted, as php-fpm takes a key with a
+dot, as ``pm.max_children``, only as it is. ::
 
     # '[default]\\nregion = eu-central-1\\n'
     dump({'default': {'region': 'eu-central-1'}})
+
+    # '[www]\\n; the workers\\npm.max_children = 2\\n'
+    dump({'www': {'; the workers': None, 'pm.max_children': 2}})
 
 What INI cannot hold raises an error: a dict deeper than a dict in a section,
 a list in a list, an empty list, a value with spaces at the ends of a line,
@@ -69,7 +82,7 @@ from Pyjo.YAML import _data  # pyright: ignore[reportPrivateUsage]
 import datetime
 import re
 
-from typing import Any, cast
+from typing import Any, Self, cast
 
 
 # The delimiter of a key and its value, the first of the line, as configparser has it
@@ -77,6 +90,41 @@ _RE_DELIMITER = re.compile(r'[=:]')
 
 # The indentation of a line that continues a value or of a block of a dict in a section
 _INDENT = '    '
+
+
+class Comment(str):
+    """::
+
+        comment = Comment('; the region')
+        comment = Comment('#', 1)
+
+    A line of a comment, the key of the value ``None`` that :func:`load` gives
+    with ``comments``, with ``occurrence``, the number of the same comments
+    before it in its dict, so that two of them are two keys. It equals only a
+    :class:`Comment` of the same line and occurrence. ::
+
+        # {Comment('#', 0): None, Comment('#', 1): None}
+        load('#\\n#\\n', comments=True)
+    """
+
+    occurrence: int
+
+    def __new__(cls, line: str, occurrence: int = 0) -> Self:
+        comment = super().__new__(cls, line)
+        comment.occurrence = occurrence
+        return comment
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Comment) and str.__eq__(self, other) and self.occurrence == other.occurrence
+
+    def __hash__(self) -> int:
+        return hash((str.__str__(self), self.occurrence))
+
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+
+    def __repr__(self) -> str:
+        return f'Comment({str.__repr__(self)}, {self.occurrence})'
 
 
 def dump(value: Any, *, sort_keys: bool = False) -> str:
@@ -98,7 +146,9 @@ def dump(value: Any, *, sort_keys: bool = False) -> str:
     sections: list[tuple[str, dict[Any, Any]]] = []
     for key, item in _items(cast(dict[Any, Any], table), sort_keys):
         item = _data(item)
-        if isinstance(item, dict):
+        if _is_comment(key, item):
+            lines.append(_comment(key))
+        elif isinstance(item, dict):
             sections.append((_section(key), cast(dict[Any, Any], item)))
         else:
             _pairs(lines, _key(key), item, 0, sort_keys)
@@ -107,19 +157,25 @@ def dump(value: Any, *, sort_keys: bool = False) -> str:
             lines.append('')
         lines.append(f'[{name}]')
         for key, item in _items(section, sort_keys):
-            _pairs(lines, _key(key), _data(item), 1, sort_keys)
+            item = _data(item)
+            if _is_comment(key, item):
+                lines.append(_comment(key))
+            else:
+                _pairs(lines, _key(key), item, 1, sort_keys)
     return ''.join(f'{line}\n' for line in lines)
 
 
-def load(string: str, *, unquote: bool = False) -> dict[str, Any]:
+def load(string: str, *, comments: bool = False, unquote: bool = False) -> dict[str, Any]:
     """::
 
         value = load(string)
+        value = load(string, comments=True)
         value = load(string, unquote=True)
 
-    Load an INI string, whose error is a :mod:`Pyjo.Exception`, with the
-    quotes around a value kept, as :mod:`configparser` keeps them, or taken
-    off with ``unquote``, as PHP does. ::
+    Load an INI string, whose error is a :mod:`Pyjo.Exception`, without its
+    comments, or with them with ``comments``, and with the quotes around a
+    value kept, as :mod:`configparser` keeps them, or taken off with
+    ``unquote``, as PHP does. ::
 
         # {'PHP': {'error_log': '"/var/log/php.log"'}}
         load('[PHP]\\nerror_log = "/var/log/php.log"\\n')
@@ -127,7 +183,7 @@ def load(string: str, *, unquote: bool = False) -> dict[str, Any]:
         # {'PHP': {'error_log': '/var/log/php.log'}}
         load('[PHP]\\nerror_log = "/var/log/php.log"\\n', unquote=True)
     """
-    loader = _Loader(unquote)
+    loader = _Loader(comments, unquote)
     for number, line in enumerate(string.splitlines(), 1):
         loader.line(number, line)
     loader.end()
@@ -135,7 +191,8 @@ def load(string: str, *, unquote: bool = False) -> dict[str, Any]:
 
 
 class _Loader:
-    def __init__(self, unquote: bool) -> None:
+    def __init__(self, comments: bool, unquote: bool) -> None:
+        self.comments = comments
         self.unquote = unquote
         self.result: dict[str, Any] = {}
         self.section = self.result
@@ -144,6 +201,12 @@ class _Loader:
         self.key: str | None = None
         self.indent = 0
         self.lines: list[str] | None = None
+        # The comments between the lines of the value that is read, which come after its key
+        self.pending: list[str] = []
+
+    def comment(self, line: str) -> None:
+        occurrence = sum(1 for key in self.section if isinstance(key, Comment) and str.__eq__(key, line))
+        self.section[Comment(line, occurrence)] = None
 
     def end(self) -> None:
         # The value of the key that is read, which a key that comes again in a section adds to a list
@@ -152,6 +215,9 @@ class _Loader:
         key, value = self.key, self.value()
         self.key = None
         _add(self.section, key, value)
+        for line in self.pending:
+            self.comment(line)
+        self.pending.clear()
 
     def line(self, number: int, line: str) -> None:
         stripped = line.strip()
@@ -159,6 +225,10 @@ class _Loader:
             self.end()
             return
         if stripped[0] in ';#':
+            if self.comments and self.key is not None:
+                self.pending.append(stripped)
+            elif self.comments:
+                self.comment(stripped)
             return
         indent = len(line) - len(line.lstrip())
         if self.key is not None and indent > self.indent:
@@ -211,8 +281,20 @@ def _add(mapping: dict[str, Any], key: str, value: Any) -> None:
         mapping[key] = [existing, value]
 
 
+def _comment(key: Any) -> str:
+    # The line of a comment, which the loader reads back as the same comment
+    string = str.__str__(key)
+    if '\n' in string or '\r' in string or string != string.strip():
+        raise _error(f'does not support the comment "{string}"')
+    return string
+
+
 def _error(message: str) -> Pyjo.Exception.object:
     return Pyjo.Exception.new(f'INI {message}')
+
+
+def _is_comment(key: Any, value: Any) -> bool:
+    return isinstance(key, str) and key[:1] in (';', '#') and value is None
 
 
 def _items(mapping: dict[Any, Any], sort_keys: bool) -> list[tuple[Any, Any]]:
