@@ -29,7 +29,8 @@ def main(argv: list[str] | None = None) -> None:
         exec(compile(code, '<string>', 'exec'), namespace)
         return
     if (value := eval(expression, namespace)) is not None:
-        print(value)
+        # Bytes, as of j or a body, printed as Pyjo.String.Bytes prints them, where print would write their repr
+        print(Pyjo.b(value) if isinstance(value, (bytes, bytearray)) else value)
 
 
 if __name__ == '__main__':

@@ -126,6 +126,8 @@ with subtest('python -m Pyjo'):
     is_ok(result.stdout, 'works\n', 'value of an expression printed')
     is_ok(result.returncode, 0, 'right exit status')
     is_ok(one_liner('None').stdout, '', 'nothing printed for None')
+    is_ok(one_liner('j({"a": 1})').stdout, '{"a":1}\n', 'bytes printed as they are')
+    is_ok(one_liner('bytearray(b"\\xff")').stdout, '\xff\n', 'bytes that are not UTF-8')
     is_ok(one_liner('print(c(1, 2, 3).join("-"))').stdout, '1-2-3\n', 'statement')
     is_ok(one_liner('z.object(a=z.int()).validate({"a": 1}).is_valid').stdout, 'True\n', 'builder of JSON Schema')
     is_ok(one_liner('import sys; print(sys.argv)', 'a', 'b').stdout, "['-c', 'a', 'b']\n", 'arguments')
