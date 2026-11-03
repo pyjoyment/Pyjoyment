@@ -277,6 +277,19 @@ with subtest('x'):
     dir.child('test.html').spew(HTML.encode())
     is_ok(one_liner('x(f("test.html").slurp()).at("title").text', cwd=dir.to_str()).stdout, 'Mojolicious\n', 'file')
 
+with subtest('y'):
+    string = y([1, 2, 3])
+    is_ok(string, '- 1\n- 2\n- 3\n', 'list')
+    string = y({'foo': 'bar'})
+    is_ok(string, 'foo: bar\n', 'dict')
+    value = y(string)
+    is_deeply_ok(value, {'foo': 'bar'}, 'loaded')
+    dir = Pyjo.File.tempdir()
+    dir.child('hello.json').spew(b'{"hello": "world!"}')
+    dir.child('hello.yaml').spew(b'hello: world!\n')
+    is_ok(one_liner('y(j(f("hello.json").slurp()))', cwd=dir.to_str()).stdout, 'hello: world!\n\n', 'JSON to YAML')
+    is_ok(one_liner('r(y(f("hello.yaml").slurp()))', cwd=dir.to_str()).stdout, "{'hello': 'world!'}\n\n", 'r')
+
 with subtest('z'):
     schema = z.object(name=z.string(), stars=z.int().min(0))
     ok(schema.validate({'name': 'Pyjoyment', 'stars': 1}), 'schema')

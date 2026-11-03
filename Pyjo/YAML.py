@@ -3,7 +3,7 @@ Pyjo.YAML - Minimal YAML loader and dumper
 ==========================================
 ::
 
-    from Pyjo.YAML import dump, dump_all, load, load_all
+    from Pyjo.YAML import dump, dump_all, load, load_all, y
 
     config = load(\"\"\"\\
     foo: bar
@@ -15,6 +15,9 @@ Pyjo.YAML - Minimal YAML loader and dumper
     documents = load_all('--- first\\n--- second\\n')
 
     string = dump({'foo': 'bar', 'list': ['one', 'two']})
+
+    string = y({'foo': 'bar'})
+    value = y(string)
 
 :mod:`Pyjo.YAML` loads and dumps the YAML that configuration files and
 workflows use, a subset of `YAML 1.2 <https://yaml.org>`_, which
@@ -107,7 +110,7 @@ import math
 import re
 
 from collections.abc import Callable, Iterable
-from typing import Any, Literal, cast
+from typing import Any, Literal, cast, overload
 
 
 # The regular expressions of CPAN::Meta::YAML
@@ -275,6 +278,39 @@ def load_all(string: str) -> list[Any]:
         load_all('--- first\\n--- second\\n')
     """
     return _Loader(string).documents()
+
+
+@overload
+def y(value: list[Any] | tuple[Any, ...] | dict[Any, Any], *, sort_keys: bool = False) -> str: ...
+
+
+@overload
+def y(value: bytes | bytearray | str, *, sort_keys: bool = False) -> Any: ...
+
+
+def y(value: list[Any] | tuple[Any, ...] | dict[Any, Any] | bytes | bytearray | str, *, sort_keys: bool = False) -> Any:
+    """::
+
+        string = y([1, 2, 3])
+        string = y({'foo': 'bar'})
+        string = y({'foo': 'bar'}, sort_keys=True)
+        value = y(string)
+
+    Dump Python data structure (which may only be a :class:`list`, a
+    :class:`tuple` or a :class:`dict`) with :func:`dump`, or load YAML, a
+    string or ``UTF-8`` bytes, with :func:`load`, as :func:`Pyjo.JSON.j` does
+    for JSON. ``sort_keys`` sorts the keys of the mappings of the YAML that it
+    dumps. ::
+
+        # 'foo: bar\\n'
+        y({'foo': 'bar'})
+
+        # {'foo': 'bar'}
+        y(b'foo: bar\\n')
+    """
+    if isinstance(value, (list, tuple, dict)):
+        return dump(value, sort_keys=sort_keys)
+    return load(value if isinstance(value, str) else bytes(value).decode('UTF-8'))
 
 
 def _error(message: str) -> Pyjo.Exception.object:

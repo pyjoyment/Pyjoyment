@@ -115,7 +115,7 @@ PYJO_MAX_REDIRECTS=0 python -m Pyjo 'g("http://github.com").code'
 ```
 
 `from Pyjo import *` gives the same functions to a script: `g`, `p`, `w`
-and the other methods of HTTP, `x` for the DOM, `j` for JSON.
+and the other methods of HTTP, `x` for the DOM, `j` for JSON, `y` for YAML.
 
 ## Mistakes
 

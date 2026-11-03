@@ -116,7 +116,7 @@ __path__ = extend_path(__path__, __name__)
 
 # The functions of ojo, which the modules they use are imported for when they are called, so that a module of Pyjo
 # does not import them
-__all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 't', 'u', 'w', 'x', 'z']
+__all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 't', 'u', 'w', 'x', 'y', 'z']
 
 _agent: 'Pyjo.UserAgent.object | None' = None
 
@@ -429,6 +429,24 @@ def x(*args: Any) -> 'Pyjo.DOM.object':
     import Pyjo.DOM
 
     return Pyjo.DOM.new(*args)
+
+
+# Not in Mojolicious: YAML, as j is for JSON
+def y(value: Any) -> Any:
+    """::
+
+        string = y([1, 2, 3])
+        string = y({'foo': 'bar'})
+        value = y(string)
+
+    Dump Python data structure or load YAML with :func:`Pyjo.YAML.y`. ::
+
+        $ python -m Pyjo 'y(j(f("hello.json").slurp()))'
+        $ python -m Pyjo 'r(y(f("hello.yaml").slurp()))'
+    """
+    import Pyjo.YAML
+
+    return Pyjo.YAML.y(value)
 
 
 # Not in Mojolicious: the builder of Pyjo.JSON.Schema, as z of zod, which imports the module when one of its methods is

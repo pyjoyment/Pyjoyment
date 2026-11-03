@@ -22,6 +22,13 @@ list:
     string = dump({'foo': 'bar', 'list': ['one', 'two']})
     is_ok(string, 'foo: bar\nlist:\n  - one\n  - two\n', 'dump')
 
+    from Pyjo.YAML import y
+
+    string = y({'foo': 'bar'})
+    is_ok(string, 'foo: bar\n', 'y dumps')
+    value = y(string)
+    is_deeply_ok(value, {'foo': 'bar'}, 'y loads')
+
 with subtest('Description'):
     # {'foo': [1, True, 'yes', '2']}
     is_deeply_ok(load("foo:\n  - 1\n  - true\n  - yes\n  - '2'\n"), {'foo': [1, True, 'yes', '2']}, 'types')
@@ -83,5 +90,21 @@ with subtest('load_all'):
 
     # ['first', 'second']
     is_deeply_ok(values, ['first', 'second'], 'values')
+
+with subtest('y'):
+    string = y([1, 2, 3])
+    is_ok(string, '- 1\n- 2\n- 3\n', 'list')
+    string = y({'foo': 'bar'})
+    is_ok(string, 'foo: bar\n', 'dict')
+    string = y({'foo': 'bar', 'baz': 1}, sort_keys=True)
+    is_ok(string, 'baz: 1\nfoo: bar\n', 'sorted')
+    value = y(string)
+    is_deeply_ok(value, {'baz': 1, 'foo': 'bar'}, 'loaded')
+
+    # 'foo: bar\n'
+    is_ok(y({'foo': 'bar'}), 'foo: bar\n', 'dump')
+
+    # {'foo': 'bar'}
+    is_deeply_ok(y(b'foo: bar\n'), {'foo': 'bar'}, 'load')
 
 done_testing()

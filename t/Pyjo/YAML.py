@@ -1,5 +1,5 @@
 from Pyjo.Test import *
-from Pyjo.YAML import dump, dump_all, load, load_all
+from Pyjo.YAML import dump, dump_all, load, load_all, y
 
 import datetime
 import re
@@ -459,6 +459,15 @@ with subtest('Dump the order of the keys'):
     is_ok(dump(value, sort_keys=True), "a:\n  c: 3\n  d:\n    - 'y': 2\n      z: 1\nb: 1\n", 'keys sorted')
     is_ok(dump_all([{'b': 1, 'a': 2}, {'d': 3, 'c': 4}], sort_keys=True), 'a: 2\nb: 1\n---\nc: 4\nd: 3\n', 'documents')
     is_ok(dump({2: 'two', 1: 'one'}, sort_keys=True), '1: one\n2: two\n', 'keys that are not strings')
+
+with subtest('y'):
+    is_ok(y((1, 2)), '- 1\n- 2\n', 'tuple')
+    is_ok(y({}), '--- {}\n', 'empty dict')
+    is_deeply_ok(y(bytearray(b'- \xe2\x99\xa5\n')), ['\u2665'], 'bytearray of UTF-8')
+    is_ok(y(''), None, 'empty string')
+    is_deeply_ok(y('--- first\n--- second\n'), 'second', 'last document')
+    throws_ok(lambda: y('foo: !tag bar'), re.compile(r'^YAML does not support a feature'), 'error')
+    is_deeply_ok(y(y({'b': [1, {'a': None}]})), {'b': [1, {'a': None}]}, 'round trip')
 
 with subtest('Dump round trip'):
     data = {

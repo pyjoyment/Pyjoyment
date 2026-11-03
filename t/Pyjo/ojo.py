@@ -53,6 +53,13 @@ with subtest('JSON'):
     is_ok(j({'foo': 'bar'}), b'{"foo":"bar"}', 'right result')
     is_deeply_ok(j(b'{"foo":"bar"}'), {'foo': 'bar'}, 'right structure')
 
+# Not in Mojolicious: y, as j is for JSON
+with subtest('YAML'):
+    is_ok(y([1, 2]), '- 1\n- 2\n', 'right result')
+    is_deeply_ok(y('- 1\n- 2\n'), [1, 2], 'right structure')
+    is_ok(y({'foo': 'bar'}), 'foo: bar\n', 'right result')
+    is_deeply_ok(y(b'foo: bar\n'), {'foo': 'bar'}, 'right structure')
+
 with subtest('ByteStream'):
     is_ok(u('<foo>').url_escape(), '%3Cfoo%3E', 'right result')
 
