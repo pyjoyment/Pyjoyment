@@ -32,12 +32,17 @@ skipped unless `TEST_ONLINE` is set, as in Mojolicious. Its hosts are those of
 GitHub, which the runners of GitHub Actions reach the most reliably, as are
 the pages that the examples of the guides request, where Mojolicious requests
 its own site, which Pyjoyment does not have yet, so CI sets `TEST_ONLINE` in
-every job of its matrix.
+every job of its matrix. The requests to them are in a subtest with
+`reruns=2, reruns_delay=10`, so that a failure of the network runs it again
+instead of failing the job; such a subtest is a decorator or has a callback,
+as the block of `with` runs once, and makes its user agent itself, so that a
+rerun does not take the connections that the run before it kept alive.
 
-CI runs the tests with `--timeout 60`: a test script that hangs, such as a
+CI runs the tests with `--timeout 120`: a test script that hangs, such as a
 reactor that never stops, is killed with the processes it started and fails
 with its name, instead of the job running out of time. The slowest script
-takes a few seconds.
+takes a few seconds, and a script online up to a minute more, with the reruns
+of a subtest of a remote host that fails.
 
 A server that a test starts in a process of its own, as those of
 `Pyjo.Server.Hot`, `Pyjo.Server.Reload` and `Pyjo.Server.Prefork`, listens on

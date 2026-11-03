@@ -44,9 +44,16 @@ def remote_address(c):
 
 
 loop = Pyjo.IOLoop.singleton
-ua = Pyjo.UserAgent.new()
 
-with subtest('Make sure user agents dont taint the ioloop'):
+# Unlike Mojolicious: a subtest that requests a remote host runs again after a failure of the network, with a user agent
+# of its own, so that a rerun does not take the connections that the run before it kept alive, where Mojo runs it once,
+# with a user agent that the subtests after it share
+RERUNS = {'reruns': 2, 'reruns_delay': 10}
+
+
+@subtest('Make sure user agents dont taint the ioloop', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     result = {}
 
     def cb(ua, tx):
@@ -63,9 +70,10 @@ with subtest('Make sure user agents dont taint the ioloop'):
     ok(not loop.stream(result['id']), 'loop not tainted')
     is_ok(result['code'], 301, 'right status')
 
-ua = Pyjo.UserAgent.new()
 
-with subtest('Local address'):
+@subtest('Local address', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     ua.server.app = app
     with socket.create_connection(('github.com', 80)) as sock:
         address = sock.getsockname()[0]
@@ -82,6 +90,7 @@ with subtest('Local address'):
         skip('no loopback from another address on Windows', 1)
     else:
         is_ok(ua.get('/remote_address').res.body, address.encode(), 'right address')
+
 
 ua = Pyjo.UserAgent.new()
 port = Pyjo.IOLoop.Server.object.generate_port()
@@ -110,9 +119,10 @@ with subtest('Host does not exist'):
     ok(tx.is_finished, 'transaction is finished')
     ok(tx.error, 'has error')
 
-ua = Pyjo.UserAgent.new()
 
-with subtest('Keep-alive'):
+@subtest('Keep-alive', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     ua.get('http://github.com', lambda ua, tx: Pyjo.IOLoop.singleton.stop())
     Pyjo.IOLoop.singleton.start()
     kept_alive = []
@@ -125,7 +135,13 @@ with subtest('Keep-alive'):
     Pyjo.IOLoop.singleton.start()
     ok(kept_alive[0], 'connection was kept alive')
 
-with subtest('Nested keep-alive'):
+
+@subtest('Nested keep-alive', **RERUNS)
+def _():
+    # Not in Mojolicious: a request opens the connection, which Mojo keeps alive from the subtest before
+    ua = Pyjo.UserAgent.new()
+    ua.get('http://github.com', lambda ua, tx: Pyjo.IOLoop.singleton.stop())
+    Pyjo.IOLoop.singleton.start()
     kept_alive = []
 
     def first(ua, tx):
@@ -146,9 +162,10 @@ with subtest('Nested keep-alive'):
     Pyjo.IOLoop.singleton.start()
     is_deeply_ok(kept_alive, [True, True, True], 'connections kept alive')
 
-ua = Pyjo.UserAgent.new()
 
-with subtest('Custom non-keep-alive request'):
+@subtest('Custom non-keep-alive request', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     tx = Pyjo.Transaction.HTTP.new()
     tx.req.method = 'GET'
     tx.req.url.parse('http://github.com')
@@ -158,7 +175,9 @@ with subtest('Custom non-keep-alive request'):
     is_ok(tx.res.code, 301, 'right status')
     like_ok(tx.res.headers.connection, r'(?i)close', 'right "Connection" header')
 
-with subtest('One-liner'):
+
+@subtest('One-liner', **RERUNS)
+def _():
     is_ok(g('github.com').code, 200, 'right status')
     is_ok(h('github.com').code, 200, 'right status')
     is_ok(h('github.com').body, b'', 'no content')
@@ -168,13 +187,19 @@ with subtest('One-liner'):
     like_ok(res.body, rb'GitHub', 'right content')
     is_ok(res.code, 422, 'right status')
 
-with subtest('Simple request'):
+
+@subtest('Simple request', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     tx = ua.get('github.com')
     is_ok(tx.req.method, 'GET', 'right method')
     is_ok(str(tx.req.url), 'http://github.com', 'right url')
     is_ok(tx.res.code, 301, 'right status')
 
-with subtest('Simple keep-alive requests'):
+
+@subtest('Simple keep-alive requests', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     tx = ua.get('https://github.com')
     is_ok(tx.req.method, 'GET', 'right method')
     is_ok(str(tx.req.url), 'https://github.com', 'right url')
@@ -195,15 +220,19 @@ with subtest('Simple keep-alive requests'):
     ok(tx.keep_alive, 'connection will be kept alive')
     ok(tx.kept_alive, 'connection was kept alive')
 
-with subtest('Simple HTTPS request'):
+
+@subtest('Simple HTTPS request', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     tx = ua.get('https://github.com')
     is_ok(tx.req.method, 'GET', 'right method')
     is_ok(str(tx.req.url), 'https://github.com', 'right url')
     is_ok(tx.res.code, 200, 'right status')
 
-ua = Pyjo.UserAgent.new()
 
-with subtest('Simple keep-alive form POST'):
+@subtest('Simple keep-alive form POST', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     tx = ua.post('https://github.com/pyjoyment/Pyjoyment', form={'q': 'mojolicious'})
     is_ok(tx.req.method, 'POST', 'right method')
     is_ok(str(tx.req.url), 'https://github.com/pyjoyment/Pyjoyment', 'right url')
@@ -226,7 +255,10 @@ with subtest('Simple keep-alive form POST'):
     ok(tx.remote_address, 'has remote address')
     ok(tx.remote_port > 0, 'has remote port')
 
-with subtest('Simple request with redirect'):
+
+@subtest('Simple request with redirect', **RERUNS)
+def _():
+    ua = Pyjo.UserAgent.new()
     ua.max_redirects = 3
     tx = ua.get('http://github.com/pyjoyment')
     ua.max_redirects = 0
@@ -239,6 +271,9 @@ with subtest('Simple request with redirect'):
     is_ok(tx.redirects()[-1].req.method, 'GET', 'right method')
     is_ok(str(tx.redirects()[-1].req.url), 'http://github.com/pyjoyment', 'right url')
     is_ok(tx.redirects()[-1].res.code, 301, 'right status')
+
+
+ua = Pyjo.UserAgent.new()
 
 with subtest('Connect timeout (non-routable address)'):
     ua.connect_timeout = 0.5

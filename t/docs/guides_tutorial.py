@@ -252,9 +252,13 @@ with subtest('User agent'):
     t.get_ok('/headers?url=/page').status_is(200).json_is(['One', 'Two', 'Three'])
 
     if os.environ.get('TEST_ONLINE'):
-        t.get_ok('/title').status_is(200).content_like(re.compile(r'Mojolicious'))
-        t.get_ok('/titles').status_is(200).json_like('/mojo', re.compile(r'Mojolicious'))
-        t.json_like('/pyjo', re.compile(r'Pyjoyment'))
+
+        @subtest('Remote hosts', reruns=2, reruns_delay=10)
+        def _():
+            t.get_ok('/title').status_is(200).content_like(re.compile(r'Mojolicious'))
+            t.get_ok('/titles').status_is(200).json_like('/mojo', re.compile(r'Mojolicious'))
+            t.json_like('/pyjo', re.compile(r'Pyjoyment'))
+
 
 with subtest('WebSockets'):
     t = tutorial('websockets')

@@ -69,7 +69,7 @@ jobs:
           TEST_ONLINE: "1"
         run: |
           python --version
-          python -m Pyjo.Prove -l --color -j 4 --timeout 60 --capture-stderr --stderr-lines 1000 --formatter junit=prove-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY" -r t 2>&1 | tee prove.log
+          python -m Pyjo.Prove -l --color -j 4 --timeout 120 --capture-stderr --stderr-lines 1000 --formatter junit=prove-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY" -r t 2>&1 | tee prove.log
           if grep -n 'ResourceWarning:' prove.log; then exit 1; fi
 
       # The JUnit XML of the harness, as the annotations of the failed tests,
@@ -131,7 +131,7 @@ jobs:
           TEST_ONLINE: "1"
         run: |
           python --version
-          python -m Pyjo.Prove -l --color -j 4 --timeout 60 --capture-stderr --stderr-lines 1000 --formatter junit=prove-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY" -r t 2>&1 | tee prove.log
+          python -m Pyjo.Prove -l --color -j 4 --timeout 120 --capture-stderr --stderr-lines 1000 --formatter junit=prove-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY" -r t 2>&1 | tee prove.log
           if grep -n 'ResourceWarning:' prove.log; then exit 1; fi
 
       # As above.
@@ -198,7 +198,7 @@ jobs:
           TEST_ONLINE: "1"
         run: |-
           python --version
-          python -m Pyjo.Prove -l --color -j 4 --timeout 60 --capture-stderr --stderr-lines 1000 --formatter junit=prove-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY" -r t 2>&1 | tee prove.log
+          python -m Pyjo.Prove -l --color -j 4 --timeout 120 --capture-stderr --stderr-lines 1000 --formatter junit=prove-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY" -r t 2>&1 | tee prove.log
           if grep -n 'ResourceWarning:' prove.log; then exit 1; fi
 
       # As above.
