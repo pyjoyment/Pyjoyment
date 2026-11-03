@@ -106,6 +106,12 @@ def decode_json(data: bytes | bytearray | str) -> Any:
         value = decode_json(data)
 
     Decode JSON to Python value and raise :exc:`ValueError` if decoding fails.
+    Bytes are ``UTF-8``, or ``UTF-16`` or ``UTF-32``, with a byte order mark or
+    without one, as :func:`json.loads` detects them, where a byte order mark
+    is not a part of the JSON. ::
+
+        # {'a': 1}
+        decode_json(b'\\xff\\xfe{\\x00"\\x00a\\x00"\\x00:\\x001\\x00}\\x00')
     """
     # Not in Mojolicious: the json module of the standard library, which takes
     # the place of Cpanel::JSON::XS
@@ -238,8 +244,16 @@ def _chars(data: bytes | bytearray | str, chars: bool) -> str:
     if isinstance(data, str) and chars:
         return data
 
+    # Unlike Mojolicious: the bytes of a whole document are UTF-8, UTF-16 or UTF-32, with a byte order mark that is not
+    # a part of the JSON, as json.loads detects them, where Mojo decodes UTF-8 only, and keeps its byte order mark
+    if isinstance(data, (bytes, bytearray)):
+        encoding = json.detect_encoding(data)
+        if (text := decode(encoding, bytes(data))) is None:
+            raise ValueError(f'Input is not {encoding[:6].rstrip("-").upper()} encoded')
+        return text
+
     # UTF-8
-    text = decode('UTF-8', bytes(data) if isinstance(data, bytearray) else data)
+    text = decode('UTF-8', data)
     if text is None:
         raise ValueError('Input is not UTF-8 encoded')
     return text

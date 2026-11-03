@@ -461,4 +461,14 @@ with subtest('Maximum nesting level'):
     )
     ok(decode_json('[' * 512 + ']' * 512), 'decode deeply nested array again')
 
+# Unlike Mojolicious: the bytes of a whole document are UTF-8, UTF-16 or UTF-32, with a byte order mark that is not a
+# part of the JSON, as json.loads detects them, where Mojo decodes UTF-8 only
+with subtest('Encodings of bytes'):
+    for encoding in ('UTF-8-SIG', 'UTF-16', 'UTF-16LE', 'UTF-16BE', 'UTF-32', 'UTF-32LE', 'UTF-32BE'):
+        is_deeply_ok(decode_json('{"♥": [1]}'.encode(encoding)), {'♥': [1]}, encoding)
+        is_deeply_ok(decode_json(bytearray('"♥"'.encode(encoding))), '♥', f'{encoding} of a bytearray')
+    is_deeply_ok(j('{"a":1}'.encode('UTF-16')), {'a': 1}, 'j')
+    throws_ok(lambda: decode_json(b'\xff\xfe[\x00]'), re.compile(r'^Input is not UTF-16 encoded'), 'odd UTF-16')
+    throws_ok(lambda: decode_json('\ufeff[1]'), re.compile(r'^Input is not UTF-8 encoded'), 'characters of a string')
+
 done_testing()

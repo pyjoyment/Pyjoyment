@@ -36,6 +36,9 @@ with subtest('decode_json'):
     value = decode_json(data)
     is_ok(value, {'foo': [1, 2], 'bar': 'hello!', 'baz': True}, 'value')
 
+    # {'a': 1}
+    is_ok(decode_json(b'\xff\xfe{\x00"\x00a\x00"\x00:\x001\x00}\x00'), {'a': 1}, 'UTF-16LE')
+
 with subtest('default'):
     import Pyjo.JSON
     import Pyjo.URL
