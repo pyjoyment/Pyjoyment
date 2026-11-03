@@ -22,6 +22,16 @@ of its own for it. A reactor passes the whole test suite of Pyjoyment.
 - `Pyjo.Reactor.Twisted - Low-level event reactor with Twisted support
   <https://pyjoyment.readthedocs.io/projects/pyjo-reactor-twisted/en/latest/>`_
 
+Layers of AWS Lambda
+--------------------
+
+The public layers of AWS Lambda with Python and with Pyjoyment, which
+:mod:`Pyjoyment.Command.Author.generate.lambda_zip` builds, are published
+for the event functions of Pyjoyment, which take them by their ARNs.
+
+- `Pyjoyment-Lambda-Layers - Public layers of AWS Lambda with Python and Pyjoyment
+  <https://github.com/pyjoyment/Pyjoyment-Lambda-Layers>`_
+
 Protocols
 ---------
 

@@ -5,7 +5,10 @@ locals {
   dist = "${path.module}/function/dist"
 }
 
+# The layer of Python, unless the function takes the public one
 resource "aws_lambda_layer_version" "python" {
+  count = var.public_layers ? 0 : 1
+
   layer_name               = "${var.name}-python"
   filename                 = "${local.dist}/python.zip"
   source_code_hash         = filebase64sha256("${local.dist}/python.zip")
@@ -14,9 +17,9 @@ resource "aws_lambda_layer_version" "python" {
 }
 
 # The layer of Pyjoyment, in the site-packages of the Python of the function, unless the variable "pyjoyment_layer"
-# names one that is published already
+# names one that is published already or the function takes the public one
 resource "aws_lambda_layer_version" "pyjoyment" {
-  count = var.pyjoyment_layer == null ? 1 : 0
+  count = var.pyjoyment_layer == null && !var.public_layers ? 1 : 0
 
   layer_name               = "${var.name}-pyjoyment"
   filename                 = "${local.dist}/pyjoyment.zip"
@@ -26,7 +29,16 @@ resource "aws_lambda_layer_version" "pyjoyment" {
 }
 
 locals {
-  pyjoyment_layer = var.pyjoyment_layer != null ? var.pyjoyment_layer : aws_lambda_layer_version.pyjoyment[0].arn
+  region = data.aws_region.current.region
+  python_layer = (
+    var.public_layers ? local.public_layers["${local.python_name}-${var.arch}"][local.region]
+    : aws_lambda_layer_version.python[0].arn
+  )
+  pyjoyment_layer = (
+    var.pyjoyment_layer != null ? var.pyjoyment_layer
+    : var.public_layers ? local.public_layers["pyjoyment-${local.python_name}"][local.region]
+    : aws_lambda_layer_version.pyjoyment[0].arn
+  )
 }
 
 resource "aws_iam_role" "function" {
@@ -62,7 +74,7 @@ resource "aws_lambda_function" "function" {
   handler          = "app.handler"
   filename         = "${local.dist}/function.zip"
   source_code_hash = filebase64sha256("${local.dist}/function.zip")
-  layers           = [aws_lambda_layer_version.python.arn, local.pyjoyment_layer]
+  layers           = [local.python_layer, local.pyjoyment_layer]
   memory_size      = 128
   timeout          = 10
 

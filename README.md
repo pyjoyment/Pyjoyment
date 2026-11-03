@@ -248,6 +248,11 @@ runtime client of Pyjoyment:
 exec python3 -m Pyjo.Server.Lambda
 ```
 
+The public layers of
+[Pyjoyment-Lambda-Layers](https://github.com/pyjoyment/Pyjoyment-Lambda-Layers)
+bring Python, of any version, and Pyjoyment to such a function, which carries
+its application only, as `generate lambda-zip --function-only` writes it.
+
 ## Integration
 
 An application talks to the services around it from the same event loop that

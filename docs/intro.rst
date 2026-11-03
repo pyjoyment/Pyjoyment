@@ -201,6 +201,11 @@ runtime client of Pyjoyment:
     .. include:: ../examples/servers/bootstrap
        :code: sh
 
+The public layers of `Pyjoyment-Lambda-Layers
+<https://github.com/pyjoyment/Pyjoyment-Lambda-Layers>`_ bring Python, of any
+version, and Pyjoyment to such a function, which carries its application only,
+as ``generate lambda-zip --function-only`` writes it.
+
 Integration
 -----------
 

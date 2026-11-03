@@ -68,6 +68,7 @@ python app.py generate pyproject                   # the project of uv, with the
 python app.py generate dockerfile -p 8080          # Dockerfile and .dockerignore, prefork with a HEALTHCHECK of /livez
 python app.py generate kubernetes -i myapp         # kubernetes/base, dev and prod for Kustomize
 python app.py generate lambda-zip                  # the ZIP files of a function and of its layers
+python app.py generate lambda-zip --function-only  # the function alone, for the public layers
 docker build -t myapp . && docker run -p 8080:8080 myapp
 kubectl apply -k kubernetes/prod
 ```
@@ -80,6 +81,14 @@ kubectl apply -k kubernetes/prod
   `/readyz` and the graceful stop of the pods.
 - On AWS Lambda the script ends with `handler = app.start()`: the runtime of
   Python calls `app.handler`, and a custom runtime runs the script itself.
+- The public layers of
+  [Pyjoyment-Lambda-Layers](https://github.com/pyjoyment/Pyjoyment-Lambda-Layers),
+  as `python3_14-arm64` of Python for `provided.al2023` and
+  `pyjoyment-python3_14` of Pyjoyment, also for the runtime `python3.14`, are
+  taken by the ARN of a version, which the index of the latest release gives:
+  `python -m Pyjo 'g("https://github.com/pyjoyment/Pyjoyment-Lambda-Layers/releases/latest/download/layers.json").json("/pyjoyment-python3_14/eu-central-1")'`.
+  `--function-only` tells the version of Pyjoyment of the dependencies, which
+  the layer of Pyjoyment is to have.
 
 ## WSGI, ASGI and FastCGI servers
 

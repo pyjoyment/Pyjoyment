@@ -16,6 +16,18 @@ variable "pyjoyment_layer" {
   default     = null
 }
 
+variable "public_layers" {
+  description = "Take the public layers of Pyjoyment-Lambda-Layers, for a build with \"--function-only\""
+  type        = bool
+  default     = false
+}
+
+variable "python" {
+  description = "The version of Python of the public layers, as \"3.14\" or \"3.15t\""
+  type        = string
+  default     = "3.14"
+}
+
 variable "arch" {
   description = "The architecture of the function, the one of \"generate lambda-zip --arch\""
   type        = string

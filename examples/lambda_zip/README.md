@@ -71,3 +71,23 @@ The resources go away with:
 ```sh
 tofu -chdir=examples/lambda_zip destroy
 ```
+
+## The public layers
+
+The function takes the public layers of
+[Pyjoyment-Lambda-Layers](https://github.com/pyjoyment/Pyjoyment-Lambda-Layers)
+in the place of its own, with `function.zip` alone, which
+`--function-only` writes:
+
+```sh
+uv run --directory examples/lambda_zip/function python app.py generate lambda-zip --arch arm64 --python 3.14 --function-only
+tofu -chdir=examples/lambda_zip apply -var public_layers=true -var python=3.14
+```
+
+The ARNs of the layers of the version of Python, the architecture and the
+region come from the index of the latest release, `layers.json`, which
+`data "http"` reads and `jsondecode` turns into `{layer: {region: arn}}`. The
+generator tells the version of Pyjoyment of the dependencies, which the
+description of the layer of Pyjoyment says too: the inline metadata of the
+script takes Pyjoyment of the checkout, which can be newer than the one of the
+latest release.

@@ -1040,6 +1040,34 @@ Pyjoyment that is published already serves in its place.
 
     $ ./myapp.py generate lambda-zip --arch arm64 --runtime python3.14
 
+`Pyjoyment-Lambda-Layers
+<https://github.com/pyjoyment/Pyjoyment-Lambda-Layers>`_ publishes such
+layers, built by the same generator, as public layers of the account
+``959435416781`` in the commercial regions of AWS: of Python, as
+``python3_14-arm64`` or ``python3_15t-x86_64``, of one version and one
+architecture, for ``provided.al2023``, and of Pyjoyment, as
+``pyjoyment-python3_14``, for both architectures, with the layer of Python or
+on the runtime ``python3.14``. With ``--function-only``, the generator writes
+``function.zip`` alone, for them, and tells the version of Pyjoyment of the
+dependencies of the application, which the description of the layer of
+Pyjoyment says too.
+
+.. code-block:: console
+
+    $ ./myapp.py generate lambda-zip --arch arm64 --function-only
+      [layer] Pyjoyment 0.1.0 for Python 3.14
+      [write] /home/sri/myapp/dist/function.zip
+
+A function takes a layer by the ARN of a version, as
+``arn:aws:lambda:<region>:959435416781:layer:pyjoyment-python3_14:<version>``,
+which the index of the layers of each release, ``layers.json``, gives as
+``{layer: {region: arn}}``. The index of the latest release is always at the
+same URL, which a one-liner reads with a JSON Pointer.
+
+.. code-block:: console
+
+    $ python -m Pyjo 'g("https://github.com/pyjoyment/Pyjoyment-Lambda-Layers/releases/latest/download/layers.json").json("/pyjoyment-python3_14/eu-central-1")'
+
 The directories `examples/lambda
 <https://github.com/pyjoyment/Pyjoyment/tree/main/examples/lambda>`_ and
 `examples/lambda_zip
