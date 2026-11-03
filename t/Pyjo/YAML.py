@@ -495,6 +495,15 @@ with subtest('y'):
     is_deeply_ok(y(''), [], 'empty string')
     is_deeply_ok(y('# comment\n'), [], 'comment')
     is_deeply_ok(y(bytearray(b'- \xe2\x99\xa5\n')), [['\u2665']], 'bytearray of UTF-8')
+
+    # The encodings of YAML 1.2, from the byte order mark or the null bytes of the first character, the results of
+    # PyYAML
+    for encoding in ('UTF-8-SIG', 'UTF-16', 'UTF-16LE', 'UTF-16BE', 'UTF-32', 'UTF-32LE', 'UTF-32BE'):
+        is_deeply_ok(y('a: \u2665\r\n---\nb: 2\n'.encode(encoding)), [{'a': '\u2665'}, {'b': 2}], encoding)
+    is_deeply_ok(y('\ufeffa: 1\n'.encode('UTF-16BE')), [{'a': 1}], 'UTF-16BE with a byte order mark')
+    is_deeply_ok(y(b'\xff\xfe'), [], 'only a byte order mark')
+    throws_ok(lambda: y(b'\xff\xfea'), re.compile(r'^YAML found input that is not UTF-16'), 'odd UTF-16')
+    throws_ok(lambda: y(b'a: \xc3\n'), re.compile(r'^YAML found input that is not UTF-8'), 'invalid UTF-8')
     is_deeply_ok(y(b'a: 1\n---\nb: 2\n').map(lambda d: list(d)[0]), ['a', 'b'], 'chained')
     throws_ok(lambda: y('foo: !tag bar'), re.compile(r'^YAML does not support a feature'), 'error')
     data = [{'b': [1, {'a': None}]}, 'two']

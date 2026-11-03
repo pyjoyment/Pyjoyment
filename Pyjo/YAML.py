@@ -298,11 +298,13 @@ def y(*values: Any, sort_keys: bool = False) -> Any:
         string = y({'foo': 'bar'}, {'baz': 1})
         string = y({'foo': 'bar'}, sort_keys=True)
 
-    Load YAML, a string or ``UTF-8`` bytes, with :func:`load_all` into a
+    Load YAML, a string or bytes, with :func:`load_all` into a
     :mod:`Pyjo.Collection` of its documents, which has one for a single
     document, or dump any other values, one or more, with :func:`dump_all`,
     one document for each. ``sort_keys`` sorts the keys of the mappings of the
-    YAML that it dumps. ::
+    YAML that it dumps. Bytes are ``UTF-8``, or ``UTF-16`` or ``UTF-32``, as
+    YAML 1.2 detects them from their byte order mark or from the null bytes of
+    their first character, as Windows PowerShell writes ``UTF-16LE``. ::
 
         # 'foo: bar\\n'
         y({'foo': 'bar'})
@@ -315,10 +317,32 @@ def y(*values: Any, sort_keys: bool = False) -> Any:
 
         # 'bar'
         y('foo: bar\\n').first()['foo']
+
+        # [{'foo': 'bar'}]
+        y('foo: bar\\n'.encode('UTF-16'))
     """
     if len(values) == 1 and isinstance(value := values[0], (str, bytes, bytearray)):
-        return Pyjo.Collection.c(*load_all(value if isinstance(value, str) else bytes(value).decode('UTF-8')))
+        return Pyjo.Collection.c(*load_all(value if isinstance(value, str) else _decode(bytes(value))))
     return dump_all(values, sort_keys=sort_keys)
+
+
+# The encoding of bytes of YAML 1.2, from the byte order mark, which the loader drops as U+FEFF, or from the null bytes
+# of the first character, in the order of its table, as the byte order mark of UTF-32LE starts with the one of UTF-16LE
+def _decode(data: bytes) -> str:
+    if data.startswith(b'\x00\x00\xfe\xff') or (len(data) >= 4 and data[:3] == b'\x00\x00\x00'):
+        encoding = 'UTF-32BE'
+    elif data.startswith(b'\xff\xfe\x00\x00') or (len(data) >= 4 and data[1:4] == b'\x00\x00\x00'):
+        encoding = 'UTF-32LE'
+    elif data.startswith(b'\xfe\xff') or (len(data) >= 2 and data[0] == 0):
+        encoding = 'UTF-16BE'
+    elif data.startswith(b'\xff\xfe') or (len(data) >= 2 and data[1] == 0):
+        encoding = 'UTF-16LE'
+    else:
+        encoding = 'UTF-8'
+    try:
+        return data.decode(encoding)
+    except UnicodeDecodeError:
+        raise _error(f'found input that is not {encoding[:6]}') from None
 
 
 def _error(message: str) -> Pyjo.Exception.object:

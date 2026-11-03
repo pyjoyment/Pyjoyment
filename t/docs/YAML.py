@@ -113,4 +113,7 @@ with subtest('y'):
     # 'bar'
     is_ok(y('foo: bar\n').first()['foo'], 'bar', 'first')
 
+    # [{'foo': 'bar'}]
+    is_deeply_ok(y('foo: bar\n'.encode('UTF-16')), [{'foo': 'bar'}], 'UTF-16')
+
 done_testing()
