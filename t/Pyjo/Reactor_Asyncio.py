@@ -9,6 +9,11 @@ import socket
 import time
 
 
+# Unlike Mojolicious: skipped when PYJO_REACTOR names the reactor of another distribution, which runs the tests of
+# Pyjoyment on it and has a test of its own reactor
+if os.environ.get('PYJO_REACTOR', '') not in ('', 'Pyjo.Reactor.Asyncio', 'Pyjo.Reactor.Poll'):
+    plan(skip_all=f'PYJO_REACTOR is {os.environ["PYJO_REACTOR"]}, not a reactor of Pyjoyment')
+
 # BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }, before Pyjo.IOLoop is loaded
 os.environ['PYJO_REACTOR'] = 'Pyjo.Reactor.Asyncio'
 
