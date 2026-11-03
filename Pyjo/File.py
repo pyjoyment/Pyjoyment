@@ -57,7 +57,7 @@ import Pyjo.Collection
 import Pyjo.Exception
 import Pyjo.String.Mixin
 
-from Pyjo.Util import decode, encode
+from Pyjo.Util import _bom, decode, encode  # pyright: ignore[reportPrivateUsage]
 
 import builtins
 import inspect
@@ -73,7 +73,7 @@ import weakref
 
 from collections.abc import Callable, Iterator
 from types import TracebackType
-from typing import IO, TYPE_CHECKING, Any, NoReturn, Self, cast
+from typing import IO, TYPE_CHECKING, Any, NoReturn, Self, cast, overload
 
 
 if TYPE_CHECKING:
@@ -522,6 +522,12 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self.new(_dirname(self._path), *parts)
 
+    @overload
+    def slurp(self) -> bytes: ...
+
+    @overload
+    def slurp(self, encoding: str) -> str | None: ...
+
     def slurp(self, encoding: str | None = None) -> bytes | str | None:
         """::
 
@@ -530,7 +536,12 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
         Read all data at once from the file. If an encoding is provided, an
         attempt will be made to decode the content, and ``None`` is returned if
-        it fails.
+        it fails. A byte order mark of Unicode switches ``UTF-8`` to its
+        encoding, UTF-16 or UTF-32, as Windows PowerShell writes UTF-16LE, and
+        is not a part of the characters; another encoding stays. ::
+
+            # "♥" of a file of b'\\xff\\xfee&'
+            path.slurp('UTF-8')
         """
         try:
             fd = os.open(self._path, os.O_RDONLY | _BINARY)
@@ -546,7 +557,13 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
             os.close(fd)
 
         data = bytes(content)
-        return decode(encoding, data) if encoding else data
+        if not encoding:
+            return data
+
+        # Unlike Mojolicious: the byte order mark of a whole file switches UTF-8 to its encoding, where Mojo decodes it
+        # as U+FEFF of the characters
+        encoding, data = _bom(encoding, data)
+        return decode(encoding, data)
 
     def spew(self, content: bytes | str, encoding: str | None = None) -> Self:
         """::
@@ -556,7 +573,16 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
         Write all data at once to the file. If an encoding is provided, an
         attempt to encode the content will be made prior to writing, and
-        characters without one are encoded with ``UTF-8``.
+        characters without one are encoded with ``UTF-8``, without a byte
+        order mark, which the encodings ``UTF-8-SIG`` and ``UTF-16`` of
+        :mod:`codecs` write, the latter in the byte order of the machine, as
+        Windows PowerShell 5.1 reads them. ::
+
+            # b'\\xef\\xbb\\xbf\\xe2\\x99\\xa5'
+            path.spew('♥', 'UTF-8-SIG').slurp()
+
+            # b'\\xff\\xfee&'
+            path.spew('\\ufeff♥', 'UTF-16LE').slurp()
         """
         if isinstance(content, str):
             # Unlike Mojolicious: characters without an encoding are UTF-8, where

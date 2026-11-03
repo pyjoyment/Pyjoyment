@@ -497,4 +497,25 @@ with subtest('I/O with encoding'):
     # where Perl dies of a "Wide character"
     is_ok(file.spew('♥1').slurp('UTF-8'), '♥1', 'right content')
 
+# Unlike Mojolicious: the byte order mark of a whole file switches UTF-8 to its encoding, as Windows PowerShell writes
+# UTF-16LE with one, where Mojo decodes it as U+FEFF
+with subtest('I/O with byte order mark'):
+    dir = tempdir()
+    file = dir.child('bom.txt')
+    for data, name in (
+        (b'\xef\xbb\xbf' + '♥1\r\n'.encode(), 'UTF-8'),
+        (b'\xff\xfe' + '♥1\r\n'.encode('UTF-16LE'), 'UTF-16LE'),
+        (b'\xfe\xff' + '♥1\r\n'.encode('UTF-16BE'), 'UTF-16BE'),
+        (b'\xff\xfe\x00\x00' + '♥1\r\n'.encode('UTF-32LE'), 'UTF-32LE'),
+        (b'\x00\x00\xfe\xff' + '♥1\r\n'.encode('UTF-32BE'), 'UTF-32BE'),
+    ):
+        is_ok(file.spew(data).slurp('UTF-8'), '♥1\r\n', name)
+        is_ok(file.slurp('utf8'), '♥1\r\n', f'{name} for another name of UTF-8')
+        is_ok(file.slurp(), data, f'{name} as bytes')
+    is_ok(file.spew(b'\xef\xbb\xbf').slurp('UTF-8'), '', 'only a byte order mark')
+    is_ok(file.spew(b'\xff\xfe\x00').slurp('UTF-8'), None, 'odd UTF-16')
+    is_ok(file.spew(b'\xff\xfeab').slurp('latin-1'), '\xff\xfeab', 'another encoding stays')
+    is_ok(file.spew(b'a\xef\xbb\xbfb').slurp('UTF-8'), 'a\ufeffb', 'byte order mark after the start')
+    is_ok(file.spew(b'\xef\xbb\xbf\xef\xbb\xbfa').slurp('UTF-8'), '\ufeffa', 'one byte order mark only')
+
 done_testing()

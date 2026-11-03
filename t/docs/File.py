@@ -280,12 +280,25 @@ with subtest('slurp'):
     chars = p.slurp('UTF-8')
     is_ok(chars, 'test\n', 'characters')
 
+    # "♥" of a file of b'\xff\xfee&'
+    p = path(tmp.name, 'bom.txt').spew(b'\xff\xfee&')
+    is_ok(p.slurp('UTF-8'), '♥', 'byte order mark')
+
 with subtest('spew'):
     p = path(tmp.name, 'spew.txt')
     p = p.spew(b'data')
     is_ok(p.slurp(), b'data', 'bytes')
     p = p.spew('♥', 'UTF-8')
     is_ok(p.slurp('UTF-8'), '♥', 'characters')
+
+    # b'\xef\xbb\xbf\xe2\x99\xa5'
+    is_ok(p.spew('♥', 'UTF-8-SIG').slurp(), b'\xef\xbb\xbf\xe2\x99\xa5', 'UTF-8 with a byte order mark')
+    is_ok(p.slurp('UTF-8'), '♥', 'read back')
+
+    # b'\xff\xfee&'
+    is_ok(p.spew('\ufeff♥', 'UTF-16LE').slurp(), b'\xff\xfee&', 'UTF-16LE with a byte order mark')
+    is_ok(p.slurp('UTF-8'), '♥', 'read back')
+    is_ok(p.spew('♥', 'UTF-16').slurp('UTF-8'), '♥', 'UTF-16 in the byte order of the machine, read back')
 
 with subtest('spurt'):
     p = p.spurt(b'da', b'ta')

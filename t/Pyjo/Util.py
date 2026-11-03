@@ -940,6 +940,11 @@ with subtest('slurp/spurt'):
         is_ok(spurt('zażółć', pathlib.Path(path), 'iso-8859-2'), 6, 'bytes written in another charset')
         is_ok(slurp(pathlib.Path(path), 'iso-8859-2'), 'zażółć', 'characters read in another charset')
         throws_ok(lambda: slurp(path), UnicodeDecodeError, 'invalid UTF-8')
+        pathlib.Path(path).write_bytes(b'\xff\xfe' + 'zażółć'.encode('utf-16-le'))
+        is_ok(slurp(path), 'zażółć', 'characters of UTF-16LE with a byte order mark')
+        pathlib.Path(path).write_bytes(b'\xef\xbb\xbfzaz')
+        is_ok(slurp(path), 'zaz', 'characters of UTF-8 with a byte order mark')
+        is_ok(slurp(path, 'latin-1'), '\xef\xbb\xbfzaz', 'byte order mark of another charset')
 
 with subtest('notnone'):
     is_ok(notnone(None, 0, 1), 0, 'first value that is not None')

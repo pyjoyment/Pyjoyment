@@ -247,6 +247,32 @@ def decode(charset: str, data: str | bytes) -> str | None:
         return None
 
 
+# Not in Mojolicious: the byte order marks of Unicode, UTF-32 before UTF-16, as the one of UTF-32LE starts with the one
+# of UTF-16LE
+_BOMS = (
+    (codecs.BOM_UTF32_LE, 'UTF-32LE'),
+    (codecs.BOM_UTF32_BE, 'UTF-32BE'),
+    (codecs.BOM_UTF8, 'UTF-8'),
+    (codecs.BOM_UTF16_LE, 'UTF-16LE'),
+    (codecs.BOM_UTF16_BE, 'UTF-16BE'),
+)
+
+
+# Not in Mojolicious: the encoding of a whole file, whose byte order mark switches UTF-8, the default, to its own and is
+# dropped, as Windows PowerShell writes UTF-16LE and UTF-8 with one; an encoding that a caller names otherwise stays,
+# and the parts of a document or a stream are never detected, so that a document is not decoded in different ways
+def _bom(charset: str, data: bytes) -> tuple[str, bytes]:
+    try:
+        if codecs.lookup(charset).name != 'utf-8':
+            return charset, data
+    except LookupError:
+        return charset, data
+    for bom, name in _BOMS:
+        if data.startswith(bom):
+            return name, data[len(bom) :]
+    return charset, data
+
+
 # Left out from Mojolicious: decrypt_cookie, as ChaCha20-Poly1305 of the sessions is not in the standard library
 
 
@@ -954,10 +980,13 @@ def slurp(path: str | os.PathLike[str], charset: str = 'utf-8') -> str:
         string = slurp('/etc/passwd')
         string = slurp('/etc/passwd', 'utf-8')
 
-    Read all data at once from file as characters.
+    Read all data at once from file as characters. A byte order mark of
+    Unicode switches ``utf-8``, the default, to its encoding, and is not a
+    part of the characters.
     """
     with open(path, 'rb') as f:
-        return f.read().decode(charset)
+        charset, data = _bom(charset, f.read())
+        return data.decode(charset)
 
 
 def slugify(value: str | int, allow_unicode: bool = False) -> str:
