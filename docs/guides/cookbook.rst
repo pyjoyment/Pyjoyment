@@ -2292,6 +2292,9 @@ great choice.
 
     $ python -m Pyjo 'g("mojolicious.org").dom().at("title").text'
 
+More of them, for JSON APIs, files of JSON and YAML and the manifests of
+Kubernetes, are in :doc:`oneliners`.
+
 Applications
 ------------
 

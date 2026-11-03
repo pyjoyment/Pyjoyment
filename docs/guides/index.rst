@@ -118,6 +118,10 @@ Guides
 :doc:`cookbook`
     Cooking with :mod:`Pyjoyment`, recipes for every taste.
 
+:doc:`oneliners`
+    Fun and useful one-liners with :mod:`Pyjo`, for web pages, JSON APIs,
+    JSON and YAML files and the manifests of Kubernetes.
+
 :doc:`contributing`
     Become a part of the ongoing :mod:`Pyjoyment` development.
 
@@ -134,6 +138,7 @@ Guides
     rendering
     testing
     cookbook
+    oneliners
     contributing
     faq
 
