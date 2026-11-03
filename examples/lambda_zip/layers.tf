@@ -8,7 +8,7 @@ data "http" "layers" {
   }
 }
 
-# The names of the layers of the version of Python, as python3_14-arm64 and pyjoyment-python3_14
+# The names of the layers of the version of Python, as python3_15-arm64 and pyjoyment-python3_15
 locals {
   public_layers = var.public_layers ? jsondecode(data.http.layers.response_body) : {}
   python_name   = "python${replace(var.python, ".", "_")}"

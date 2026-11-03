@@ -23,9 +23,9 @@ variable "public_layers" {
 }
 
 variable "python" {
-  description = "The version of Python of the public layers, as \"3.14\" or \"3.15t\""
+  description = "The version of Python of the public layers, as \"3.15\" or \"3.15t\""
   type        = string
-  default     = "3.14"
+  default     = "3.15"
 }
 
 variable "arch" {

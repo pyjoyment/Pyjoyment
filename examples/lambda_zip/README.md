@@ -36,11 +36,11 @@ The function takes the public layers of
 [Pyjoyment-Lambda-Layers](https://github.com/pyjoyment/Pyjoyment-Lambda-Layers),
 with `function.zip` alone, which `--function-only` writes to `function/dist`,
 for the architecture of the function, `arm64` by default, and the version of
-Python of the layers, `3.14` by default, or `3.15t` for the free-threaded
+Python of the layers, `3.15` by default, or `3.15t` for the free-threaded
 build:
 
 ```sh
-uv run --directory examples/lambda_zip/function python app.py generate lambda-zip --arch arm64 --python 3.14 --function-only
+uv run --directory examples/lambda_zip/function python app.py generate lambda-zip --arch arm64 --python 3.15 --function-only
 ```
 
 OpenTofu 1.13 deploys it with the credentials and the region of the default
