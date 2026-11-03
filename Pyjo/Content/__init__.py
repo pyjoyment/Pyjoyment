@@ -97,6 +97,7 @@ import Pyjo.Headers
 from Pyjo.SSE import build_event, parse_event
 
 import builtins
+import codecs
 import os
 import re
 import zlib
@@ -203,6 +204,7 @@ class Pyjo_Content(Pyjo.EventEmitter.object):
         self._size = 0
         self._sse = False
         self._sse_buffer = bytearray()
+        self._sse_start = True
         self._state: str | None = None
 
     @property
@@ -764,6 +766,15 @@ class Pyjo_Content(Pyjo.EventEmitter.object):
             self._sse_buffer += self._inflate(bytes(self._pre_buffer))
             self._pre_buffer = bytearray()
             buffer = self._sse_buffer
+
+        # Unlike Mojolicious: one byte order mark at the start of the stream, which HTML ignores, decided once with the
+        # first bytes of the stream, which is UTF-8, where Mojo makes it a part of the name of the first field
+        if self._sse_start:
+            if len(buffer) < len(codecs.BOM_UTF8) and codecs.BOM_UTF8.startswith(buffer):
+                return
+            if buffer.startswith(codecs.BOM_UTF8):
+                del buffer[: len(codecs.BOM_UTF8)]
+            self._sse_start = False
 
         # Parse SSE
         while event := parse_event(buffer):

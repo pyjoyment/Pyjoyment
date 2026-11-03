@@ -705,6 +705,28 @@ with subtest('Parse HTTP 1.1 gzip compressed SSE response'):
     is_ok(events[40]['text'], '39 ' + 'x' * 50, 'right event')
     is_ok(res.body, b'', 'no content')
 
+# Unlike Mojolicious: one byte order mark at the start of a stream of events, which HTML ignores, where Mojo makes it a
+# part of the name of the first field
+with subtest('Parse HTTP 1.1 SSE response with a byte order mark'):
+
+    def texts(*chunks):
+        res = Pyjo.Message.Response.new()
+        events = []
+        res.content.on('sse', lambda content, event: events.append(event))
+        res.parse(b'HTTP/1.1 200 OK\x0d\x0aContent-Type: text/event-stream\x0d\x0a\x0d\x0a')
+        for chunk in chunks:
+            res.parse(chunk)
+        return [event['text'] for event in events[1:]]
+
+    is_deeply_ok(texts(b'\xef\xbb\xbfdata: one\x0a\x0adata: two\x0a\x0a'), ['one', 'two'], 'whole')
+    is_deeply_ok(
+        texts(b'\xef', b'\xbb', b'\xbfdata: one\x0a\x0a', b'data: two\x0a\x0a'), ['one', 'two'], 'byte order mark split'
+    )
+    # A byte order mark after the start is a part of the name of a field, which is not known
+    is_deeply_ok(
+        texts(b'data: one\x0a\x0a', b'\xef\xbb\xbfdata: two\x0a\x0a'), ['one', ''], 'byte order mark after the start'
+    )
+
 with subtest('Build HTTP 1.1 response start-line with minimal headers'):
     res = Pyjo.Message.Response.new()
     res.code = 404
