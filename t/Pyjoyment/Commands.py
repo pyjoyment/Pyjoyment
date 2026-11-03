@@ -702,7 +702,7 @@ with subtest('generate lambda-zip'):
     generate()
     with local(PYJO_EXE=None):
         output, calls = generate('--function-only', '-p', '3.14.2')
-    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.14\n', 'version of Pyjoyment')
+    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.14\r?\n', 'version of Pyjoyment')
     unlike_ok(output, r'python\.zip|pyjoyment\.zip', 'no layers')
     ok(not os.path.exists(app.rel_file('dist/python.zip')), 'layer of Python of an earlier build removed')
     ok(not os.path.exists(app.rel_file('dist/pyjoyment.zip')), 'layer of Pyjoyment of an earlier build removed')
@@ -715,7 +715,7 @@ with subtest('generate lambda-zip'):
     like_ok(bootstrap, r'(?m)^exec /opt/python/bin/python3\.14 -m ', 'Python of the layer')
     with local(PYJO_EXE=None):
         output, calls = generate('--function-only', '-p', '3.15t')
-    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.15t\n', 'version of the free-threaded Python')
+    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.15t\r?\n', 'version of the free-threaded Python')
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
         bootstrap = archive.read('bootstrap').decode()
     like_ok(bootstrap, r'(?m)^exec /opt/python/bin/python3\.15t -m ', 'free-threaded Python of the layer')
