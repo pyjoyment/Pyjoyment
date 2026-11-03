@@ -743,6 +743,13 @@ with subtest('generate lambda-zip'):
     with local(PYJO_EXE=None):
         output, calls = generate('-r', 'python3.14', '-p', '3.14')
     ok(os.path.exists(app.rel_file('dist/pyjoyment.zip')), 'same version')
+    with local(PYJO_EXE=None):
+        output, calls = generate('--runtime', 'python3.14', '--function-only')
+    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.14\r?\n', 'version of Pyjoyment on the runtime')
+    ok(not os.path.exists(app.rel_file('dist/pyjoyment.zip')), 'layer of Pyjoyment of an earlier build removed')
+    function = entries('dist/function.zip')
+    ok('MyApp/__init__.py' in function, 'application on the runtime')
+    unlike_ok(' '.join(function), r'(?:^| )(?:bootstrap|python/|Pyjo)', 'only the application on the runtime')
     os.chdir(cwd)
 
     # A Lite script with the inline metadata of PEP 723, and its lock

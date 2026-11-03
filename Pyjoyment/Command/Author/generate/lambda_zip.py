@@ -93,7 +93,8 @@ public ones of `Pyjoyment-Lambda-Layers
 generator builds, so that the ``bootstrap`` finds the Python of the layer in
 ``/opt/python/bin``. The function leaves out Pyjoyment, as with its own layer,
 and the generator tells the version of Pyjoyment of its dependencies, which
-the layer of Pyjoyment is to have.
+the layer of Pyjoyment is to have. On a runtime of Python, the function takes
+the layer of Pyjoyment alone, of the same version of Python.
 
 This is a core command, that means it is always enabled and its code a good
 example for learning to build new commands, you're welcome to fork it.
