@@ -93,7 +93,7 @@ import Pyjo.File
 import Pyjo.String.Template
 import Pyjoyment.Plugin
 
-from Pyjo.Util import decode, encode, md5_sum
+from Pyjo.Util import encode, md5_sum
 
 import inspect
 import io
@@ -171,11 +171,10 @@ def _handler(
 # The function "render" of a file, which is compiled from its source, as importlib would write its bytecode next to it,
 # with the path of the file, from which a traceback reads the lines of the template
 def _load(path: str, key: str, encoding: str | None) -> Callable[..., Any]:
-    data = Pyjo.File.path(path).slurp()
-    assert isinstance(data, bytes)
+    file = Pyjo.File.path(path)
     if encoding is None:
-        source = data.decode('latin-1')
-    elif (source := decode(encoding, data)) is None:
+        source = file.slurp().decode('latin-1')
+    elif (source := file.slurp(encoding)) is None:
         raise Pyjo.Exception.new(f'Template "{path}" has invalid encoding')
     try:
         code = compile(source, path, 'exec', dont_inherit=True)

@@ -199,7 +199,6 @@ import Pyjo.String.HTML
 import Pyjo.String.Template
 
 from Pyjo.String.Unicode import split
-from Pyjo.Util import decode
 
 import builtins
 import inspect
@@ -763,11 +762,10 @@ class Pyjo_Template(Pyjo.Base.object):
         """
         if self._name is None:
             self.name = str(path)
-        data = Pyjo.File.path(path).slurp()
-        assert isinstance(data, bytes)
+        file = Pyjo.File.path(path)
         if (encoding := self.encoding) is None:
-            template = data.decode('latin-1')
-        elif (template := decode(encoding, data)) is None:
+            template = file.slurp().decode('latin-1')
+        elif (template := file.slurp(encoding)) is None:
             raise Pyjo.Exception.new(f'Template "{path}" has invalid encoding')
 
         return self.render(template, *args)

@@ -109,8 +109,6 @@ import Pyjo.Exception
 import Pyjo.File
 import Pyjoyment.Plugin
 
-from Pyjo.Util import decode
-
 import ast
 import os
 import re
@@ -139,9 +137,7 @@ class Pyjoyment_Plugin_Config(Pyjoyment.Plugin.object):
                 ...
                 return self.parse(content, file, conf, app)
         """
-        data = Pyjo.File.path(file).slurp()
-        assert isinstance(data, bytes)
-        if (content := decode('UTF-8', data)) is None:
+        if (content := Pyjo.File.path(file).slurp('UTF-8')) is None:
             raise Pyjo.Exception.new(f'Configuration file "{file}" has invalid encoding')
         return self.parse(content, file, conf, app)
 
