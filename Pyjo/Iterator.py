@@ -74,6 +74,8 @@ from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, I
 from typing import Any, Self, overload
 
 
+type Anything = builtins.object
+
 # The sync and the async form of a step of a chain, which take the elements of the step before
 type SyncStep = Callable[[collections.abc.Iterator[Any]], collections.abc.Iterator[Any]]
 type AsyncStep = Callable[[AsyncIterator[Any]], AsyncIterator[Any]]
@@ -184,7 +186,7 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         return Pyjo.Promise.new(each())
 
     @overload
-    def first(self, cb: Callable[[T], object] | None = None, /) -> T | None: ...
+    def first(self, cb: Callable[[T], Anything] | None = None, /) -> T | None: ...
 
     @overload
     def first(self, cb: Callable[..., Any] | str | re.Pattern[str], /, *args: Any, **kwargs: Any) -> T | None: ...
@@ -255,7 +257,7 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         return self._chain(sync, asynchronous)
 
     @overload
-    def grep(self, cb: Callable[[T], object], /) -> Self: ...
+    def grep(self, cb: Callable[[T], Anything], /) -> Self: ...
 
     @overload
     def grep(self, cb: Callable[..., Any] | str | re.Pattern[str], /, *args: Any, **kwargs: Any) -> Self: ...

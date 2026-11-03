@@ -158,7 +158,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
     :mod:`Pyjo.String.Mixin` and implements the following new ones.
     """
 
-    def __init__(self, html: object = None) -> None:
+    def __init__(self, html: Anything = None) -> None:
         """::
 
             dom = Pyjo.DOM.new()
@@ -180,7 +180,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return True
 
-    def __contains__(self, name: object) -> bool:
+    def __contains__(self, name: Anything) -> bool:
         """::
 
             boolean = 'id' in dom
@@ -270,7 +270,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return _text(_nodes(self.tree), self.xml, True)
 
-    def ancestors(self, css: object = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
+    def ancestors(self, css: Anything = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
         """::
 
             collection = dom.ancestors()
@@ -286,7 +286,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return _select(self._collect(_ancestors(self.tree)), css)
 
-    def append(self, new: object) -> Self:
+    def append(self, new: Anything) -> Self:
         """::
 
             dom = dom.append('<p>I ♥ Pyjoyment!</p>')
@@ -303,7 +303,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._add(1, new)
 
-    def append_content(self, new: object) -> Self:
+    def append_content(self, new: Anything) -> Self:
         """::
 
             dom = dom.append_content('<p>I ♥ Pyjoyment!</p>')
@@ -323,7 +323,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._content(True, False, new)
 
-    def at(self, css: object, **ns: str) -> 'Pyjo_DOM | None':
+    def at(self, css: Anything, **ns: str) -> 'Pyjo_DOM | None':
         r"""::
 
             result = dom.at('div ~ p')
@@ -421,7 +421,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._collect(_nodes(self.tree))
 
-    def children(self, css: object = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
+    def children(self, css: Anything = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
         """::
 
             collection = dom.children()
@@ -474,7 +474,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         return self.tree[1]
 
     @content.setter
-    def content(self, value: object) -> None:
+    def content(self, value: Anything) -> None:
         type = self.type
         if type in ('root', 'tag'):
             self._content(False, True, value)
@@ -503,7 +503,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._collect(_all(_nodes(self.tree)))
 
-    def find(self, css: object, **ns: str) -> 'Pyjo.Collection.object[Pyjo_DOM]':
+    def find(self, css: Anything, **ns: str) -> 'Pyjo.Collection.object[Pyjo_DOM]':
         r"""::
 
             collection = dom.find('div ~ p')
@@ -536,7 +536,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._collect(self._css().select(css, **ns))
 
-    def following(self, css: object = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
+    def following(self, css: Anything = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
         """::
 
             collection = dom.following()
@@ -567,7 +567,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         return self._collect(_siblings(self.tree, False, True))
 
     # Not in Mojolicious: the matches one by one, in a lazy chain
-    def iterate(self, css: object, **ns: str) -> 'Pyjo.Iterator.object[Pyjo_DOM]':
+    def iterate(self, css: Anything, **ns: str) -> 'Pyjo.Iterator.object[Pyjo_DOM]':
         """::
 
             iterator = dom.iterate('div ~ p')
@@ -588,7 +588,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
         return Pyjo.Iterator.new(_Matches(self, css, ns))
 
-    def matches(self, css: object, **ns: str) -> bool | None:
+    def matches(self, css: Anything, **ns: str) -> bool | None:
         """::
 
             boolean = dom.matches('div ~ p')
@@ -752,7 +752,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
             return None
         return self._maybe(_parent(tree))
 
-    def parse(self, html: object) -> Self:
+    def parse(self, html: Anything) -> Self:
         """::
 
             dom = dom.parse('<foo bar="baz">I ♥ Pyjoyment!</foo>')
@@ -765,7 +765,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         self._html.parse(html)
         return self
 
-    def preceding(self, css: object = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
+    def preceding(self, css: Anything = None) -> 'Pyjo.Collection.object[Pyjo_DOM]':
         """::
 
             collection = dom.preceding()
@@ -795,7 +795,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._collect(_siblings(self.tree, False, False))
 
-    def prepend(self, new: object) -> Self:
+    def prepend(self, new: Anything) -> Self:
         """::
 
             dom = dom.prepend('<p>I ♥ Pyjoyment!</p>')
@@ -812,7 +812,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._add(0, new)
 
-    def prepend_content(self, new: object) -> Self:
+    def prepend_content(self, new: Anything) -> Self:
         """::
 
             dom = dom.prepend_content('<p>I ♥ Pyjoyment!</p>')
@@ -879,7 +879,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self.replace('')
 
-    def replace(self, new: object) -> 'Pyjo_DOM | None':
+    def replace(self, new: Anything) -> 'Pyjo_DOM | None':
         """::
 
             parent = dom.replace('<div>I ♥ Pyjoyment!</div>')
@@ -1106,7 +1106,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
     # Left out from Mojolicious: with_roles, as Pyjoyment has no roles
 
-    def wrap(self, new: object) -> Self:
+    def wrap(self, new: Anything) -> Self:
         """::
 
             dom = dom.wrap('<div></div>')
@@ -1129,7 +1129,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return self._wrap(False, new)
 
-    def wrap_content(self, new: object) -> Self:
+    def wrap_content(self, new: Anything) -> Self:
         """::
 
             dom = dom.wrap_content('<div></div>')
@@ -1163,7 +1163,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
     def xml(self, xml: bool | None) -> None:
         self._html.xml = xml
 
-    def _add(self, offset: int, new: object) -> Self:
+    def _add(self, offset: int, new: Anything) -> Self:
         if (tree := self.tree)[0] == 'root':
             return self
 
@@ -1181,7 +1181,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
         xml = self.xml
         return Pyjo.Collection.object(self._build(n, xml) for n in nodes)
 
-    def _content(self, start: bool, offset: bool, new: object) -> Self:
+    def _content(self, start: bool, offset: bool, new: Anything) -> Self:
         tree = self.tree
         if tree[0] not in ('root', 'tag'):
             old = self.content
@@ -1199,7 +1199,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
     def _maybe(self, tree: Tree | None) -> 'Pyjo_DOM | None':
         return self._build(tree, self.xml) if tree is not None else None
 
-    def _parse(self, new: object) -> Tree:
+    def _parse(self, new: Anything) -> Tree:
         if not isinstance(new, Pyjo_DOM):
             return Pyjo.DOM.HTML.new(xml=self.xml).parse(new).tree
         tree = _clone(new.tree)
@@ -1211,7 +1211,7 @@ class Pyjo_DOM(Pyjo.Base.object, Pyjo.String.Mixin.object):
             parent[i : i + 1] = _link(parent, nodes)
         return self.parent
 
-    def _wrap(self, content: bool, new: object) -> Self:
+    def _wrap(self, content: bool, new: Anything) -> Self:
         tree = self.tree
         if tree[0] == 'root' and not content:
             return self
@@ -1304,7 +1304,7 @@ def _parent(tree: Tree) -> Tree | None:
     return tree[3 if tree[0] == 'tag' else 2]
 
 
-def _select(collection: 'Pyjo.Collection.object[Pyjo_DOM]', css: object) -> 'Pyjo.Collection.object[Pyjo_DOM]':
+def _select(collection: 'Pyjo.Collection.object[Pyjo_DOM]', css: Anything) -> 'Pyjo.Collection.object[Pyjo_DOM]':
     return collection.grep('matches', css) if css else collection
 
 
@@ -1353,7 +1353,7 @@ def _text(nodes: list[Tree], xml: bool | None, all: bool) -> str:
 
 # The matches of a selector, found anew for each iteration of a Pyjo.Iterator
 class _Matches:
-    def __init__(self, dom: Pyjo_DOM, css: object, ns: dict[str, str]) -> None:
+    def __init__(self, dom: Pyjo_DOM, css: Anything, ns: dict[str, str]) -> None:
         self.dom, self.css, self.ns = dom, css, ns
 
     def __iter__(self) -> Iterator[Pyjo_DOM]:

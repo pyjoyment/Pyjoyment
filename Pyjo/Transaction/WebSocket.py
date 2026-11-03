@@ -138,6 +138,7 @@ from Pyjo.JSON import encode_json, j
 from Pyjo.Util import decode, encode, trim
 from Pyjo.WebSocket import WS_BINARY, WS_CLOSE, WS_PING, WS_PONG, WS_TEXT, Frame
 
+import builtins
 import os
 import struct
 import weakref
@@ -145,6 +146,9 @@ import zlib
 
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Self
+
+
+type Anything = builtins.object
 
 
 class Pyjo_Transaction_WebSocket(Pyjo.Transaction.object):
@@ -425,7 +429,7 @@ class Pyjo_Transaction_WebSocket(Pyjo.Transaction.object):
     def local_port(self, value: int | None) -> None:
         self.handshake.local_port = value
 
-    def parse_message(self, frame: Sequence[Any]) -> object:
+    def parse_message(self, frame: Sequence[Any]) -> Anything:
         """::
 
             ws.parse_message((fin, rsv1, rsv2, rsv3, op, payload))
@@ -557,7 +561,7 @@ class Pyjo_Transaction_WebSocket(Pyjo.Transaction.object):
         self.handshake.resume()
         return self
 
-    def send(self, msg: str | Mapping[str, Any] | Sequence[Any], cb: Callable[..., object] | None = None) -> Self:
+    def send(self, msg: str | Mapping[str, Any] | Sequence[Any], cb: Callable[..., Anything] | None = None) -> Self:
         """::
 
             ws = ws.send({'binary': data})

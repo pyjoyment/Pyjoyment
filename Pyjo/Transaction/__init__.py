@@ -64,7 +64,12 @@ import Pyjo.Message.Response
 from Pyjo.String.Unicode import split
 from Pyjo.Util import network_contains
 
+import builtins
+
 from typing import TYPE_CHECKING, Any, Self
+
+
+type Anything = builtins.object
 
 
 class Pyjo_Transaction(Pyjo.EventEmitter.object):
@@ -245,7 +250,7 @@ class Pyjo_Transaction(Pyjo.EventEmitter.object):
     def res(self, value: Pyjo.Message.Response.object) -> None:
         self._res = value
 
-    def client_read(self, chunk: bytes) -> object:
+    def client_read(self, chunk: bytes) -> Anything:
         """::
 
             tx.client_read(data)
@@ -403,7 +408,7 @@ class Pyjo_Transaction(Pyjo.EventEmitter.object):
             return self.res
         raise Pyjo.Exception.new(err['message'])
 
-    def server_read(self, chunk: bytes) -> object:
+    def server_read(self, chunk: bytes) -> Anything:
         """::
 
             tx.server_read(data)

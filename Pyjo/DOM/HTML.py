@@ -39,11 +39,14 @@ import Pyjo.Base
 
 from Pyjo.Util import html_attr_unescape, html_unescape, xml_escape
 
+import builtins
 import re
 
 from collections.abc import Callable
 from typing import Any, Self, cast
 
+
+type Anything = builtins.object
 
 # Any: a node is a list of its type, its content and its parent, and a tag also
 # of its name, its attributes and its child nodes, as in Mojo
@@ -179,7 +182,7 @@ class Pyjo_DOM_HTML(Pyjo.Base.object):
         self._xml = value
         self._xml_set = True
 
-    def parse(self, html: object) -> Self:
+    def parse(self, html: Anything) -> Self:
         """::
 
             html = html.parse('<foo bar="baz">I ♥ Pyjoyment!</foo>')

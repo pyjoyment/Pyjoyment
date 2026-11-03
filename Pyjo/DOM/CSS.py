@@ -416,6 +416,7 @@ import Pyjo.Base
 
 from Pyjo.Util import getenv, trim, warn
 
+import builtins
 import collections
 import pprint
 import re
@@ -423,6 +424,8 @@ import re
 from collections.abc import Iterator
 from typing import Any, cast
 
+
+type Anything = builtins.object
 
 # Any: a node of the tree of Pyjo.DOM.HTML
 type Tree = list[Any]
@@ -472,7 +475,7 @@ class Pyjo_DOM_CSS(Pyjo.Base.object):
         carefully since it is very dynamic.
         """
 
-    def matches(self, css: object, **ns: str) -> bool | None:
+    def matches(self, css: Anything, **ns: str) -> bool | None:
         """::
 
             boolean = css.matches('head > title')
@@ -486,7 +489,7 @@ class Pyjo_DOM_CSS(Pyjo.Base.object):
             return None
         return _match(_compile(css, **ns), tree, tree, _root(tree))
 
-    def select(self, css: object, **ns: str) -> list[Tree]:
+    def select(self, css: Anything, **ns: str) -> list[Tree]:
         """::
 
             results = css.select('head > title')
@@ -498,7 +501,7 @@ class Pyjo_DOM_CSS(Pyjo.Base.object):
         return _select_all(self._tree(), _compile(css, **ns))
 
     # Not in Mojolicious: the results one by one, as Pyjo.DOM.iterate takes them
-    def select_iter(self, css: object, **ns: str) -> Iterator[Tree]:
+    def select_iter(self, css: Anything, **ns: str) -> Iterator[Tree]:
         """::
 
             results = css.select_iter('head > title')
@@ -510,7 +513,7 @@ class Pyjo_DOM_CSS(Pyjo.Base.object):
         """
         return _select_iter(self._tree(), _compile(css, **ns))
 
-    def select_one(self, css: object, **ns: str) -> Tree | None:
+    def select_one(self, css: Anything, **ns: str) -> Tree | None:
         """::
 
             result = css.select_one('head > title')
@@ -555,7 +558,7 @@ def _attr(name: str, value_re: re.Pattern[str] | None, current: Tree) -> bool:
     return value_re is None or bool(value_re.search(cast(str, value)))
 
 
-def _compile(css: object, **ns: str) -> list[Selector]:
+def _compile(css: Anything, **ns: str) -> list[Selector]:
     string = trim(str(css))
 
     group: list[Selector] = [[]]

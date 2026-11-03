@@ -391,7 +391,9 @@ package is loaded.
 A module that ends with `object = Pyjo_X` cannot use `object` in its
 annotations: they are evaluated lazily (PEP 649, Python 3.14), when `object`
 is the class. Such a module declares `type Anything = builtins.object` and
-uses that.
+uses that. pyright on Python 3.12 does not see it, as it evaluates the
+annotations where they are, but a distribution on Python 3.14 calls the
+methods of the class, so `t/stdlib/annotations.py` checks it.
 
 Annotations use the Python 3.12 syntax: generics with type parameters
 (`class Collection[T](list[T])`, `def f[T](x: T) -> T`), `type` aliases,
