@@ -291,6 +291,7 @@ strict = [
   "Pyjo/Headers.py",
   "Pyjo/HelloWorld.py",
   "Pyjo/Home.py",
+  "Pyjo/INI.py",
   "Pyjo/IOLoop/__init__.py",
   "Pyjo/IOLoop/Client.py",
   "Pyjo/IOLoop/ChildProcess.py",
