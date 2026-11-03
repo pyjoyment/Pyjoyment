@@ -132,7 +132,9 @@ _FORMAT = ('--format', 'requirements.txt', '-o')
 # separator of the machine, a backslash on Windows. Python, as 3.13, 3.15 and the free-threaded build, marshals a
 # module otherwise after some modules that its process has compiled before, so the modules are compiled in chunks of
 # the same files in the same order, each by a new interpreter, and not by a pool of processes, which gives a process
-# the chunks in the order that it is free, so that the same files give the same bytecode on every machine
+# the chunks in the order that it is free, so that the same files give the same bytecode on every machine. The
+# free-threaded build marshals a module otherwise at random after a collection of the garbage too, which an
+# interpreter of the chunks does not make
 _COMPILE = r"""
 import concurrent.futures, os, subprocess, sys
 root, prefix = sys.argv[1:]
@@ -140,7 +142,8 @@ files = [os.path.join(d, f) for d, _, names in sorted(os.walk(root)) for f in so
 lines = [f + '\t' + f'{prefix}/' + os.path.relpath(f, root).replace(os.sep, '/') for f in files]
 chunks = [lines[i : i + 64] for i in range(0, len(lines), 64)]
 code = '''
-import py_compile, sys
+import gc, py_compile, sys
+gc.disable()
 mode = py_compile.PycInvalidationMode.UNCHECKED_HASH
 pairs = [line.split('\\t') for line in sys.stdin.read().splitlines()]
 sys.exit(not all([py_compile.compile(f, None, d, False, -1, mode, 1) for f, d in pairs]))
