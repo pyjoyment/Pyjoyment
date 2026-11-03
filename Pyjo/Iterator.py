@@ -70,7 +70,7 @@ import inspect
 import itertools
 import re
 
-from collections.abc import AsyncIterable, AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable
 from typing import Any, Self, overload
 
 
@@ -342,6 +342,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
             return Pyjo.String.Unicode.new((string or '').join([_str(e) async for e in self]))
 
         return Pyjo.Promise.new(join())
+
+    # The value that an awaitable gives, which map waits for, before any other value of a callback; Any of a Pyjo.Promise
+    @overload
+    def map[U](self, cb: Callable[[T], Awaitable[U]], /, *, concurrency: int = 1) -> 'Pyjo_Iterator[U]': ...
 
     @overload
     def map[U](self, cb: Callable[[T], U], /, *, concurrency: int = 1) -> 'Pyjo_Iterator[U]': ...

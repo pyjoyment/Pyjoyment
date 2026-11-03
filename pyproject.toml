@@ -415,5 +415,6 @@ strict = [
   "Pyjoyment/Types.py",
   "Pyjoyment/Validator/__init__.py",
   "Pyjoyment/Validator/Validation.py",
+  "t/Pyjo/Iterator_types.py",
   "t/Pyjoyment/helper_types_lite_app.py",
 ]
