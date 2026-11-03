@@ -437,21 +437,22 @@ def x(*args: Any) -> 'Pyjo.DOM.object':
 
 
 # Not in Mojolicious: YAML, as j is for JSON
-def y(value: Any) -> Any:
+def y(*values: Any) -> Any:
     """::
 
-        string = y([1, 2, 3])
+        documents = y(string)
         string = y({'foo': 'bar'})
-        value = y(string)
+        string = y({'foo': 'bar'}, {'baz': 1})
 
-    Dump Python data structure or load YAML with :func:`Pyjo.YAML.y`. ::
+    Load YAML into a :mod:`Pyjo.Collection` of its documents, or dump values
+    to YAML, one document for each, with :func:`Pyjo.YAML.y`. ::
 
         $ python -m Pyjo 'y(j(f("hello.json").slurp()))'
-        $ python -m Pyjo 'r(y(f("hello.yaml").slurp()))'
+        $ python -m Pyjo 'r(y(f("hello.yaml").slurp()).first())'
     """
     import Pyjo.YAML
 
-    return Pyjo.YAML.y(value)
+    return Pyjo.YAML.y(*values)
 
 
 # Not in Mojolicious: the builder of Pyjo.JSON.Schema, as z of zod, which imports the module when one of its methods is

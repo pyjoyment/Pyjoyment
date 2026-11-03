@@ -16,8 +16,8 @@ Pyjo.YAML - Minimal YAML loader and dumper
 
     string = dump({'foo': 'bar', 'list': ['one', 'two']})
 
-    string = y({'foo': 'bar'})
-    value = y(string)
+    string = y({'foo': 'bar'}, {'baz': 1})
+    documents = y(string)
 
 :mod:`Pyjo.YAML` loads and dumps the YAML that configuration files and
 workflows use, a subset of `YAML 1.2 <https://yaml.org>`_, which
@@ -97,6 +97,7 @@ of Adam Kennedy and David Golden, which Mojolicious uses, whose regular
 expressions of scalars and keys it borrows, with thanks.
 """
 
+import Pyjo.Collection
 import Pyjo.Exception
 
 from Pyjo.Util import b64_encode
@@ -280,37 +281,44 @@ def load_all(string: str) -> list[Any]:
     return _Loader(string).documents()
 
 
+# y(string) loads one string of YAML, where values of any other type are dumped, which the first overload types
 @overload
-def y(value: list[Any] | tuple[Any, ...] | dict[Any, Any], *, sort_keys: bool = False) -> str: ...
+def y(value: bytes | bytearray | str, /, *, sort_keys: bool = False) -> Pyjo.Collection.object[Any]: ...  # pyright: ignore[reportOverlappingOverload]
 
 
 @overload
-def y(value: bytes | bytearray | str, *, sort_keys: bool = False) -> Any: ...
+def y(*values: Any, sort_keys: bool = False) -> str: ...
 
 
-def y(value: list[Any] | tuple[Any, ...] | dict[Any, Any] | bytes | bytearray | str, *, sort_keys: bool = False) -> Any:
+def y(*values: Any, sort_keys: bool = False) -> Any:
     """::
 
-        string = y([1, 2, 3])
+        documents = y(string)
         string = y({'foo': 'bar'})
+        string = y({'foo': 'bar'}, {'baz': 1})
         string = y({'foo': 'bar'}, sort_keys=True)
-        value = y(string)
 
-    Dump Python data structure (which may only be a :class:`list`, a
-    :class:`tuple` or a :class:`dict`) with :func:`dump`, or load YAML, a
-    string or ``UTF-8`` bytes, with :func:`load`, as :func:`Pyjo.JSON.j` does
-    for JSON. ``sort_keys`` sorts the keys of the mappings of the YAML that it
-    dumps. ::
+    Load YAML, a string or ``UTF-8`` bytes, with :func:`load_all` into a
+    :mod:`Pyjo.Collection` of its documents, which has one for a single
+    document, or dump any other values, one or more, with :func:`dump_all`,
+    one document for each. ``sort_keys`` sorts the keys of the mappings of the
+    YAML that it dumps. ::
 
         # 'foo: bar\\n'
         y({'foo': 'bar'})
 
-        # {'foo': 'bar'}
+        # '--- 1\\n--- 2\\n'
+        y(1, 2)
+
+        # [{'foo': 'bar'}]
         y(b'foo: bar\\n')
+
+        # 'bar'
+        y('foo: bar\\n').first()['foo']
     """
-    if isinstance(value, (list, tuple, dict)):
-        return dump(value, sort_keys=sort_keys)
-    return load(value if isinstance(value, str) else bytes(value).decode('UTF-8'))
+    if len(values) == 1 and isinstance(value := values[0], (str, bytes, bytearray)):
+        return Pyjo.Collection.c(*load_all(value if isinstance(value, str) else bytes(value).decode('UTF-8')))
+    return dump_all(values, sort_keys=sort_keys)
 
 
 def _error(message: str) -> Pyjo.Exception.object:

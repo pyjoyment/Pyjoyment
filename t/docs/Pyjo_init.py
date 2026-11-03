@@ -291,17 +291,17 @@ with subtest('x'):
     is_ok(one_liner('x(f("test.html").slurp()).at("title").text', cwd=dir.to_str()).stdout, 'Mojolicious\n', 'file')
 
 with subtest('y'):
-    string = y([1, 2, 3])
-    is_ok(string, '- 1\n- 2\n- 3\n', 'list')
+    documents = y('foo: bar\n')
+    is_deeply_ok(documents, [{'foo': 'bar'}], 'documents')
     string = y({'foo': 'bar'})
     is_ok(string, 'foo: bar\n', 'dict')
-    value = y(string)
-    is_deeply_ok(value, {'foo': 'bar'}, 'loaded')
+    string = y({'foo': 'bar'}, {'baz': 1})
+    is_ok(string, 'foo: bar\n---\nbaz: 1\n', 'dicts')
     dir = Pyjo.File.tempdir()
     dir.child('hello.json').spew(b'{"hello": "world!"}')
     dir.child('hello.yaml').spew(b'hello: world!\n')
     is_ok(one_liner('y(j(f("hello.json").slurp()))', cwd=dir.to_str()).stdout, 'hello: world!\n\n', 'JSON to YAML')
-    is_ok(one_liner('r(y(f("hello.yaml").slurp()))', cwd=dir.to_str()).stdout, "{'hello': 'world!'}\n\n", 'r')
+    is_ok(one_liner('r(y(f("hello.yaml").slurp()).first())', cwd=dir.to_str()).stdout, "{'hello': 'world!'}\n\n", 'r')
 
 with subtest('z'):
     schema = z.object(name=z.string(), stars=z.int().min(0))

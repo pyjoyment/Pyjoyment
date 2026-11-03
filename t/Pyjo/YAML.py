@@ -1,3 +1,5 @@
+import Pyjo.Collection
+
 from Pyjo.Test import *
 from Pyjo.YAML import dump, dump_all, load, load_all, y
 
@@ -481,11 +483,22 @@ with subtest('Dump the order of the keys'):
 with subtest('y'):
     is_ok(y((1, 2)), '- 1\n- 2\n', 'tuple')
     is_ok(y({}), '--- {}\n', 'empty dict')
-    is_deeply_ok(y(bytearray(b'- \xe2\x99\xa5\n')), ['\u2665'], 'bytearray of UTF-8')
-    is_ok(y(''), None, 'empty string')
-    is_deeply_ok(y('--- first\n--- second\n'), 'second', 'last document')
+    is_ok(y({'a': 1}, [2], 'three', None), 'a: 1\n---\n- 2\n--- three\n--- null\n', 'documents')
+    is_ok(y('one', 'two'), '--- one\n--- two\n', 'strings are documents of their own')
+    is_ok(y(), '', 'no documents')
+    is_ok(y({'b': 1}, {'a': 2}, sort_keys=True), 'b: 1\n---\na: 2\n', 'keys sorted in each document')
+    isa_ok(y('a: 1\n'), Pyjo.Collection.object, 'collection')
+    is_deeply_ok(y('a: 1\n'), [{'a': 1}], 'one document')
+    is_deeply_ok(y('---\na: 1\n'), [{'a': 1}], 'one document with its start')
+    is_deeply_ok(y('- 1\n- 2\n'), [[1, 2]], 'one document of a sequence')
+    is_deeply_ok(y('--- first\n--- second\n'), ['first', 'second'], 'documents')
+    is_deeply_ok(y(''), [], 'empty string')
+    is_deeply_ok(y('# comment\n'), [], 'comment')
+    is_deeply_ok(y(bytearray(b'- \xe2\x99\xa5\n')), [['\u2665']], 'bytearray of UTF-8')
+    is_deeply_ok(y(b'a: 1\n---\nb: 2\n').map(lambda d: list(d)[0]), ['a', 'b'], 'chained')
     throws_ok(lambda: y('foo: !tag bar'), re.compile(r'^YAML does not support a feature'), 'error')
-    is_deeply_ok(y(y({'b': [1, {'a': None}]})), {'b': [1, {'a': None}]}, 'round trip')
+    data = [{'b': [1, {'a': None}]}, 'two']
+    is_deeply_ok(y(y(*data)), data, 'round trip')
 
 with subtest('Dump round trip'):
     data = {
