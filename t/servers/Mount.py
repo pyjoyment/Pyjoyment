@@ -6,6 +6,7 @@ import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjoyment
 
+from Pyjo.INI import dump as dump_ini
 from Pyjo.Test import *
 from Pyjo.Util import url_escape
 
@@ -277,8 +278,12 @@ with subtest('PHP on php-fpm'):
             conf = os.path.join(dir, 'php-fpm.conf')
             with open(conf, 'w') as file:
                 file.write(
-                    f'[global]\nerror_log = /dev/stderr\ndaemonize = no\n\n'
-                    f'[www]\nlisten = {sock}\npm = static\npm.max_children = 2\n'
+                    dump_ini(
+                        {
+                            'global': {'error_log': '/dev/stderr', 'daemonize': False},
+                            'www': {'listen': sock, 'pm': 'static', 'pm.max_children': 2},
+                        }
+                    )
                 )
             with open(os.path.join(dir, 'php-fpm.log'), 'w+') as log:
                 fpm = subprocess.Popen([PHP_FPM, '-n', '-y', conf, '-F'], stdout=log, stderr=subprocess.STDOUT)
