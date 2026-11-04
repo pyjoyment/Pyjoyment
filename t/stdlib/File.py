@@ -112,4 +112,49 @@ with subtest('Bytes as they are'):
         f.write(data)
     is_ok(dir.child('slurp.bin').slurp(), data, 'slurp() reads them, past the Ctrl-Z of the text mode of Windows')
 
+with subtest('exists, is_file and is_dir, as os.path has them'):
+    dir = tempdir()
+    file = dir.child('file.txt').spew('')
+    missing = dir.child('missing')
+    is_deeply_ok([dir.exists, dir.is_file, dir.is_dir], [True, False, True], 'directory')
+    is_deeply_ok([file.exists, file.is_file, file.is_dir], [True, True, False], 'file')
+    is_deeply_ok([missing.exists, missing.is_file, missing.is_dir], [False, False, False], 'missing')
+    is_deeply_ok(
+        dir.list(dir=True).map('is_dir').to_list(), [False], 'a property, which a method name of a collection takes'
+    )
+
+    with subtest('Symbolic links'):
+        try:
+            os.symlink(file, dir.child('link'))
+            os.symlink(missing, dir.child('broken'))
+        except (AttributeError, NotImplementedError, OSError):
+            plan(skip_all='symlink unimplemented')
+        link, broken = dir.child('link'), dir.child('broken')
+        is_deeply_ok([link.exists, link.is_file, link.is_dir], [True, True, False], 'followed')
+        is_deeply_ok([broken.exists, broken.is_file, broken.is_dir], [False, False, False], 'broken')
+
+    with subtest('Without the permission'):
+        if os.name == 'nt' or os.geteuid() == 0:
+            plan(skip_all='the permissions of a directory do not keep out Windows or root')
+        locked = dir.child('locked').make_path()
+        inside = locked.child('inside.txt').spew('')
+        locked.chmod(0)
+        try:
+            is_deeply_ok([inside.exists, inside.is_file, inside.is_dir], [False, False, False], 'cannot be checked')
+        finally:
+            locked.chmod(0o700)
+
+with subtest('expanduser, as os.path has it'):
+    home = tempdir()
+    with patch.dict(os.environ, {'HOME': home.to_str(), 'USERPROFILE': home.to_str()}):
+        expanded = path('~', '.aws', 'config').expanduser()
+        isa_ok(expanded, Pyjo.File.object, 'a new object')
+        is_ok(expanded.to_str(), os.path.join(home, '.aws', 'config'), 'home directory of ~')
+        is_ok(path('~').expanduser().to_str(), home.to_str(), 'only ~')
+        is_ok(path('a', '~').expanduser().to_str(), path('a', '~').to_str(), 'not at the beginning')
+        is_ok(path('/tmp/a').expanduser().to_str(), '/tmp/a', 'as it is without ~')
+    if os.name != 'nt':
+        name = '~no-such-user-of-pyjoyment/a'
+        is_ok(path(name).expanduser().to_str(), name, 'as it is for an unknown user')
+
 done_testing()

@@ -287,6 +287,43 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         tx = _download_error(ua.transactor.download(ua.head(url, headers or {}), self._path))
         return bool(_download_error(ua.start(tx))) if tx is not None else True
 
+    # Not in Mojolicious: the file test -e of Perl, which takes any string, as a Mojo::File is one
+    @property
+    def exists(self) -> bool:
+        """::
+
+            boolean = path.exists
+
+        Check if the path exists, as :func:`os.path.exists` does: a symbolic
+        link is followed, so a broken one does not exist, and neither does a
+        path that cannot be checked, as without the permission. ::
+
+            # Read the configuration if there is one
+            if (file := path('/etc/myapp.conf')).exists:
+                print(file.slurp('UTF-8'))
+        """
+        return os.path.exists(self._path)
+
+    # Not in Mojolicious: the home directory of ~, which Perl leaves to the shell
+    def expanduser(self) -> Self:
+        """::
+
+            expanded = path.expanduser()
+
+        Return a new :mod:`Pyjo.File` object of the path with ``~`` or
+        ``~user`` at its beginning replaced by the home directory of the user,
+        as :func:`os.path.expanduser` does, of ``HOME``, or of ``USERPROFILE``
+        on Windows, and with the path as it is without them or when the home
+        directory is unknown. ::
+
+            # "/home/sri/.aws/config" (on UNIX)
+            path('~/.aws/config').expanduser()
+
+            # The file of an environment variable, or the default one
+            path(os.environ.get('AWS_CONFIG_FILE', '~/.aws/config')).expanduser()
+        """
+        return self.new(os.path.expanduser(self._path))
+
     @property
     def extname(self) -> str:
         """::
@@ -316,6 +353,42 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return _is_abs(self._path) > 0
 
+    # Not in Mojolicious: the file test -d of Perl
+    @property
+    def is_dir(self) -> bool:
+        """::
+
+            boolean = path.is_dir
+
+        Check if the path is a directory, as :func:`os.path.isdir` does,
+        following a symbolic link, and false for a path that cannot be
+        checked. ::
+
+            # Create the directory unless there is one
+            if not (dir := path('/home/sri/myapp')).is_dir:
+                dir.make_path()
+        """
+        return os.path.isdir(self._path)
+
+    # Not in Mojolicious: the file test -f of Perl
+    @property
+    def is_file(self) -> bool:
+        """::
+
+            boolean = path.is_file
+
+        Check if the path is a regular file, as :func:`os.path.isfile` does,
+        following a symbolic link, and false for a path that cannot be
+        checked. ::
+
+            # True
+            curfile().is_file
+
+            # False
+            curfile().dirname().is_file
+        """
+        return os.path.isfile(self._path)
+
     def list(self, *, dir: bool = False, hidden: bool = False) -> 'Pyjo.Collection.object[Self]':
         """::
 
@@ -338,7 +411,7 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         ``hidden``
             Include hidden files.
         """
-        if not os.path.isdir(self._path):
+        if not self.is_dir:
             return Pyjo.Collection.new()
         try:
             names = os.listdir(self._path)
@@ -380,7 +453,7 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
         ``max_depth``
             Maximum number of levels to descend when searching for files.
         """
-        if not os.path.isdir(self._path):
+        if not self.is_dir:
             return Pyjo.Collection.new()
 
         results: builtins.list[Self] = []
@@ -394,7 +467,7 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
                 names = [n for n in names if not n.startswith('.')]
             for name in names:
                 child = self.new(path, name)
-                is_dir = os.path.isdir(child)
+                is_dir = child.is_dir
                 if dir or not is_dir:
                     results.append(child)
                 if is_dir and not os.path.islink(child) and (not max_depth or depth + 1 < max_depth):
@@ -478,7 +551,7 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
         Delete file.
         """
-        if os.path.exists(self._path):
+        if self.exists:
             try:
                 os.unlink(self._path)
             except OSError as e:
@@ -706,7 +779,7 @@ class Pyjo_File(Pyjo.Base.object, Pyjo.String.Mixin.object):
             # Safely read file
             print(path('.bashrc').touch().slurp())
         """
-        if not os.path.exists(self._path):
+        if not self.exists:
             self.open('w').close()
         try:
             os.utime(self._path)
