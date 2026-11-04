@@ -1,5 +1,6 @@
 import Pyjo.File
-import Pyjo.Reactor
+import Pyjo.IOLoop
+import Pyjo.Reactor.Asyncio
 
 from Pyjo.Test import *
 
@@ -46,7 +47,7 @@ with subtest('WSGI'):
     is_ok(get('/'), 'Legacy at  for /', 'root')
 
 with subtest('ASGI'):
-    if Pyjo.Reactor.object.detect() != 'Pyjo.Reactor.Asyncio':
+    if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
         skip('needs Pyjo.Reactor.Asyncio, which runs an ASGI application', 1)
     else:
         is_ok(get('/realtime/events'), 'ASGI at /realtime for /realtime/events', 'prefix')

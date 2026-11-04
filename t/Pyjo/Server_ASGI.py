@@ -1,4 +1,5 @@
 import Pyjo.IOLoop
+import Pyjo.Reactor.Asyncio
 import Pyjo.Server.ASGI
 
 from Pyjo.Test import *
@@ -12,7 +13,7 @@ import sys
 
 # Pyjo.Server.ASGI needs a reactor that runs in the loop of the ASGI server, which Pyjo.Reactor.Poll, with a loop of its
 # own, does not
-if Pyjo.Reactor.object.detect() != 'Pyjo.Reactor.Asyncio':
+if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
     plan(skip_all='needs Pyjo.Reactor.Asyncio, which runs in the loop of the ASGI server')
 
 # The ASGI server of the tests

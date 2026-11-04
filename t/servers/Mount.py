@@ -1,7 +1,7 @@
 import Pyjo.App.FastCGI
 import Pyjo.File
 import Pyjo.IOLoop
-import Pyjo.Reactor
+import Pyjo.Reactor.Asyncio
 import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjoyment
@@ -394,7 +394,7 @@ with subtest('MCP SDK'):
         return await asyncio.gather(*(client() for _ in range(clients)))
 
     # The MCP SDK needs the event loop of asyncio, which Pyjo.Reactor.Poll does not run
-    if Pyjo.Reactor.object.detect() != 'Pyjo.Reactor.Asyncio':
+    if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
         skip('needs Pyjo.Reactor.Asyncio, as the MCP SDK runs on asyncio', 1)
     else:
         with tempfile.TemporaryDirectory() as dir:
@@ -566,7 +566,7 @@ def echo(c):
         with subtest(f'Pyjoyment on ASGI mounted in Pyjoyment.Lite on {name}'):
             # Pyjo.Server.ASGI needs a reactor that runs in the loop of the ASGI server, which Pyjo.Reactor.Poll, with a
             # loop of its own, does not
-            if Pyjo.Reactor.object.detect() != 'Pyjo.Reactor.Asyncio':
+            if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
                 skip('needs Pyjo.Reactor.Asyncio, which runs in the loop of the ASGI server', 1)
                 continue
             log = os.path.join(dir, 'lifespan.log')

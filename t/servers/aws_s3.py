@@ -1,4 +1,5 @@
-import Pyjo.Reactor
+import Pyjo.IOLoop
+import Pyjo.Reactor.Asyncio
 import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjoyment
@@ -18,7 +19,7 @@ if not importlib.util.find_spec('aiobotocore'):
     plan(skip_all='needs the dependency group "servers", without aiobotocore')
 
 # aiobotocore runs on the event loop of asyncio, which Pyjo.Reactor.Poll does not run
-if Pyjo.Reactor.object.detect() != 'Pyjo.Reactor.Asyncio':
+if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
     plan(skip_all='needs Pyjo.Reactor.Asyncio, as aiobotocore runs on asyncio')
 
 EXAMPLE = curfile().dirname().dirname().sibling('examples', 'aws', 's3.py')

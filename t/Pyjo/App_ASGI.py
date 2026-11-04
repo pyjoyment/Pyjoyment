@@ -1,7 +1,7 @@
 import Pyjo.App.ASGI
 import Pyjo.IOLoop
 import Pyjo.Promise
-import Pyjo.Reactor
+import Pyjo.Reactor.Asyncio
 import Pyjo.Server.ASGI
 import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
@@ -846,8 +846,9 @@ with subtest('Event loop of asyncio'):
         app.log.level = 'fatal'
         t = Pyjo.Test.Pyjo.new(app)
 
-        # Not on another reactor, which drives a coroutine that awaits only the promises of Pyjoyment
-        if Pyjo.Reactor.detect() != 'Pyjo.Reactor.Asyncio':
+        # Not on another reactor, which drives a coroutine that awaits only the promises of Pyjoyment, unlike the one of
+        # asyncio and the reactors of other distributions made of it, as the one of uvloop
+        if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
             with app.log.capture('error') as messages:
                 t.get_ok('/').status_is(500)
             like_ok(str(messages), r'no running event loop|cannot wait for', 'right error')

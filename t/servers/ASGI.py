@@ -1,4 +1,5 @@
-import Pyjo.Reactor
+import Pyjo.IOLoop
+import Pyjo.Reactor.Asyncio
 
 from Pyjo.Test import *
 
@@ -17,7 +18,7 @@ if missing := [
 
 # Pyjo.Server.ASGI needs a reactor that runs in the loop of the ASGI server, which Pyjo.Reactor.Poll, with a loop of its
 # own, does not
-if Pyjo.Reactor.object.detect() != 'Pyjo.Reactor.Asyncio':
+if not isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
     plan(skip_all='needs Pyjo.Reactor.Asyncio, which runs in the loop of the ASGI server')
 
 from websockets.exceptions import ConnectionClosed, InvalidStatus  # noqa: E402

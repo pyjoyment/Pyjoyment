@@ -4,6 +4,7 @@ import Pyjo.IOLoop
 import Pyjo.IOLoop.Server
 import Pyjo.JSON
 import Pyjo.Promise
+import Pyjo.Reactor.Asyncio
 import Pyjo.Server
 import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
@@ -501,7 +502,7 @@ with subtest('Timers and subprocesses'):
             skip('Pyjo.IOLoop.Subprocess needs os.fork', 1)
         else:
             is_ok(txs[2].res.text, 'I ♥ Pyjoyment!', 'subprocess')
-        if Pyjo.Reactor.object.detect() == 'Pyjo.Reactor.Asyncio':
+        if isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
             is_ok(txs[3].res.text, 'Delayed by 3 seconds!', 'asyncio')
         else:
             skip('needs Pyjo.Reactor.Asyncio, as the coroutine awaits asyncio.sleep', 1)
