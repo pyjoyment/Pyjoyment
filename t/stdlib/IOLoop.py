@@ -61,7 +61,7 @@ with subtest('Inside asyncio.run'):
 
     os.environ.pop('PYJO_REACTOR', None)
     asyncio.run(main())
-    is_deeply_ok(got, [True, 'timer', False], 'the reactor watches in the running loop')
+    is_deeply_ok(got, [True, 'timer', True], 'the reactor watches in the running loop')
 
 with subtest('A callback as a keyword argument'):
     loop = Pyjo.IOLoop.new()

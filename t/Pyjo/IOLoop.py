@@ -4,6 +4,7 @@ import Pyjo.IOLoop.Client
 import Pyjo.IOLoop.Server
 import Pyjo.IOLoop.Stream
 import Pyjo.Promise
+import Pyjo.Reactor.Asyncio
 import Pyjo.String.Bytes
 
 from Pyjo.Test import *
@@ -176,7 +177,12 @@ with subtest('Handle and reset'):
 
 with subtest('Handle and reset with freeze'):
     id, id2 = handle_and_reset(True)
-    ok(not running, 'not running')
+    # Unlike Mojolicious: the reactor of asyncio after the freeze runs in the event loop that the frozen one runs, as
+    # asyncio does not nest event loops, where Mojo starts the new reactor inside the old one
+    if isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
+        ok(running, 'running in the loop of the frozen reactor')
+    else:
+        ok(not running, 'not running')
     is_ok(count, 0, 'no recurring events')
     ok(not Pyjo.IOLoop.acceptor(id), 'acceptor has been removed')
     ok(not Pyjo.IOLoop.stream(id2), 'stream has been removed')

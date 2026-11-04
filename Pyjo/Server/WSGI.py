@@ -154,7 +154,6 @@ class Pyjo_Server_WSGI(Pyjo.Server.object):
         def application(environ: WSGIEnvironment, start_response: StartResponse) -> Iterable[bytes]:
             # Not in Mojolicious: in the event loop that runs already, which cannot run for the server, the response is
             # given when it is there, with empty chunks of the body before it
-            # TODO: the event loop of an ASGI server, which Pyjo.Server.ASGI runs without the reactor, so that it is not running
             if Pyjo.IOLoop.is_running():
                 tx, resumed = self._request(environ)
                 return _Later(self, tx, resumed, start_response)

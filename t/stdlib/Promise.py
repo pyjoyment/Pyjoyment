@@ -105,6 +105,37 @@ print(got)
     result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
     is_ok(result.stdout, "[42, 'TypeError']\n", 'promises of Pyjoyment only')
 
+with subtest('wait and for of Pyjo.Iterator inside asyncio.run'):
+    code = """
+import asyncio, Pyjo.IOLoop, Pyjo.Iterator, Pyjo.Promise
+
+async def main():
+    got = [Pyjo.IOLoop.is_running()]
+    promise = Pyjo.Promise.timer(0.01, 'timer')
+    promise.wait()
+    got.append('wait returned')
+    got.append(await promise)
+    try:
+        list(Pyjo.Iterator.new([1]).map(lambda e: Pyjo.Promise.timer(0.01, e)))
+    except RuntimeError as e:
+        got.append(str(e))
+    return got
+
+print(asyncio.run(main(), loop_factory=asyncio.SelectorEventLoop))
+"""
+    # A process of its own with a timeout, as a wait that starts the loop again and again would never return
+    env = dict(os.environ, PYJO_REACTOR='Pyjo.Reactor.Asyncio')
+    try:
+        result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, timeout=60)
+        output = result.stdout + result.stderr
+    except subprocess.TimeoutExpired:
+        output = 'timeout'
+    is_ok(
+        output,
+        "[True, 'wait returned', 'timer', 'A promise cannot be waited for in a running event loop, await it instead']\n",
+        'the event loop of asyncio runs, wait returns at once and for fails',
+    )
+
 with subtest('Promise of a future or a task of asyncio'):
 
     async def futures():
@@ -186,7 +217,7 @@ import asyncio, concurrent.futures, threading, Pyjo.Promise
 
 future = Pyjo.Promise.timer(0.05, 'thread').to_future()
 got = [type(future).__module__ + '.' + type(future).__name__]
-thread = threading.Thread(target=lambda: got.append(future.result(timeout=5)))
+thread = threading.Thread(target=lambda: got.append(future.result(timeout=60)))
 thread.start()
 Pyjo.Promise.timer(0.1).wait()
 thread.join()

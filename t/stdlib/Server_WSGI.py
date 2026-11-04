@@ -1,8 +1,10 @@
 import Pyjo.IOLoop
+import Pyjo.Reactor.Asyncio
 import Pyjo.Server.WSGI
 
 from Pyjo.Test import *
 
+import asyncio
 import io
 import wsgiref.util
 import wsgiref.validate
@@ -87,5 +89,34 @@ with subtest('Chunked content given later, without hop-by-hop headers'):
 with subtest('Path of bytes as the characters 0-255'):
     got = run('GET', '/caf\xc3\xa9')
     is_ok(got['body'], b"GET /caf%C3%A9 {} b''", 'right path')
+
+with subtest('In an event loop of asyncio that runs already'):
+    # The asyncio reactor, whatever PYJO_REACTOR says, in the event loop of an ASGI server, which runs without it, where
+    # the response is given when it is there
+    reactor = Pyjo.IOLoop.singleton.reactor
+    Pyjo.IOLoop.singleton.reactor = Pyjo.Reactor.Asyncio.new()
+
+    async def later():
+        environ = {'REQUEST_METHOD': 'GET', 'PATH_INFO': '/stream', 'wsgi.input': io.BytesIO()}
+        wsgiref.util.setup_testing_defaults(environ)
+        got = {'chunks': []}
+
+        def start_response(status, headers, exc_info=None):
+            got['status'] = status
+
+        result = wsgi.to_wsgi_app()(environ, start_response)
+        try:
+            for chunk in result:
+                got['chunks'].append(chunk)
+                await asyncio.sleep(0.01)
+        finally:
+            result.close()
+        return got
+
+    # A SelectorEventLoop, as the ProactorEventLoop that asyncio.run makes on Windows cannot watch handles
+    got = asyncio.run(later(), loop_factory=asyncio.SelectorEventLoop)
+    is_ok(got['status'], '200 OK', 'right status')
+    is_ok(b''.join(got['chunks']), b'Hello World!', 'content of the timer of the running loop')
+    Pyjo.IOLoop.singleton.reactor = reactor
 
 done_testing()

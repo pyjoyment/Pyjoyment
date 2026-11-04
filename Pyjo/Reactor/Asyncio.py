@@ -48,9 +48,9 @@ so coroutines, tasks and other users of the loop run along with it.
 A reactor uses the event loop it is given, or else the loop that is running,
 as inside :func:`asyncio.run`, or a new event loop of its own, and moves its
 handles and timers to the loop that is running. In a loop that runs
-already, :meth:`start` and :meth:`one_tick` return right away, as asyncio
-does not nest event loops, and the handles and timers are watched by that
-loop.
+already, :attr:`is_running` is true, :meth:`start` and :meth:`one_tick`
+return right away, as asyncio does not nest event loops, and the handles and
+timers are watched by that loop.
 
 The loop watches handles with ``add_reader`` and ``add_writer``, which the
 default event loop of asyncio on Windows, :class:`asyncio.ProactorEventLoop`,
@@ -391,9 +391,23 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
 
             boolean = reactor.is_running
 
-        Check if reactor is running.
+        Check if reactor is running, also in a loop that runs already, as
+        inside :func:`asyncio.run`, which watches its handles and timers.
         """
-        return bool(self._running)
+        if self._running:
+            return True
+
+        # Unlike Mojolicious: a loop that runs already, as of asyncio.run or of another reactor, runs the events of this
+        # one too, as asyncio does not nest event loops, where Mojo would run a reactor inside another; a loop that the
+        # reactor runs itself has stopped for it, as after stop or reset in one of its callbacks
+        if self._run or self._one:
+            return False
+        if not self._fixed:
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                return False
+        return self.loop.is_running()
 
     def next_tick(self, cb: TimerCallback) -> None:
         """::

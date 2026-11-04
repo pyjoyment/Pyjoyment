@@ -48,7 +48,7 @@ with subtest('Inside asyncio.run'):
         got.append(reactor.is_running)
 
     asyncio.run(main())
-    is_deeply_ok(got, [True, 'start returned', 'timer', 'next tick', False], 'the running loop watches the events')
+    is_deeply_ok(got, [True, 'start returned', 'timer', 'next tick', True], 'the running loop watches the events')
 
 with subtest('Unhandled error in a loop that runs already'):
     contexts = []
