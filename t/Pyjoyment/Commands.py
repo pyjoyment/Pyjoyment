@@ -3,6 +3,7 @@ import Pyjo.File
 from Pyjo.Test import *
 
 import contextlib
+import gc
 import importlib
 import io
 import json
@@ -637,28 +638,31 @@ with subtest('generate lambda-zip'):
     # No collection of the garbage while a module is compiled, whose moment in a free-threaded Python changes the
     # bytecode of the modules after it, at random, so the sitecustomize of the interpreters of the chunks collects at
     # every allocation and logs a collection inside py_compile.compile
-    site = Pyjo.File.tempdir()
-    site.child('sitecustomize.py').spew(
-        'import gc, os, sys\n'
-        'def collected(phase, info):\n'
-        '    frame = sys._getframe()\n'
-        '    while frame and (frame.f_code.co_name, os.path.basename(frame.f_code.co_filename)) != (\n'
-        '        "compile", "py_compile.py"\n'
-        '    ):\n'
-        '        frame = frame.f_back\n'
-        '    if frame:\n'
-        '        with open(os.environ["GC_LOG"], "a") as log:\n'
-        '            log.write(phase + "\\n")\n'
-        'gc.set_threshold(1)\n'
-        'gc.callbacks.append(collected)\n'
-    )
-    modules = Pyjo.File.tempdir()
-    Pyjo.File.path(sysconfig.get_paths()['stdlib']).child('os.py').copy_to(modules)
-    with local(PYTHONHASHSEED='0', PYTHONPATH=site.to_str(), GC_LOG=site.child('log').to_str()):
-        code = Pyjoyment.Command.Author.generate.lambda_zip._COMPILE
-        subprocess.run([sys.executable, '-c', code, modules.to_str(), '/opt/python'], check=True)
-    ok(modules.child('__pycache__').list().size, 'module compiled')
-    ok(not os.path.exists(site.child('log')), 'no collection')
+    if not hasattr(gc, 'callbacks'):
+        skip('PyPy has no thresholds nor callbacks of the garbage collector', 2)
+    else:
+        site = Pyjo.File.tempdir()
+        site.child('sitecustomize.py').spew(
+            'import gc, os, sys\n'
+            'def collected(phase, info):\n'
+            '    frame = sys._getframe()\n'
+            '    while frame and (frame.f_code.co_name, os.path.basename(frame.f_code.co_filename)) != (\n'
+            '        "compile", "py_compile.py"\n'
+            '    ):\n'
+            '        frame = frame.f_back\n'
+            '    if frame:\n'
+            '        with open(os.environ["GC_LOG"], "a") as log:\n'
+            '            log.write(phase + "\\n")\n'
+            'gc.set_threshold(1)\n'
+            'gc.callbacks.append(collected)\n'
+        )
+        modules = Pyjo.File.tempdir()
+        Pyjo.File.path(sysconfig.get_paths()['stdlib']).child('os.py').copy_to(modules)
+        with local(PYTHONHASHSEED='0', PYTHONPATH=site.to_str(), GC_LOG=site.child('log').to_str()):
+            code = Pyjoyment.Command.Author.generate.lambda_zip._COMPILE
+            subprocess.run([sys.executable, '-c', code, modules.to_str(), '/opt/python'], check=True)
+        ok(modules.child('__pycache__').list().size, 'module compiled')
+        ok(not os.path.exists(site.child('log')), 'no collection')
 
     # The architecture, the free-threaded build and the lock of the project
     app.rel_file('uv.lock').spew('')
