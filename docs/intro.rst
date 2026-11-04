@@ -279,3 +279,8 @@ needs no adapters:
 * the cookies from the ``Morsel`` of ``http.cookies``;
 * ``Pyjo.Collection`` is a ``list``, ``Pyjo.String.Unicode`` a ``str``, and a promise
   is awaited in a coroutine of asyncio.
+
+The text files that Pyjoyment reads are Unicode, not only UTF-8: a byte order
+mark of UTF-8, UTF-16 or UTF-32, as Windows PowerShell and the editors of
+Windows write it, gives the encoding of a configuration file, a template or a
+document of JSON or YAML, so that a file made on Windows loads as it is.
