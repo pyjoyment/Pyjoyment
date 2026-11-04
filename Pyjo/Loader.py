@@ -133,7 +133,7 @@ def find_modules(ns: str, *, recursive: bool = False) -> list[str]:
         Search namespace recursively.
     """
     parts = ns.split('.')
-    dirs = [d for d in (Pyjo.File.new(p or '.', *parts) for p in sys.path) if os.path.isdir(d)]
+    dirs = [d for d in (Pyjo.File.new(p or '.', *parts) for p in sys.path) if d.is_dir]
 
     modules: set[str] = set()
     for dir in dirs:

@@ -231,7 +231,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
         exe = os.environ.get('PYJO_EXE')
         script = Pyjo.File.path(exe).to_rel(self.app.home).to_str() if exe else None
         cmd = [script] if script else ['-m', type(self.app).__module__]
-        project = os.path.isfile(self.rel_file('pyproject.toml')) or not exe or not _metadata(Pyjo.File.path(exe))
+        project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
 
         # The Python of the machine that compiles the bytecode and gives the tags of the wheels, of the same version,
         # with the GIL unless the version is the free-threaded one, which uv does not take otherwise
@@ -260,11 +260,11 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
             # of uv
             function = tmp.child('function').make_path()
             requirements = 'pyproject.toml'
-            if project and os.path.isfile(self.rel_file('uv.lock')):
+            if project and self.rel_file('uv.lock').is_file:
                 requirements = tmp.child('requirements.txt').to_str()
                 self._uv('export', '--frozen', '--no-dev', '--no-emit-project', '--no-hashes', *_FORMAT, requirements)
             elif not project:
-                frozen = ['--frozen'] if os.path.isfile(self.rel_file(f'{script}.lock')) else []
+                frozen = ['--frozen'] if self.rel_file(f'{script}.lock').is_file else []
                 requirements = tmp.child('requirements.txt').to_str()
                 self._uv('export', '--script', script or '', *frozen, '--no-hashes', *_FORMAT, requirements)
             platform = f'{machine}-manylinux_2_34'
@@ -280,7 +280,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
             pyjoyment = tmp.child('pyjoyment')
             site = pyjoyment.child('python', 'lib', interpreter, 'site-packages')
             if layer:
-                names = sorted(os.listdir(deps)) if os.path.isdir(deps) else []
+                names = sorted(os.listdir(deps)) if deps.is_dir else []
                 if 'Pyjoyment' not in names:
                     raise Pyjo.Exception.new('Pyjoyment is not among the dependencies')
                 site.make_path()
@@ -289,7 +289,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                     # The version of Pyjoyment, which a layer that is published already is to have
                     if only and (metadata := re.fullmatch(r'(?i)pyjoyment-([^-]+)\.dist-info', name)):
                         self._loud(f'  [layer] Pyjoyment {metadata[1]} for Python {interpreter[6:]}')
-            if os.path.isdir(deps):
+            if deps.is_dir:
                 top = os.fspath(deps)
                 shutil.copytree(
                     deps, function, dirs_exist_ok=True, ignore=lambda dir, _: ['.lock', 'bin'] if dir == top else []

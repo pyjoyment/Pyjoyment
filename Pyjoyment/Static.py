@@ -376,7 +376,7 @@ class Pyjoyment_Static(Pyjo.Base.object):
         asset_dir = self.asset_dir
         for path in self.paths:
             asset_path = Pyjo.File.path(path, asset_dir)
-            if not os.path.isdir(asset_path):
+            if not asset_path.is_dir:
                 continue
 
             for asset_file in asset_path.list_tree():

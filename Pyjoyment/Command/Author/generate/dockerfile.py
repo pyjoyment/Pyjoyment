@@ -194,13 +194,13 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         exe = os.environ.get('PYJO_EXE')
         script = Pyjo.File.path(exe).to_rel(self.app.home).to_str() if exe else None
         cmd = ['python', script] if script else ['python', '-m', type(self.app).__module__]
-        project = os.path.isfile(self.rel_file('pyproject.toml')) or not exe or not _metadata(Pyjo.File.path(exe))
+        project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
         lock = 'uv.lock' if project else f'{script}.lock'
         values = {
             'cmd': json.dumps(cmd if target == 'lambda' else [*cmd, 'prefork']),
             'graceful_timeout': opts.graceful_timeout,
             'healthcheck': healthcheck,
-            'lock': lock if os.path.isfile(self.rel_file(lock)) else None,
+            'lock': lock if self.rel_file(lock).is_file else None,
             'name': name,
             'port': opts.port or 3000,
             'python': f'{sys.version_info.major}.{sys.version_info.minor}',

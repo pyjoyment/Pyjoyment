@@ -211,7 +211,7 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         exe = os.environ.get('PYJO_EXE')
         script = Pyjo.File.path(exe).to_rel(self.app.home).to_str().replace(os.sep, '/') if exe else None
         package = type(self.app).__module__
-        project = os.path.isfile(self.rel_file('pyproject.toml')) or not exe or not _metadata(Pyjo.File.path(exe))
+        project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
         lock = 'uv.lock' if project else f'{script}.lock'
         port = opts.port or 3000
 
@@ -232,7 +232,7 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         # the server, with "python -m", which puts the application in the path, as the image of generate dockerfile
         # does; pyjo-reload watches the package of an application too, as it watches the script, "lib" and "templates"
         # by default
-        locked = ' --locked' if os.path.isfile(self.rel_file(lock)) else ''
+        locked = ' --locked' if self.rel_file(lock).is_file else ''
         if project:
             sync = f'uv sync --no-install-project{locked}{" --no-dev" if opts.dev is False else ""}'
         else:
@@ -249,7 +249,7 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         files: list[tuple[str, str, str]] = []
         dev = self.rel_file('kubernetes/dev')
         copy = dev.child('files')
-        if os.path.isdir(copy):
+        if copy.is_dir:
             copy.remove_tree()
         if not opts.host_path:
             size = 0
