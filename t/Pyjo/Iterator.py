@@ -11,6 +11,7 @@ from Pyjo.Collection import c
 from Pyjo.Test import *
 
 import gc
+import inspect
 import re
 import socket
 import time
@@ -299,5 +300,67 @@ with subtest('for in a running event loop'):
     Pyjo.IOLoop.timer(0, timer)
     Pyjo.IOLoop.one_tick()
     is_deeply_ok(errors, ['A promise cannot be waited for in a running event loop, await it instead'], 'right error')
+
+with subtest('The async iterators of the chain are closed before the end of the source'):
+
+    def value(promise):
+        got = []
+        promise.then(got.append).wait()
+        return got[0]
+
+    async def numbers():
+        for n in (1, 2, 3):
+            yield n
+
+    def fail(e):
+        if e == 2:
+            raise ValueError('Two')
+        return e
+
+    source = numbers()
+    is_ok(value(Pyjo.Iterator.new(source).map(lambda e: e * 10).first_p(lambda e: e == 10)), 10, 'first_p')
+    is_ok(inspect.getasyncgenstate(source), inspect.AGEN_CLOSED, 'source closed at the first match')
+
+    source = numbers()
+    is_deeply_ok(value(Pyjo.Iterator.new(source).head(1).to_list_p()), [1], 'head')
+    is_ok(inspect.getasyncgenstate(source), inspect.AGEN_CLOSED, 'source closed at the end of head')
+
+    for name, call in [
+        ('each_p', lambda iterator: iterator.each_p(lambda e, num: fail(e))),
+        ('join_p', lambda iterator: iterator.map(fail).join_p()),
+        ('reduce_p', lambda iterator: iterator.reduce_p(lambda a, b: fail(b))),
+        ('to_list_p', lambda iterator: iterator.grep(fail).to_list_p()),
+        ('to_list_p of map with concurrency', lambda iterator: iterator.map(fail, concurrency=2).to_list_p()),
+    ]:
+        source = numbers()
+        errors = []
+        call(Pyjo.Iterator.new(source).compact().uniq()).catch(errors.append).wait()
+        is_deeply_ok([str(error) for error in errors], ['Two'], f'{name} rejected')
+        is_ok(inspect.getasyncgenstate(source), inspect.AGEN_CLOSED, f'source of {name} closed at the exception')
+
+    class Unclosable:
+        def __init__(self):
+            self.elements = [1, 2, 3]
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.elements:
+                raise StopAsyncIteration
+            return self.elements.pop(0)
+
+    class Closable(Unclosable):
+        closed = 0
+
+        async def aclose(self):
+            self.closed += 1
+
+    closable = Closable()
+    is_ok(value(Pyjo.Iterator.new(closable).flatten().first_p()), 1, 'async iterator with aclose')
+    is_ok(closable.closed, 1, 'closed once')
+
+    unclosable = Unclosable()
+    is_ok(value(Pyjo.Iterator.new(unclosable).first_p()), 1, 'async iterator without aclose')
 
 done_testing()

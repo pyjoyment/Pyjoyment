@@ -34,6 +34,13 @@ It is iterated with ``for`` and with ``async for`` alike, and each iteration
 takes the elements of the source anew, which a source that is iterated once,
 as a generator or a stream, gives once.
 
+An iteration that ends before the end of the source, as of
+:meth:`first_p`, of :meth:`head` or of an exception, closes the
+asynchronous iterators of the chain with their ``aclose``, as
+:func:`contextlib.aclosing` does, down to the one of the source, as an async
+generator or a stream, so that the garbage collector does not finalize them
+later.
+
 A callback may return a :mod:`Pyjo.Promise` or another awaitable, or be a
 coroutine function, and the iterator passes on the value that it waits for.
 ``async for`` awaits it, and ``for`` waits for it with
@@ -66,12 +73,13 @@ from Pyjo.Collection import _call, _flatten, _str  # pyright: ignore[reportPriva
 import builtins
 import collections
 import collections.abc
+import contextlib
 import inspect
 import itertools
 import re
 
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable
-from typing import Any, Self, overload
+from typing import Any, Self, cast, overload
 
 
 type Anything = builtins.object
@@ -141,9 +149,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
             return (e for e in source if keep(e))
 
         async def asynchronous(source: AsyncIterator[Any]) -> AsyncIterator[Any]:
-            async for e in source:
-                if keep(e):
-                    yield e
+            async with _aclosing(source):
+                async for e in source:
+                    if keep(e):
+                        yield e
 
         return self._chain(sync, asynchronous)
 
@@ -178,9 +187,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
 
         async def each() -> Self:
             num = 0
-            async for e in self:
-                num += 1
-                await _async_value(cb(e, num))
+            async with _aclosing(aiter(self)) as elements:
+                async for e in elements:
+                    num += 1
+                    await _async_value(cb(e, num))
             return self
 
         return Pyjo.Promise.new(each())
@@ -227,9 +237,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         """
 
         async def first() -> Any:
-            async for e in self:
-                if cb is None or await _async_matches(e, cb, args, kwargs):
-                    return e
+            async with _aclosing(aiter(self)) as elements:
+                async for e in elements:
+                    if cb is None or await _async_matches(e, cb, args, kwargs):
+                        return e
             return None
 
         return Pyjo.Promise.new(first())
@@ -250,9 +261,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
             return (f for e in source for f in _flatten([e]))
 
         async def asynchronous(source: AsyncIterator[Any]) -> AsyncIterator[Any]:
-            async for e in source:
-                for f in _flatten([e]):
-                    yield f
+            async with _aclosing(source):
+                async for e in source:
+                    for f in _flatten([e]):
+                        yield f
 
         return self._chain(sync, asynchronous)
 
@@ -282,9 +294,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
             return (e for e in source if _matches(e, cb, args, kwargs, _sync_value))
 
         async def asynchronous(source: AsyncIterator[Any]) -> AsyncIterator[Any]:
-            async for e in source:
-                if await _async_matches(e, cb, args, kwargs):
-                    yield e
+            async with _aclosing(source):
+                async for e in source:
+                    if await _async_matches(e, cb, args, kwargs):
+                        yield e
 
         return self._chain(sync, asynchronous)
 
@@ -310,11 +323,12 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
             if size == 0:
                 return
             num = 0
-            async for e in source:
-                yield e
-                num += 1
-                if num >= size:
-                    return
+            async with _aclosing(source):
+                async for e in source:
+                    yield e
+                    num += 1
+                    if num >= size:
+                        return
 
         return self._chain(sync, asynchronous)
 
@@ -341,7 +355,8 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         """
 
         async def join() -> Pyjo.String.Unicode.object:
-            return Pyjo.String.Unicode.new((string or '').join([_str(e) async for e in self]))
+            async with _aclosing(aiter(self)) as elements:
+                return Pyjo.String.Unicode.new((string or '').join([_str(e) async for e in elements]))
 
         return Pyjo.Promise.new(join())
 
@@ -412,20 +427,21 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
                 _abandon(pending)
 
         async def asynchronous(source: AsyncIterator[Any]) -> AsyncIterator[Any]:
-            if concurrency == 1:
-                async for e in source:
-                    yield await _async_value(_call(e, cb, args, kwargs))
-                return
-            pending: collections.deque[Pyjo.Promise.object] = collections.deque()
-            try:
-                async for e in source:
-                    pending.append(_promise(_call(e, cb, args, kwargs)))
-                    if len(pending) >= concurrency:
+            async with _aclosing(source):
+                if concurrency == 1:
+                    async for e in source:
+                        yield await _async_value(_call(e, cb, args, kwargs))
+                    return
+                pending: collections.deque[Pyjo.Promise.object] = collections.deque()
+                try:
+                    async for e in source:
+                        pending.append(_promise(_call(e, cb, args, kwargs)))
+                        if len(pending) >= concurrency:
+                            yield await pending.popleft()
+                    while pending:
                         yield await pending.popleft()
-                while pending:
-                    yield await pending.popleft()
-            finally:
-                _abandon(pending)
+                finally:
+                    _abandon(pending)
 
         return self._chain(sync, asynchronous)
 
@@ -477,14 +493,14 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         """
 
         async def reduce() -> Any:
-            elements = aiter(self)
-            if len(initial):
-                a = initial[0]
-            elif (a := await anext(elements, _NONE)) is _NONE:
-                return None
-            async for b in elements:
-                a = await _async_value(cb(a, b))
-            return a
+            async with _aclosing(aiter(self)) as elements:
+                if len(initial):
+                    a = initial[0]
+                elif (a := await anext(elements, _NONE)) is _NONE:
+                    return None
+                async for b in elements:
+                    a = await _async_value(cb(a, b))
+                return a
 
         return Pyjo.Promise.new(reduce())
 
@@ -511,7 +527,8 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
         """
 
         async def to_list() -> Pyjo.Collection.object[T]:
-            return Pyjo.Collection.object([e async for e in self])
+            async with _aclosing(aiter(self)) as elements:
+                return Pyjo.Collection.object([e async for e in elements])
 
         return Pyjo.Promise.new(to_list())
 
@@ -540,9 +557,10 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
 
         async def asynchronous(source: AsyncIterator[Any]) -> AsyncIterator[Any]:
             seen: set[str] = set()
-            async for e in source:
-                if _unseen(seen, e if cb is None else await _async_value(_call(e, cb, args, kwargs))):
-                    yield e
+            async with _aclosing(source):
+                async for e in source:
+                    if _unseen(seen, e if cb is None else await _async_value(_call(e, cb, args, kwargs))):
+                        yield e
 
         return self._chain(sync, asynchronous)
 
@@ -555,6 +573,16 @@ class Pyjo_Iterator[T](Pyjo.Base.object):
 
 # The default of next() and anext() that tells no element from an element None
 _NONE = builtins.object()
+
+
+# An async iterator closed where its iteration ends, also before its end, at a return, a break or an exception, so that
+# the async generators of a chain are closed down to its source in the task that iterates them, where the garbage
+# collector would finalize them later, which Trio warns about with a ResourceWarning, and asyncio needs its loop for;
+# an async iterator of a source without aclose is iterated as it is
+def _aclosing[T](iterator: AsyncIterator[T]) -> contextlib.AbstractAsyncContextManager[AsyncIterator[T]]:
+    if hasattr(iterator, 'aclose'):
+        return contextlib.aclosing(cast(Any, iterator))
+    return contextlib.nullcontext(iterator)
 
 
 def _abandon(pending: Iterable[Pyjo.Promise.object]) -> None:
