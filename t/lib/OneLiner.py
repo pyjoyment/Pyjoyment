@@ -1,5 +1,4 @@
 import Pyjo
-import Pyjo.__main__
 import Pyjoyment
 
 import os
@@ -17,6 +16,9 @@ EXAMPLE = """<!doctype html><html lang=en><head><meta charset=utf-8><title>Examp
 <p>This domain is for use in documentation examples without needing permission.</p></body></html>
 """
 
+# The signature of a PNG file, whose CRLF and LF a write in text mode on Windows would change
+PNG = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
+
 MOJOLICIOUS = '<html><head><title>Mojolicious - Perl real-time web framework</title></head><body></body></html>'
 
 mock = Pyjoyment.new()
@@ -30,6 +32,8 @@ def remote(c):
         return c.render(data=EXAMPLE.encode(), format='html')
     if host == 'mojolicious.org' and path == '/':
         return c.render(data=MOJOLICIOUS.encode(), format='html')
+    if host == 'mojolicious.org' and path == '/mojo/logo-white.png':
+        return c.render(data=PNG, format='png')
     if host == 'pypi.org' and path == '/pypi/Pyjoyment/json':
         info = {
             'name': PROJECT['name'],
@@ -49,10 +53,17 @@ def prepare(ua, tx):
         url.scheme = url.host = url.port = None
 
 
-def main(argv):
+def setup():
     ua = Pyjo._ua()
     ua.server.app = mock
     ua.on('prepare', prepare)
+
+
+def main(argv):
+    # Not imported by sitecustomize, before python -m Pyjo runs it
+    import Pyjo.__main__
+
+    setup()
     Pyjo.__main__.main(argv)
 
 

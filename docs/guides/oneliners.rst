@@ -139,6 +139,78 @@ and prints the JSON Pointers of the values that are not valid.
     $ python -m Pyjo 'z.object(port=z.int(), hosts=z.array(z.string())).validate(y(f("config.yaml").slurp()).first())'
     /port: Expected integer - got string.
 
+Standard input and output
+-------------------------
+
+:func:`Pyjo.s` reads the whole standard input, once, as bytes, which
+:func:`Pyjo.j` and :func:`Pyjo.y` take with their encoding, with a byte order
+mark or in UTF-16 too, as Windows PowerShell writes them, and writes bytes to
+the standard output as they are, without a line break.
+
+.. code-block:: console
+
+    $ python -m Pyjo 's(y(j(s())))' < config.json > config.yaml
+    $ python -m Pyjo 's(g("https://mojolicious.org/mojo/logo-white.png").body)' > logo-white.png
+    $ python -m Pyjo 'f("logo-white.png").slurp()[:8] == b"\x89PNG\r\n\x1a\n"'
+    True
+
+What :func:`Pyjo.s` writes is what it returns, which ``python -m Pyjo`` does
+not print again, so that the calls nest, and ``fd`` writes to another file
+descriptor, as the standard error, which the terminal shows, as ``tee``
+does.
+
+.. code-block:: console
+
+    $ python -m Pyjo 's(s(y(j(s())), fd=2))' < config.json > config.yaml
+    name: myapp
+    port: '3000'
+    hosts:
+      - example.com
+      - www.example.com
+
+PowerShell
+----------
+
+PowerShell gives the objects of its pipeline to a program as text, so
+``ConvertTo-Json`` makes JSON of them for :func:`Pyjo.j`, and
+``ConvertFrom-Json`` makes objects of the JSON of a one-liner again.
+
+.. code-block:: pwsh-session
+
+    PS> [ordered]@{ name = 'myapp'; hosts = @('example.com', 'www.example.com') } | ConvertTo-Json | python -m Pyjo 'y(j(s()))'
+    name: myapp
+    hosts:
+      - example.com
+      - www.example.com
+
+    PS> python -m Pyjo 'j(y(f("config.yaml").slurp()).first())' | ConvertFrom-Json | Select-Object -ExpandProperty hosts
+    example.com
+    www.example.com
+    PS> Get-Content config.yaml | python -m Pyjo 'y(s()).first()["hosts"]'
+    ['example.com', 'www.example.com']
+
+``Out-File -Encoding unicode``, and ``>`` and ``Out-File`` of Windows
+PowerShell 5.1 by default, write UTF-16LE with a byte order mark, which
+:func:`Pyjo.f`, :func:`Pyjo.j` and :func:`Pyjo.y` read as it is.
+
+.. code-block:: pwsh-session
+
+    PS> [ordered]@{ name = 'myapp'; port = 3000 } | ConvertTo-Json | Out-File -Encoding unicode app.json
+    PS> python -m Pyjo 'j(f("app.json").slurp())["port"]'
+    3000
+
+The double quotes inside the code of a one-liner reach the program as they
+are with PowerShell 7.3 and newer, and PowerShell 7.4 and newer pass the
+bytes of a pipe between programs and of a redirection to a file as they are.
+Older versions, as Windows PowerShell 5.1, drop the double quotes unless
+they are written as ``\"``, and turn the bytes into strings in between, so a
+one-liner there reads and writes the files itself, with :func:`Pyjo.f`.
+
+.. code-block:: pwsh-session
+
+    PS> python -m Pyjo 'f("logo-white.png").spew(g("https://mojolicious.org/mojo/logo-white.png").body)'
+    logo-white.png
+
 Kubernetes
 ----------
 
@@ -163,14 +235,15 @@ Several statements change a manifest and write it back.
     3
 
 ``kubectl get`` with ``-o yaml`` prints one document, a ``List`` of the
-objects in its ``items``, which a one-liner reads from the standard input.
+objects in its ``items``, which a one-liner reads from the standard input
+with :func:`Pyjo.s`.
 
 .. code-block:: console
 
-    $ kubectl get deployments -A -o yaml | python -m Pyjo 'c(*y(sys.stdin.read()).first()["items"]).map(lambda d: d["spec"]["template"]["spec"]["containers"][0]["image"]).uniq().join("\n")'
+    $ kubectl get deployments -A -o yaml | python -m Pyjo 'c(*y(s()).first()["items"]).map(lambda d: d["spec"]["template"]["spec"]["containers"][0]["image"]).uniq().join("\n")'
     ghcr.io/example/myapp:1.0.0
     registry.k8s.io/coredns/coredns:v1.12.0
-    $ kubectl get pods -A -o yaml | python -m Pyjo 'c(*y(sys.stdin.read()).first()["items"]).grep(lambda p: p["status"]["phase"] != "Running").map(lambda p: p["metadata"]["name"]).join("\n")'
+    $ kubectl get pods -A -o yaml | python -m Pyjo 'c(*y(s()).first()["items"]).grep(lambda p: p["status"]["phase"] != "Running").map(lambda p: p["metadata"]["name"]).join("\n")'
     myapp-7d4b9c8f6d-x2k9p
 
 A single object is the document itself, as a secret, whose values are
@@ -178,9 +251,9 @@ Base64, or a ConfigMap, whose value can be YAML again.
 
 .. code-block:: console
 
-    $ kubectl get secret myapp -o yaml | python -m Pyjo 'b(y(sys.stdin.read()).first()["data"]["password"]).b64_decode()'
+    $ kubectl get secret myapp -o yaml | python -m Pyjo 'b(y(s()).first()["data"]["password"]).b64_decode()'
     s3cr3t
-    $ kubectl get configmap myapp -o yaml | python -m Pyjo 'y(y(sys.stdin.read()).first()["data"]["config.yaml"]).first()["port"]'
+    $ kubectl get configmap myapp -o yaml | python -m Pyjo 'y(y(s()).first()["data"]["config.yaml"]).first()["port"]'
     3000
 
 What ``kustomize build`` and ``helm template`` print is a document for each
@@ -188,10 +261,10 @@ object, which :func:`Pyjo.y` gives all of them.
 
 .. code-block:: console
 
-    $ kustomize build . | python -m Pyjo 'y(sys.stdin.read()).map(lambda d: d["kind"] + "/" + d["metadata"]["name"]).join("\n")'
+    $ kustomize build . | python -m Pyjo 'y(s()).map(lambda d: d["kind"] + "/" + d["metadata"]["name"]).join("\n")'
     Service/myapp
     Deployment/myapp
-    $ kustomize build . | python -m Pyjo 'y(*y(sys.stdin.read()).grep(lambda d: d["kind"] == "Service"))'
+    $ kustomize build . | python -m Pyjo 'y(*y(s()).grep(lambda d: d["kind"] == "Service"))'
     apiVersion: v1
     kind: Service
     metadata:

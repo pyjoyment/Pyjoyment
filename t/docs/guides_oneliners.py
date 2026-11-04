@@ -14,6 +14,9 @@ import sys
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 ONELINER = os.path.join(os.path.dirname(__file__), '..', 'lib', 'OneLiner.py')
+SITECUSTOMIZE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib', 'oneliner'))
+PWSH = shutil.which('pwsh')
+PROMPTS = {'console': '$ ', 'pwsh-session': 'PS> '}
 
 # The one-liners of docs/guides/oneliners.rst, each command of its console blocks with the output that follows it, run
 # in a directory with the files of the page, which the commands of a block change for the next ones
@@ -73,49 +76,93 @@ STDIN = {
 
 
 def blocks():
-    for block in re.findall(r'^\.\. code-block:: console\n\n((?:    .*\n|\n)+)', PAGE, re.M):
+    for shell, block in re.findall(r'^\.\. code-block:: (console|pwsh-session)\n\n((?:    .*\n|\n)+)', PAGE, re.M):
         commands = []
+        prompt = '    ' + PROMPTS[shell]
         for line in block.rstrip('\n').split('\n'):
-            if line.startswith('    $ '):
-                commands.append((line[6:], []))
+            if line.startswith(prompt):
+                commands.append((line[len(prompt) :], []))
             else:
                 commands[-1][1].append(line[4:])
-        yield commands
+        yield shell, commands
+
+
+def run_pwsh(command, cwd):
+    # A command of PowerShell, whose python is an alias of the interpreter, not a function, which would not pass the
+    # standard input of a pipe on, and whose remote services the mock of sitecustomize answers
+    script = os.path.join(cwd, 'command.ps1')
+    with open(script, 'w', encoding='utf-8') as handle:
+        handle.write(f"$ErrorActionPreference = 'Stop'\nSet-Alias python '{sys.executable}'\n{command}\n")
+    env = {k: v for k, v in os.environ.items() if k not in ('PYJO_LOG_LEVEL', 'PYJO_MODE')}
+    env |= {'PYTHONPATH': os.pathsep.join([SITECUSTOMIZE, os.path.abspath(ROOT)]), 'PYJO_PROXY': '0'}
+    result = subprocess.run(
+        [PWSH, '-NoProfile', '-NonInteractive', '-File', script],
+        capture_output=True,
+        env=env,
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+    )
+    os.remove(script)
+    terminal = result.stdout + result.stderr
+    return result.returncode, terminal.decode().replace('\r\n', '\n'), result.stderr.decode(errors='replace')
 
 
 def run(command, cwd):
     # The command of a pipe gives the standard input, and the variables before python -m Pyjo its environment
-    stdin = None
+    stdin = b''
     if ' | ' in command:
         producer, command = command.split(' | ', 1)
-        stdin = STDIN[producer]
+        stdin = STDIN[producer].encode()
     args = shlex.split(command)
     env = {k: v for k, v in os.environ.items() if k not in ('PYJO_LOG_LEVEL', 'PYJO_MODE')}
     env |= {'PYTHONPATH': ROOT, 'PYJO_PROXY': '0'}
     while '=' in args[0]:
         name, value = args.pop(0).split('=', 1)
         env[name] = value
+
+    # The redirections of the shell, of the standard input from a file and of the standard output to one, as bytes
+    stdout = None
+    while len(args) > 2 and args[-2] in ('<', '>'):
+        if args[-2] == '<':
+            with open(os.path.join(cwd, args[-1]), 'rb') as handle:
+                stdin = handle.read()
+        else:
+            stdout = args[-1]
+        del args[-2:]
     if args[:3] != ['python', '-m', 'Pyjo']:
         return None
-    return subprocess.run(
-        [sys.executable, ONELINER, *args[3:]], capture_output=True, text=True, env=env, cwd=cwd, input=stdin, timeout=60
+    result = subprocess.run(
+        [sys.executable, ONELINER, *args[3:]], capture_output=True, env=env, cwd=cwd, input=stdin, timeout=60
     )
+    if stdout is not None:
+        with open(os.path.join(cwd, stdout), 'wb') as handle:
+            handle.write(result.stdout)
+
+    # What the terminal shows, the standard output that is not redirected and the standard error, with the line breaks
+    # of print, which are CRLF on Windows
+    terminal = (b'' if stdout is not None else result.stdout) + result.stderr
+    return result.returncode, terminal.decode().replace('\r\n', '\n'), result.stderr.decode(errors='replace')
 
 
 dir = Pyjo.File.tempdir()
 for path in EXAMPLES.list():
     shutil.copy(path.to_str(), dir.to_str())
 
-for commands in blocks():
+for shell, commands in blocks():
     for command, output in commands:
         with subtest(command):
-            result = run(command, dir.to_str())
+            if shell == 'pwsh-session' and PWSH is None:
+                skip('pwsh is required for the commands of PowerShell', 3)
+                continue
+            result = (run_pwsh if shell == 'pwsh-session' else run)(command, dir.to_str())
             if not ok(result is not None, 'a one-liner of python -m Pyjo'):
                 continue
-            if not is_ok(result.returncode, 0, 'right exit status'):
-                diag(result.stderr)
+            returncode, terminal, stderr = result
+            if not is_ok(returncode, 0, 'right exit status'):
+                diag(stderr)
             if output:
-                is_ok(result.stdout.rstrip('\n'), '\n'.join(output).rstrip('\n'), 'right output')
+                is_ok(terminal.rstrip('\n'), '\n'.join(output).rstrip('\n'), 'right output')
 
 with subtest('Fixtures'):
     is_deeply_ok(
