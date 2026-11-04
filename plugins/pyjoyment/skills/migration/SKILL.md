@@ -78,6 +78,7 @@ python app.py get '/users/23?full=1' # a request without a server
 | `app.config`, `settings.py`                                   | `plugin('TOMLConfig')` of `app.toml`, and `app.config`                                                                |
 | `static/`                                                     | `public/`, next to the script                                                                                         |
 | `requests`, `httpx` in a handler                              | `await c.ua().get_p(url)` in an `async def` action                                                                    |
+| `requests.get(url)` in a script                               | `Pyjo.UserAgent.get(url).result`, of the user agent of the module, which follows redirects                            |
 | `TestClient`, `app.test_client()`, `django.test.Client`       | `Pyjo.Test.Pyjo`                                                                                                      |
 | `flask run`, `uvicorn app:app`, `manage.py runserver`         | `python app.py daemon`, `prefork` with workers                                                                        |
 | a WSGI or ASGI server                                         | `application = app.start()`, `PYJO_ASGI=1 uvicorn app:application`                                                    |

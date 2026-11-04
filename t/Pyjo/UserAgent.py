@@ -21,6 +21,7 @@ from Pyjoyment.Lite import any, app, get, post
 
 import gc
 import re
+import threading
 import time
 
 from unittest.mock import patch
@@ -788,5 +789,31 @@ try:
 except TypeError as e:
     err = e
 like_ok(str(err), r"^'Pyjo_Transaction_HTTP' object is not callable: a request without a callback is blocking", 'hint')
+
+with subtest('Singleton'):
+    # Not in Mojolicious: the user agent that the thread shares, with which the functions of the module request
+    ua = Pyjo.UserAgent.singleton
+    ok(ua is Pyjo.UserAgent.object.singleton(), 'same user agent')
+    ok(ua is not Pyjo.UserAgent.new(), 'not a new user agent')
+    is_ok(ua.max_redirects, 10, 'ten redirects')
+    others = []
+    thread = threading.Thread(target=lambda: others.append(Pyjo.UserAgent.singleton))
+    thread.start()
+    thread.join()
+    ok(others[0] is not ua, 'another user agent in another thread')
+
+    ua.server.app = app
+    is_ok(Pyjo.UserAgent.get('/').result.body, b'works!', 'right content')
+    for method in ('delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'query'):
+        tx = getattr(Pyjo.UserAgent, method)('/method')
+        is_ok(tx.req.method, method.upper(), f'right method of {method}')
+        is_ok(tx.res.text, '' if method == 'head' else method.upper(), f'right content of {method}')
+    is_ok(Pyjo.UserAgent.post('/echo', json={'a': 'b'}).result.json(), {'a': 'b'}, 'right content')
+
+    results = []
+    Pyjo.UserAgent.get('/', lambda ua, tx: [results.append(tx.result.body), Pyjo.IOLoop.stop()])
+    Pyjo.IOLoop.start()
+    is_ok(results, [b'works!'], 'non-blocking request')
+    ua.close()
 
 done_testing()

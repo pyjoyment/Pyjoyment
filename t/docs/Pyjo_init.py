@@ -2,6 +2,7 @@ import Pyjo
 import Pyjo.File
 import Pyjo.IOLoop
 import Pyjo.Server.Daemon
+import Pyjo.UserAgent
 import Pyjoyment
 
 from Pyjo import *
@@ -113,7 +114,7 @@ with subtest('Synopsis'):
     is_ok(stdout.getvalue(), '1\n2\n3\n4\n5\n', 'event loop')
 
 # The user agent of the functions, on the local daemon, and python -m Pyjo for the examples that do not request a host
-to_local(Pyjo._ua())
+to_local(Pyjo.UserAgent.singleton)
 
 
 def one_liner(code, **kwargs):

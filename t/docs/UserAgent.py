@@ -104,6 +104,12 @@ with subtest('Synopsis'):
             print('Whatever...')
     like_ok(stdout.getvalue(), r'<title>Mojolicious</title>', 'print(res.body)')
 
+    # Quick request with the user agent of the module, which follows redirects
+    local(Pyjo.UserAgent.singleton)
+    with output() as stdout:
+        print(Pyjo.UserAgent.get('mojolicious.org').result.dom().at('title').text)
+    is_ok(stdout.getvalue(), 'Mojolicious\n', 'print(...)')
+
     # Say hello to the Unicode snowman and include an Accept header
     with output() as stdout:
         print(ua.get('www.☃.net?hello=there', {'Accept': '*/*'}).result.body)
@@ -520,6 +526,18 @@ with subtest('delete_p, get_p, head_p, options_p, patch_p, post_p, put_p and que
         ok_p.catch(lambda err: print(f'Connection error: {err}')).wait()
     is_ok(stdout.getvalue(), '200\n', 'print(tx.result.body)')
 
+with subtest('singleton'):
+    agent = Pyjo.UserAgent.object.singleton()
+    ok(agent is Pyjo.UserAgent.singleton, 'ua')
+
+    # Change name of user agent for the functions of the module
+    Pyjo.UserAgent.singleton.transactor.name = 'MyUA 1.0'
+    with output() as stdout:
+        print(Pyjo.UserAgent.get('example.com').result.body)
+    like_ok(stdout.getvalue(), r'<title>Mojolicious</title>', 'print(...)')
+    is_ok(Pyjo.UserAgent.get('example.com').req.headers.user_agent, 'MyUA 1.0', 'name')
+    Pyjo.UserAgent.singleton.transactor.name = 'Pyjoyment (Python)'
+
 with subtest('start'):
     tx = ua.start(Pyjo.Transaction.HTTP.new(req=Pyjo.Message.Request.new(url=Pyjo.URL.new('http://example.com'))))
     is_ok(tx.res.code, 200, 'tx')
@@ -596,5 +614,19 @@ with subtest('websocket_p'):
 
         ok_ws.catch(lambda err: print(f'WebSocket error: {err}')).wait()
     is_ok(stdout.getvalue(), 'WebSocket message: echo: Hi!\n', 'print(...)')
+
+with subtest('delete, get, head, options, patch, post, put and query of the module'):
+    for name in ('delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'query'):
+        request = getattr(Pyjo.UserAgent, name)
+        tx = request('example.com')
+        tx = request('http://example.com', {'Accept': '*/*'}, b'Content!')
+        tx = request('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
+        tx = request('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
+        is_ok(tx.req.method, name.upper(), f'tx of {name}')
+
+        with output() as stdout:
+            print(request('example.com').result.code)
+        is_ok(stdout.getvalue(), '200\n', f'print(...) of {name}')
+    Pyjo.UserAgent.singleton.close()
 
 done_testing()

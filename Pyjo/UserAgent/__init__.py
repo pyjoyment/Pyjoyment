@@ -36,6 +36,9 @@ Pyjo.UserAgent - Non-blocking I/O HTTP and WebSocket user agent
     else:
         print('Whatever...')
 
+    # Quick request with the user agent of the module, which follows redirects
+    print(Pyjo.UserAgent.get('mojolicious.org').result.dom().at('title').text)
+
     # Say hello to the Unicode snowman and include an Accept header
     print(ua.get('www.☃.net?hello=there', {'Accept': '*/*'}).result.body)
 
@@ -124,6 +127,10 @@ environment variables.
 The end of a ``with`` block closes the connections and the server that the user
 agent made.
 
+The functions of the module, as ``Pyjo.UserAgent.get``, perform requests with
+the :data:`singleton`, a user agent that the thread shares, which follows
+redirects and detects proxies, as the one-liners of :mod:`Pyjo` do with it.
+
 Events
 ------
 
@@ -174,8 +181,8 @@ See also
 Ported from `Mojo::UserAgent <https://github.com/mojolicious/mojo/blob/v9.53/lib/Mojo/UserAgent.pm>`_
 of Mojolicious 9.53.
 
-Classes
--------
+Classes and functions
+---------------------
 """
 
 import Pyjo.EventEmitter
@@ -199,6 +206,7 @@ import os
 import socket
 import ssl
 import sys
+import threading
 import warnings
 import weakref
 
@@ -213,6 +221,9 @@ type Anything = builtins.object
 type Callback = Callable[[Any, Any], Anything]
 
 DEBUG = bool(os.environ.get('PYJO_CLIENT_DEBUG'))
+
+# Not in Mojolicious: the singleton of each thread, as each thread has a singleton of Pyjo.IOLoop
+_local = threading.local()
 
 
 class _Request:
@@ -733,6 +744,37 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
         """
         self._release()
 
+    # Not in Mojolicious: a user agent that the thread shares, which ojo has for its functions
+    @classmethod
+    def singleton(cls) -> 'Pyjo_UserAgent':
+        """::
+
+            ua = Pyjo.UserAgent.object.singleton()
+            ua = Pyjo.UserAgent.singleton
+
+        The global :mod:`Pyjo.UserAgent` singleton, used to share a user
+        agent, with its connections and cookies, from everywhere inside the
+        thread, which is also the :data:`singleton` of the module, whose
+        functions perform requests with it, and the user agent of the
+        one-liners of :mod:`Pyjo`. Each thread has one of its own, as it has a
+        :mod:`Pyjo.IOLoop` singleton. It follows ten redirects, unless the
+        ``PYJO_MAX_REDIRECTS`` environment variable is set, and detects
+        proxies, unless the ``PYJO_PROXY`` environment variable is set. ::
+
+            # Change name of user agent for the functions of the module
+            Pyjo.UserAgent.singleton.transactor.name = 'MyUA 1.0'
+            print(Pyjo.UserAgent.get('example.com').result.body)
+        """
+        try:
+            return _local.singleton
+        except AttributeError:
+            _local.singleton = ua = Pyjo_UserAgent()
+            if os.environ.get('PYJO_MAX_REDIRECTS') is None:
+                ua.max_redirects = 10
+            if os.environ.get('PYJO_PROXY') is None:
+                ua.proxy.detect()
+            return ua
+
     @overload
     def start(self, tx: Pyjo.Transaction.HTTP.object) -> Any: ...
 
@@ -1241,3 +1283,55 @@ def _url(tx: Pyjo.Transaction.object) -> str:
 new = Pyjo_UserAgent.new
 object = Pyjo_UserAgent
 UserAgent = Pyjo_UserAgent
+
+singleton: Pyjo_UserAgent
+"""::
+
+    ua = Pyjo.UserAgent.singleton
+
+The global :mod:`Pyjo.UserAgent` singleton, as :meth:`Pyjo_UserAgent.singleton`
+gives it, the one of the thread.
+"""
+
+
+# Not in Mojolicious: the singleton is found in the thread that asks for it, as a module has the same attributes in all
+# threads
+def __getattr__(name: str) -> Any:
+    if name == 'singleton':
+        return Pyjo_UserAgent.singleton()
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
+
+# Not in Mojolicious: what ojo requests with its user agent is a function of the module that works with the singleton,
+# the one of the thread that calls it, as the methods of Pyjo.IOLoop are
+def _shortcut(method: str) -> Callable[..., Any]:
+    name = method.lower()
+
+    def shortcut(*args: Any, **kwargs: Any) -> Any:
+        return getattr(Pyjo_UserAgent.singleton(), name)(*args, **kwargs)
+
+    shortcut.__name__ = shortcut.__qualname__ = name
+    shortcut.__doc__ = f"""::
+
+        tx = Pyjo.UserAgent.{name}('example.com')
+        tx = Pyjo.UserAgent.{name}('http://example.com', {{'Accept': '*/*'}}, b'Content!')
+        tx = Pyjo.UserAgent.{name}('http://example.com', {{'Accept': '*/*'}}, form={{'a': 'b'}})
+        tx = Pyjo.UserAgent.{name}('http://example.com', {{'Accept': '*/*'}}, json={{'a': 'b'}})
+
+    Perform blocking ``{method}`` request with :attr:`Pyjo_UserAgent.{name}` of
+    the :data:`singleton` and return resulting :mod:`Pyjo.Transaction.HTTP`
+    object. ::
+
+        print(Pyjo.UserAgent.{name}('example.com').result.code)
+    """
+    return shortcut
+
+
+delete = _shortcut('DELETE')
+get = _shortcut('GET')
+head = _shortcut('HEAD')
+options = _shortcut('OPTIONS')
+patch = _shortcut('PATCH')
+post = _shortcut('POST')
+put = _shortcut('PUT')
+query = _shortcut('QUERY')

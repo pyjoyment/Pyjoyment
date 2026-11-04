@@ -1,4 +1,4 @@
-import Pyjo
+import Pyjo.UserAgent
 import Pyjoyment
 
 import os
@@ -54,7 +54,7 @@ def prepare(ua, tx):
 
 
 def setup():
-    ua = Pyjo._ua()
+    ua = Pyjo.UserAgent.singleton
     ua.server.app = mock
     ua.on('prepare', prepare)
 

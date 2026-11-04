@@ -302,4 +302,11 @@ expressions and :func:`Pyjo.n` for benchmarks, are described in :mod:`Pyjo`.
     ['1', '22', '333']
     $ python -m Pyjo 'n(lambda: x("<p>Hello</p>").at("p").text, 1000)'
 
+A script that is read later can use the counterparts of the functions in
+their modules, whose names say what they do: :func:`Pyjo.UserAgent.get` and
+the other methods of HTTP, whose ``result`` the letters return, as
+``Pyjo.UserAgent.get(url).result`` for ``g(url)``, :func:`Pyjo.DOM.new` for
+:func:`Pyjo.x`, :func:`Pyjo.JSON.decode_json` and :func:`Pyjo.JSON.encode_json`
+for :func:`Pyjo.j`, and :func:`Pyjo.File.path` for :func:`Pyjo.f`.
+
 You can continue with :doc:`index` now.

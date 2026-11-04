@@ -61,6 +61,11 @@ print(api.json('/items/0/name'))
 - The user agent keeps the cookies of its responses, as a browser does, in
   `ua.cookie_jar`; `ua.proxy.detect()` takes the proxy of `HTTP_PROXY` and
   `HTTPS_PROXY`.
+- `Pyjo.UserAgent.get(url)`, `post`, `put` and the other methods of HTTP are
+  functions of the module too, which request with `Pyjo.UserAgent.singleton`,
+  the user agent that the thread shares, which follows ten redirects and
+  detects the proxy, for a script that needs no settings of its own:
+  `Pyjo.UserAgent.get(url).result.json()`.
 
 ## Many pages at the same time
 
@@ -115,17 +120,20 @@ PYJO_MAX_REDIRECTS=0 python -m Pyjo 'g("http://github.com").code'
 ```
 
 `from Pyjo import *` gives the same functions to a script: `g`, `p`, `w`
-and the other methods of HTTP, `x` for the DOM, `j` for JSON, `y` for YAML, `s`
-for the standard input and output as bytes.
+and the other methods of HTTP, the `result` of `Pyjo.UserAgent.get` and the
+others, `x` for the DOM, `j` for JSON, `y` for YAML, `s` for the standard input
+and output as bytes.
 
 ## Mistakes
 
 - `tx.result` raises for an error of the connection, as a refused one or a
   timeout, but gives the response of an error of HTTP: check
   `res.is_success` or `res.code`.
-- The user agent follows no redirects by default: `max_redirects`.
-- A blocking request inside an application, `c.ua().get(url)` in an action,
-  stops the event loop: an action awaits `c.ua().get_p(url)`.
+- A user agent of `Pyjo.UserAgent.new()` follows no redirects by default:
+  `max_redirects`. The singleton of the functions of the module follows ten.
+- A blocking request inside an application, `c.ua().get(url)` or
+  `Pyjo.UserAgent.get(url)` in an action, stops the event loop: an action
+  awaits `c.ua().get_p(url)`.
 - `text` is the text of the element itself, without the text of its
   descendants, as `<p>Hello <b>World</b></p>` gives `Hello`: `all_text` takes
   it all.

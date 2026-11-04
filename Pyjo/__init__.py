@@ -111,7 +111,6 @@ if TYPE_CHECKING:
     import Pyjo.String.Bytes
     import Pyjo.String.Unicode
     import Pyjo.URL
-    import Pyjo.UserAgent
 
     import re
 
@@ -123,28 +122,14 @@ __path__ = extend_path(__path__, __name__)
 # so that a module of Pyjo does not import them
 __all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'w', 'x', 'y', 'z']
 
-_agent: 'Pyjo.UserAgent.object | None' = None
 _read: 'dict[int, Pyjo.String.Bytes.object]' = {}
 _written: 'Pyjo.String.Bytes.object | None' = None
 
 
-# Unlike Mojolicious: the user agent of the functions is one of their own, whose server gets the application of
-# Pyjoyment.Lite when a makes it, where ojo makes the application for the package that uses it and takes its user agent,
-# as a module of Pyjo imports Pyjoyment only when a function needs it
+# Unlike Mojolicious: the user agent of the functions is the singleton of Pyjo.UserAgent, whose server gets the
+# application of Pyjoyment.Lite when a makes it, where ojo makes the application for the package that uses it and takes
+# its user agent, as a module of Pyjo imports Pyjoyment only when a function needs it
 # Left out from Mojolicious: the hook around_action that sets $_ to the controller, as an action gets it as its argument
-def _ua() -> 'Pyjo.UserAgent.object':
-    global _agent
-    if _agent is None:
-        import Pyjo.UserAgent
-
-        _agent = Pyjo.UserAgent.new()
-        if os.environ.get('PYJO_MAX_REDIRECTS') is None:
-            _agent.max_redirects = 10
-        if os.environ.get('PYJO_PROXY') is None:
-            _agent.proxy.detect()
-    return _agent
-
-
 def a(*args: Any, **constraints: Any) -> Any:
     """::
 
@@ -156,10 +141,11 @@ def a(*args: Any, **constraints: Any) -> Any:
 
         $ python -m Pyjo 'a("/hello", {"text": "Hello Pyjo!"}).start()' daemon
     """
+    import Pyjo.UserAgent
     import Pyjoyment.Lite
 
     functions = Pyjoyment.Lite._functions(sys._getframe(1))  # pyright: ignore[reportPrivateUsage]
-    ua = _ua()
+    ua = Pyjo.UserAgent.singleton
     ua.server.app = functions['app']
     functions['any'](*args, **constraints)
     return ua.server.app
@@ -199,10 +185,12 @@ def d(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = d('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = d('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``DELETE`` request with :attr:`Pyjo.UserAgent.Pyjo_UserAgent.delete`
+    Perform ``DELETE`` request with :func:`Pyjo.UserAgent.delete`
     and return resulting :mod:`Pyjo.Message.Response` object.
     """
-    return _ua().delete(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.delete(*args, **kwargs).result
 
 
 def f(*parts: object) -> 'Pyjo.File.object':
@@ -227,12 +215,14 @@ def g(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = g('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = g('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``GET`` request with :attr:`Pyjo.UserAgent.Pyjo_UserAgent.get` and
+    Perform ``GET`` request with :func:`Pyjo.UserAgent.get` and
     return resulting :mod:`Pyjo.Message.Response` object. ::
 
         $ python -m Pyjo 'g("mojolicious.org").dom("h1").map("text").join("\\n")'
     """
-    return _ua().get(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.get(*args, **kwargs).result
 
 
 def h(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
@@ -243,10 +233,12 @@ def h(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = h('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = h('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``HEAD`` request with :attr:`Pyjo.UserAgent.Pyjo_UserAgent.head` and
+    Perform ``HEAD`` request with :func:`Pyjo.UserAgent.head` and
     return resulting :mod:`Pyjo.Message.Response` object.
     """
-    return _ua().head(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.head(*args, **kwargs).result
 
 
 # Not in Mojolicious: a lazy iterator, as c makes a collection
@@ -327,11 +319,12 @@ def o(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = o('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = o('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``OPTIONS`` request with
-    :attr:`Pyjo.UserAgent.Pyjo_UserAgent.options` and return resulting
-    :mod:`Pyjo.Message.Response` object.
+    Perform ``OPTIONS`` request with :func:`Pyjo.UserAgent.options` and
+    return resulting :mod:`Pyjo.Message.Response` object.
     """
-    return _ua().options(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.options(*args, **kwargs).result
 
 
 def p(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
@@ -342,10 +335,12 @@ def p(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = p('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = p('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``POST`` request with :attr:`Pyjo.UserAgent.Pyjo_UserAgent.post` and
+    Perform ``POST`` request with :func:`Pyjo.UserAgent.post` and
     return resulting :mod:`Pyjo.Message.Response` object.
     """
-    return _ua().post(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.post(*args, **kwargs).result
 
 
 # Not in Mojolicious: a regular expression, as qr// of Perl makes it, which re.compile makes long in a one-liner
@@ -462,10 +457,12 @@ def t(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = t('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = t('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``PATCH`` request with :attr:`Pyjo.UserAgent.Pyjo_UserAgent.patch`
+    Perform ``PATCH`` request with :func:`Pyjo.UserAgent.patch`
     and return resulting :mod:`Pyjo.Message.Response` object.
     """
-    return _ua().patch(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.patch(*args, **kwargs).result
 
 
 # Not in Mojolicious: characters, as Pyjo.String.Unicode is Mojo::ByteStream for them, where b is for bytes
@@ -492,10 +489,12 @@ def w(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
         res = w('http://example.com', {'Accept': '*/*'}, form={'a': 'b'})
         res = w('http://example.com', {'Accept': '*/*'}, json={'a': 'b'})
 
-    Perform ``PUT`` request with :attr:`Pyjo.UserAgent.Pyjo_UserAgent.put` and
+    Perform ``PUT`` request with :func:`Pyjo.UserAgent.put` and
     return resulting :mod:`Pyjo.Message.Response` object.
     """
-    return _ua().put(*args, **kwargs).result
+    import Pyjo.UserAgent
+
+    return Pyjo.UserAgent.put(*args, **kwargs).result
 
 
 def x(*args: Any) -> 'Pyjo.DOM.object':
