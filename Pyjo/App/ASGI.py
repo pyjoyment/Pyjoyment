@@ -466,9 +466,13 @@ class _WebSocket(_Call):
         if not self.accepted:
             return super()._error(e)
 
+        # The error of an application that has closed the WebSocket itself is logged also once the close has ended, which
+        # the order of the events of the reactor decides, and not after the peer has gone, as for a request
+        if self.closing or not self.closed:
+            self.app.log.error(f'ASGI application failed: {_message(e)}')
+
         # The WebSocket is closed with the status of an error of the server, unless the application has closed it
         if not self.closed:
-            self.app.log.error(f'ASGI application failed: {_message(e)}')
             self._close_ws(1011)
 
     def _message(self, ws: Any, message: str | bytes) -> None:

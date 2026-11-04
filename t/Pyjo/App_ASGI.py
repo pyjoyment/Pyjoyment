@@ -558,6 +558,52 @@ with subtest('WebSocket errors'):
             t.websocket_ok('/').finished_ok(4000)
         like_ok(str(messages), r'After the close', 'right error of closed')
 
+    # The error comes after the end of the close of the application, as the close of a reactor of uvloop ends before
+    # the rejection of the coroutine, or after the peer has gone, which is not an error of the server
+    ended = []
+
+    async def closed_and_ended(scope, receive, send):
+        await receive()
+        await send({'type': 'websocket.accept'})
+        await send({'type': 'websocket.close', 'code': 4000})
+        try:
+            while (await receive())['type'] != 'websocket.disconnect':
+                pass
+            raise Exception('After the end of the close')
+        finally:
+            ended.append(True)
+
+    async def gone(scope, receive, send):
+        await receive()
+        await send({'type': 'websocket.accept'})
+        try:
+            while (await receive())['type'] != 'websocket.disconnect':
+                pass
+            raise Exception('After the peer has gone')
+        finally:
+            ended.append(True)
+
+    for application_, test in (
+        (closed_and_ended, lambda t: t.websocket_ok('/').finished_ok(4000)),
+        (gone, lambda t: t.websocket_ok('/').finish_ok()),
+    ):
+        ended.clear()
+        with Pyjo.App.ASGI.new(app=application_) as app:
+            app.log.level = 'fatal'
+            t = Pyjo.Test.Pyjo.new(app)
+            with app.log.capture('error') as messages:
+                test(t)
+                while not ended:
+                    Pyjo.IOLoop.one_tick()
+
+                # The rejection of the coroutine, a few ticks after its end
+                Pyjo.IOLoop.timer(0.1, lambda loop: Pyjo.IOLoop.stop())
+                Pyjo.IOLoop.start()
+            if application_ is gone:
+                unlike_ok(str(messages), r'After the peer has gone', 'no error after the peer has gone')
+            else:
+                like_ok(str(messages), r'After the end of the close', 'right error after the end of the close')
+
     # The exception page of Pyjoyment, in a route
     with Pyjo.App.ASGI.new(app=fail_ws) as asgi:
         handshake(Pyjo.Test.Pyjo.new(application(asgi)), '/prefix').status_is(500).content_like(r'Something went')
