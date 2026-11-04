@@ -117,6 +117,25 @@ class Pyjo_Date(Pyjo.Base.object, Pyjo.String.Mixin.object):
         """
         return float(self.epoch or 0)
 
+    # Not in Mojolicious: the format of strftime, as datetime of the standard library has it, in the place of the one of
+    # a string of Pyjo.String.Mixin
+    def __format__(self, format_spec: str) -> str:
+        """::
+
+            string = format(date, '%Y%m%d')
+            string = f'{date:%Y%m%dT%H%M%SZ}'
+
+        Format date in UTC with the directives of :meth:`datetime.datetime.strftime`,
+        as :meth:`datetime.datetime.__format__` does, or as :meth:`to_str`
+        without a format. ::
+
+            # "19941106T084937Z"
+            f'{Pyjo.Date.new(784111777):%Y%m%dT%H%M%SZ}'
+        """
+        if not format_spec:
+            return self.to_str()
+        return self.to_datetime().strftime(format_spec)
+
     # Not in Mojolicious: the epoch for the standard library
     def __int__(self) -> int:
         """::

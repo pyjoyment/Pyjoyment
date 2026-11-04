@@ -34,6 +34,16 @@ with subtest('Numbers'):
     is_ok(int(date), 784111777, 'int')
     is_ok(datetime.fromtimestamp(float(date), UTC).microsecond, 330000, 'datetime.fromtimestamp(float(date))')
 
+with subtest('Format'):
+    date = Pyjo.Date.new(784111777.33)
+    is_ok(f'{date:%Y%m%dT%H%M%SZ}', '19941106T084937Z', 'f-string, as the time stamp of Signature Version 4 of AWS')
+    is_ok(format(date, '%Y%m%d'), '19941106', 'format')
+    is_ok('{:%a, %d %b %Y}'.format(date), 'Sun, 06 Nov 1994', 'str.format')  # noqa: UP032
+    is_ok(f'{date:%f}', '330000', 'microseconds')
+    is_ok(f'{date}', 'Sun, 06 Nov 1994 08:49:37 GMT', 'no format is to_str')
+    is_ok(f'{date:%Y-%m-%d}', f'{date.to_datetime():%Y-%m-%d}', 'as datetime in UTC')
+    is_ok(f'{Pyjo.Date.new("garbage"):%Y}', '1970', 'no epoch is the epoch, as to_str')
+
 with subtest('email.utils'):
     date = Pyjo.Date.new(784111777)
     is_ok(parsedate_to_datetime(str(date)), date.to_datetime(), 'parsedate_to_datetime')

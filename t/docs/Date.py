@@ -54,6 +54,15 @@ with subtest('__float__'):
         'datetime.fromtimestamp(float(date), UTC)',
     )
 
+with subtest('__format__'):
+    string = format(date, '%Y%m%d')
+    is_ok(string, '19941106', 'format')
+    string = f'{date:%Y%m%dT%H%M%SZ}'
+    is_ok(string, '19941106T084937Z', 'f-string')
+
+    # "19941106T084937Z"
+    is_ok(f'{Pyjo.Date.new(784111777):%Y%m%dT%H%M%SZ}', '19941106T084937Z', 'example')
+
 with subtest('__int__'):
     number = int(date)
     is_ok(number, 784111777, 'number')
