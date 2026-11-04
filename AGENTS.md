@@ -69,6 +69,17 @@ of them is a regression.
   (`url.to_urllib()`, `date.to_datetime()`). Where a Mojo method has the name
   of such a conversion, the conversion keeps it, and the Mojo method gets a
   name that says what it renders: Mojo's `to_datetime` is `to_rfc3339`.
+- **A parser takes the text and its bytes.** A function that parses a format,
+  as `decode_json` of `Pyjo.JSON` and `load` of `Pyjo.YAML`, `Pyjo.INI` and
+  `Pyjo.TOML`, takes a string and bytes, and decodes the bytes as a whole
+  document: UTF-8, or the encoding of its byte order mark, which a file of
+  Windows PowerShell has, or the one that the format detects otherwise, as
+  JSON and YAML do from the null bytes of the first character. Only a whole
+  file or stream is detected, so that one document is not decoded in
+  different ways; a part of a message, as the parameters of a URL, a header or
+  a frame of a WebSocket, is decoded with its charset alone. A function that
+  gives several documents, as `load_all`, gives a `Pyjo.Collection`, as every
+  return value chains.
 - **Asyncio is the event loop, the reactor is where it is replaced.** Mojo's
   reactor exists because Perl has no standard event loop; Python has one.
   `Pyjo.Reactor.Asyncio` is the API of `Mojo::Reactor` on the asyncio event

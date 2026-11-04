@@ -82,4 +82,9 @@ with subtest('load'):
         load('[PHP]\nerror_log = "/var/log/php.log"\n', unquote=True), {'PHP': {'error_log': '/var/log/php.log'}}, 'off'
     )
 
+    # {'default': {'region': 'eu-central-1'}}
+    is_deeply_ok(
+        load('[default]\nregion = eu-central-1\n'.encode('UTF-16')), {'default': {'region': 'eu-central-1'}}, 'UTF-16'
+    )
+
 done_testing()

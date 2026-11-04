@@ -91,6 +91,9 @@ with subtest('load_all'):
     # ['first', 'second']
     is_deeply_ok(values, ['first', 'second'], 'values')
 
+    # [{'foo': 'bar'}]
+    is_deeply_ok(load_all('foo: bar\n'.encode('UTF-16')), [{'foo': 'bar'}], 'UTF-16')
+
 with subtest('y'):
     documents = y('foo: bar\n')
     is_deeply_ok(documents, [{'foo': 'bar'}], 'documents')

@@ -204,6 +204,11 @@ with subtest('Comments and lines'):
     is_deeply_ok(load('foo: bar # comment\n'), {'foo': 'bar'}, 'trailing comment')
     is_deeply_ok(load('# comment\nfoo: bar\n\n# another\n'), {'foo': 'bar'}, 'comment lines')
     is_deeply_ok(load('\ufefffoo: bar\n'), {'foo': 'bar'}, 'byte order mark')
+    is_deeply_ok(load('foo: bar\n'.encode('UTF-16')), {'foo': 'bar'}, 'bytes')
+    ok(isinstance(load_all('a: 1\n'), Pyjo.Collection.object), 'collection')
+    is_deeply_ok(load_all(b'a: 1\n---\nb: 2\n').map(lambda d: list(d)[0]), ['a', 'b'], 'chained')
+    is_deeply_ok(load_all('a: 1\n'.encode('UTF-16LE')), [{'a': 1}], 'UTF-16LE without a byte order mark')
+    throws_ok(lambda: load(b'a: \xc3\n'), re.compile(r'^YAML found input that is not UTF-8'), 'invalid UTF-8')
     is_deeply_ok(load('foo: bar\r\nbaz: yada\r\n'), {'foo': 'bar', 'baz': 'yada'}, 'CRLF')
 
 with subtest('Documents'):

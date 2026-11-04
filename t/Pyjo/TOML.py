@@ -14,6 +14,13 @@ with subtest('Load'):
         load('name = "Pyjoyment"\n[server]\nworkers = 4\n'), {'name': 'Pyjoyment', 'server': {'workers': 4}}, 'table'
     )
     throws_ok(lambda: load('name = '), re.compile(r'^TOML '), 'invalid')
+    is_deeply_ok(load('\ufeffa = 1\n'), {'a': 1}, 'byte order mark')
+    is_deeply_ok(load(b'a = "\xe2\x99\xa5"\n'), {'a': '\u2665'}, 'bytes of UTF-8')
+    is_deeply_ok(load(bytearray(b'a = 1\n')), {'a': 1}, 'bytearray')
+    for encoding in ('UTF-8-SIG', 'UTF-16', 'UTF-32'):
+        is_deeply_ok(load('a = "\u2665"\r\n'.encode(encoding)), {'a': '\u2665'}, encoding)
+    throws_ok(lambda: load(b'a = "\xc3"\n'), re.compile(r'^TOML found input that is not UTF-8'), 'invalid UTF-8')
+    throws_ok(lambda: load(b'\xff\xfea'), re.compile(r'^TOML found input that is not UTF-16'), 'odd UTF-16')
 
 with subtest('Dump keys and values'):
     is_ok(dump({'name': 'Pyjoyment', 'workers': 4}), 'name = "Pyjoyment"\nworkers = 4\n', 'keys')

@@ -42,6 +42,7 @@ See also
 
 import Pyjo.Exception
 
+from Pyjo.Util import _bom  # pyright: ignore[reportPrivateUsage]
 from Pyjo.YAML import _data as _yaml_data  # pyright: ignore[reportPrivateUsage]
 
 import datetime
@@ -83,7 +84,7 @@ def dump(value: Any, *, sort_keys: bool = False) -> str:
     return ''.join(f'{line}\n' for line in lines)
 
 
-def load(string: str) -> dict[str, Any]:
+def load(string: str | bytes | bytearray) -> dict[str, Any]:
     """::
 
         value = load(string)
@@ -93,9 +94,20 @@ def load(string: str) -> dict[str, Any]:
 
         # {'name': 'Pyjoyment'}
         load('name = "Pyjoyment"')
+
+    A byte order mark at the start of the string, which an editor on Windows
+    writes, is not a part of its first line. Bytes are ``UTF-8``, as TOML is,
+    or ``UTF-16`` or ``UTF-32`` with a byte order mark, as Windows PowerShell
+    writes ``UTF-16LE``. ::
+
+        # {'name': 'Pyjoyment'}
+        load('name = "Pyjoyment"'.encode('UTF-16'))
     """
+    if not isinstance(string, str):
+        string = _decode(bytes(string))
     try:
-        return tomllib.loads(string)
+        # The byte order mark, which tomllib takes for the start of a statement
+        return tomllib.loads(string.removeprefix('\ufeff'))
     except tomllib.TOMLDecodeError as e:
         raise _error(f'failed to parse: {e}') from None
 
@@ -107,6 +119,15 @@ def _data(value: Any) -> Any:
 
 def _error(message: str) -> Pyjo.Exception.object:
     return Pyjo.Exception.new(f'TOML {message}')
+
+
+# The bytes of a whole file, UTF-8, or the encoding of their byte order mark, which a file of Windows PowerShell has
+def _decode(data: bytes) -> str:
+    charset, data = _bom('UTF-8', data)
+    try:
+        return data.decode(charset)
+    except UnicodeDecodeError:
+        raise _error(f'found input that is not {charset[:6]}') from None
 
 
 class _Dumper:

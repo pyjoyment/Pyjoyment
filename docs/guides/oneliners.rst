@@ -307,6 +307,7 @@ their modules, whose names say what they do: :func:`Pyjo.UserAgent.get` and
 the other methods of HTTP, whose ``result`` the letters return, as
 ``Pyjo.UserAgent.get(url).result`` for ``g(url)``, :func:`Pyjo.DOM.new` for
 :func:`Pyjo.x`, :func:`Pyjo.JSON.decode_json` and :func:`Pyjo.JSON.encode_json`
-for :func:`Pyjo.j`, and :func:`Pyjo.File.path` for :func:`Pyjo.f`.
+for :func:`Pyjo.j`, :func:`Pyjo.YAML.load_all` and :func:`Pyjo.YAML.dump_all`
+for :func:`Pyjo.y`, and :func:`Pyjo.File.path` for :func:`Pyjo.f`.
 
 You can continue with :doc:`index` now.

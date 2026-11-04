@@ -64,6 +64,14 @@ with subtest('Load sections and keys'):
     is_deeply_ok(load('\ufeff[s]\na = 1\n'), {'s': {'a': '1'}}, 'byte order mark')
     is_deeply_ok(load('\ufeffa = 1\n'), {'a': '1'}, 'byte order mark before a key')
     is_deeply_ok(load('[s]\n\ufeffa = 1\n'), {'s': {'\ufeffa': '1'}}, 'byte order mark after the start')
+    is_deeply_ok(load(b'[s]\na = \xe2\x99\xa5\n'), {'s': {'a': '\u2665'}}, 'bytes of UTF-8')
+    is_deeply_ok(load(bytearray(b'a = 1\n')), {'a': '1'}, 'bytearray')
+    for encoding in ('UTF-8-SIG', 'UTF-16', 'UTF-32'):
+        is_deeply_ok(load('[s]\r\na = \u2665\r\n'.encode(encoding)), {'s': {'a': '\u2665'}}, encoding)
+    # UTF-8, without a byte order mark, as INI has no other way to tell its encoding
+    ok(load('a = 1\n'.encode('UTF-16LE')) != {'a': '1'}, 'UTF-16LE without a byte order mark')
+    throws_ok(lambda: load(b'a = \xc3\n'), re.compile(r'^INI found input that is not UTF-8'), 'invalid UTF-8')
+    throws_ok(lambda: load(b'\xff\xfea'), re.compile(r'^INI found input that is not UTF-16'), 'odd UTF-16')
 
 with subtest('Load comments'):
     is_deeply_ok(

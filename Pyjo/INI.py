@@ -77,6 +77,7 @@ See also
 
 import Pyjo.Exception
 
+from Pyjo.Util import _bom  # pyright: ignore[reportPrivateUsage]
 from Pyjo.YAML import _data  # pyright: ignore[reportPrivateUsage]
 
 import datetime
@@ -165,7 +166,7 @@ def dump(value: Any, *, sort_keys: bool = False) -> str:
     return ''.join(f'{line}\n' for line in lines)
 
 
-def load(string: str, *, comments: bool = False, unquote: bool = False) -> dict[str, Any]:
+def load(string: str | bytes | bytearray, *, comments: bool = False, unquote: bool = False) -> dict[str, Any]:
     """::
 
         value = load(string)
@@ -184,8 +185,15 @@ def load(string: str, *, comments: bool = False, unquote: bool = False) -> dict[
         load('[PHP]\\nerror_log = "/var/log/php.log"\\n', unquote=True)
 
     A byte order mark at the start of the string, which an editor on Windows
-    writes, is not a part of its first line.
+    writes, is not a part of its first line. Bytes are ``UTF-8``, or ``UTF-16``
+    or ``UTF-32`` with a byte order mark, as Windows PowerShell writes
+    ``UTF-16LE``. ::
+
+        # {'default': {'region': 'eu-central-1'}}
+        load('[default]\\nregion = eu-central-1\\n'.encode('UTF-16'))
     """
+    if not isinstance(string, str):
+        string = _decode(bytes(string))
     loader = _Loader(comments, unquote)
     # The byte order mark, which would be the start of the name of the first section, where configparser raises an error
     for number, line in enumerate(string.removeprefix('\ufeff').splitlines(), 1):
@@ -295,6 +303,15 @@ def _comment(key: Any) -> str:
 
 def _error(message: str) -> Pyjo.Exception.object:
     return Pyjo.Exception.new(f'INI {message}')
+
+
+# The bytes of a whole file, UTF-8, or the encoding of their byte order mark, which a file of Windows PowerShell has
+def _decode(data: bytes) -> str:
+    charset, data = _bom('UTF-8', data)
+    try:
+        return data.decode(charset)
+    except UnicodeDecodeError:
+        raise _error(f'found input that is not {charset[:6]}') from None
 
 
 def _is_comment(key: Any, value: Any) -> bool:

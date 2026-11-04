@@ -29,4 +29,7 @@ with subtest('load'):
     # {'name': 'Pyjoyment'}
     is_deeply_ok(value, {'name': 'Pyjoyment'}, 'value')
 
+    # {'name': 'Pyjoyment'}
+    is_deeply_ok(load('name = "Pyjoyment"'.encode('UTF-16')), {'name': 'Pyjoyment'}, 'UTF-16')
+
 done_testing()

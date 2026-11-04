@@ -252,14 +252,14 @@ def dump_all(
     return ''.join(f'{line}\n' for line in lines)
 
 
-def load(string: str) -> Any:
+def load(string: str | bytes | bytearray) -> Any:
     """::
 
         value = load(string)
 
-    Load a YAML string and return its document, or its last one when there
-    are several, as the ``Load`` of ``YAML`` of Perl does, or ``None`` for an
-    empty string. ::
+    Load a YAML string, or bytes, as :func:`load_all` does, and return its
+    document, or its last one when there are several, as the ``Load`` of
+    ``YAML`` of Perl does, or ``None`` for an empty string. ::
 
         # {'foo': 'bar'}
         load('foo: bar')
@@ -268,17 +268,25 @@ def load(string: str) -> Any:
     return documents[-1] if documents else None
 
 
-def load_all(string: str) -> list[Any]:
+def load_all(string: str | bytes | bytearray) -> Pyjo.Collection.object[Any]:
     """::
 
         values = load_all(string)
 
-    Load a YAML string and return a list of all its documents. ::
+    Load a YAML string, or bytes, and return a :mod:`Pyjo.Collection` of all
+    its documents. Bytes are ``UTF-8``, or ``UTF-16`` or ``UTF-32``, as YAML
+    1.2 detects them from their byte order mark or from the null bytes of
+    their first character, as Windows PowerShell writes ``UTF-16LE``. ::
 
         # ['first', 'second']
         load_all('--- first\\n--- second\\n')
+
+        # [{'foo': 'bar'}]
+        load_all('foo: bar\\n'.encode('UTF-16'))
     """
-    return _Loader(string).documents()
+    if not isinstance(string, str):
+        string = _decode(bytes(string))
+    return Pyjo.Collection.c(*_Loader(string).documents())
 
 
 # y(string) loads one string of YAML, where values of any other type are dumped, which the first overload types
@@ -302,9 +310,7 @@ def y(*values: Any, sort_keys: bool = False) -> Any:
     :mod:`Pyjo.Collection` of its documents, which has one for a single
     document, or dump any other values, one or more, with :func:`dump_all`,
     one document for each. ``sort_keys`` sorts the keys of the mappings of the
-    YAML that it dumps. Bytes are ``UTF-8``, or ``UTF-16`` or ``UTF-32``, as
-    YAML 1.2 detects them from their byte order mark or from the null bytes of
-    their first character, as Windows PowerShell writes ``UTF-16LE``. ::
+    YAML that it dumps. ::
 
         # 'foo: bar\\n'
         y({'foo': 'bar'})
@@ -322,7 +328,7 @@ def y(*values: Any, sort_keys: bool = False) -> Any:
         y('foo: bar\\n'.encode('UTF-16'))
     """
     if len(values) == 1 and isinstance(value := values[0], (str, bytes, bytearray)):
-        return Pyjo.Collection.c(*load_all(value if isinstance(value, str) else _decode(bytes(value))))
+        return load_all(value)
     return dump_all(values, sort_keys=sort_keys)
 
 
