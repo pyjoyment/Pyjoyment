@@ -68,9 +68,11 @@ port 0 instead, which `ports()` gives.
   `t/mojolicious/*.t` and named the same way: `types.t` is `Types.py`. A test
   of an application, as the `*_lite_app.t` ones, is not one of a module, so it
   keeps the name of Mojo, as a capital letter tells a module:
-  `log_lite_app.t` is `log_lite_app.py`. `ojo.t` is in `t/Pyjo/`, as the
-  functions of `ojo` are those of `Pyjo`, and so is `t/test/mojo.t`, the test
-  of `Test::Mojo`, as `Test_Pyjo.py`.
+  `log_lite_app.t` is `log_lite_app.py`. `ojo.t` is `t/Pyjo/init.py`, as the
+  functions of `ojo` are those of `Pyjo`, in `Pyjo/__init__.py`, where
+  `Pyjo.py` would import itself for `from Pyjo import *`, as the directory of
+  a script is the first one of `sys.path`, and `t/test/mojo.t`, the test of
+  `Test::Mojo`, is `t/Pyjo/Test_Pyjo.py`.
 - `t/certs/` holds the certificates of the tests, as `t/mojo/certs` in Mojo.
 - `t/cookies/` holds the cookie files of the tests, as `t/mojo/cookies` in
   Mojo.

@@ -119,8 +119,8 @@ if TYPE_CHECKING:
 # Not in Mojolicious: a namespace package, as Python does not merge a regular package from every directory of sys.path
 __path__ = extend_path(__path__, __name__)
 
-# The functions of ojo, which the modules they use are imported for when they are called, so that a module of Pyjo
-# does not import them
+# The functions of the one-liners of Pyjo, as of ojo, which the modules they use are imported for when they are called,
+# so that a module of Pyjo does not import them
 __all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'w', 'x', 'y', 'z']
 
 _agent: 'Pyjo.UserAgent.object | None' = None

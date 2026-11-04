@@ -143,7 +143,7 @@ with subtest('python -m Pyjo'):
     like_ok(result.stderr, r'^usage: python -m Pyjo CODE', 'usage')
     is_ok(result.returncode, 1, 'right exit status')
     result = one_liner('die("Exit")')
-    like_ok(result.stderr, r"NameError: name 'die' is not defined", 'only the functions of ojo')
+    like_ok(result.stderr, r"NameError: name 'die' is not defined", 'only the functions of Pyjo')
 
 # Not in Mojolicious: the modules that a function uses are imported when it is called
 with subtest('Lazy imports'):
@@ -160,7 +160,7 @@ with subtest('Lazy imports'):
         capture_output=True,
         text=True,
     )
-    is_ok(result.stdout, 'False\n', 'no JSON Schema for the functions of ojo')
+    is_ok(result.stdout, 'False\n', 'no JSON Schema for the functions of Pyjo')
 
 
 # Not in Mojolicious: s for the standard input and output, as bytes, and the line break of print, which is CRLF on
