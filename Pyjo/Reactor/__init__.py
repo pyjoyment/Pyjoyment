@@ -122,6 +122,7 @@ import concurrent.futures
 import os
 import sys
 import threading
+import types
 import weakref
 
 from collections.abc import Awaitable, Callable, Coroutine, Generator
@@ -175,6 +176,23 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
     """
     :mod:`Pyjo.Reactor` inherits all methods from :mod:`Pyjo.EventEmitter` and
     implements the following new ones.
+    """
+
+    # Not in Mojolicious: the frames of an event loop, below which a finalizer defers its cleanup
+    event_loop_modules: tuple[str, ...] = ()
+    """::
+
+        modules = reactor.event_loop_modules
+
+    The names of the modules of the event loop that the reactor runs on, as
+    ``('trio',)``, whose code a finalizer of the garbage collector may
+    interrupt. The cleanup of a stream, a server or a user agent that is freed
+    in a frame of such a module, or of a module of a class of the reactor,
+    waits for the next tick of the reactor, so that it does not change the
+    structures that the event loop is changing. Defaults to ``()``. ::
+
+        class Pyjo_Reactor_MyLoop(Pyjo.Reactor.Poll.object):
+            event_loop_modules = ('myloop',)
     """
 
     def __init__(self) -> None:
@@ -459,7 +477,7 @@ def _finalize(  # pyright: ignore[reportUnusedFunction]
     cb: Callable[[], Anything], reactor: Pyjo_Reactor | None = None
 ) -> None:
     # The cleanup runs at once, as Mojo's DESTROY runs, unless the garbage collector interrupted the code of an event
-    # loop, in a frame of Pyjo.IOLoop, of a reactor, of asyncio or of selectors, below the finalizer that calls it, or
+    # loop, in a frame of Pyjo.IOLoop, of a reactor or of its event loop, below the finalizer that calls it, or
     # ran in another thread than the one of the reactor of the object, the main one for an object without a reactor, as
     # a thread of name resolution, while that thread may be in the middle of what its event loop does, which the frames
     # of this thread do not show
@@ -496,14 +514,25 @@ def _drain(every: bool = False) -> None:  # pyright: ignore[reportUnusedFunction
 
 
 def _prefixes() -> tuple[str, ...]:
-    # The directories of the event loops, and of asyncio and selectors when they are loaded
+    # The directories of Pyjo.IOLoop and of the reactors of Pyjoyment, the modules of the classes of the reactors, also
+    # of other distributions, which are not there when one of them is installed editable, and the modules of their
+    # event loops that are loaded, a package as its directory
     pyjo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    prefixes = [os.path.join(pyjo, 'IOLoop') + os.sep, os.path.join(pyjo, 'Reactor') + os.sep]
-    if (asyncio := sys.modules.get('asyncio')) is not None and (file := getattr(asyncio, '__file__', None)):
-        prefixes.append(os.path.dirname(file) + os.sep)
-    if (selectors := sys.modules.get('selectors')) is not None and (file := getattr(selectors, '__file__', None)):
-        prefixes.append(file)
+    prefixes = {os.path.join(pyjo, 'IOLoop') + os.sep, os.path.join(pyjo, 'Reactor') + os.sep}
+    for cls in {type(reactor) for reactor in list(_ALL)}:
+        for base in cls.__mro__:
+            if issubclass(base, Pyjo_Reactor) and (file := _file(sys.modules.get(base.__module__))):
+                prefixes.add(file)
+        for name in cls.event_loop_modules:
+            if (module := sys.modules.get(name)) is not None and (file := _file(module)):
+                prefixes.add(os.path.dirname(file) + os.sep if hasattr(module, '__path__') else file)
     return tuple(prefixes)
+
+
+def _file(module: types.ModuleType | None) -> str | None:
+    # As it is, as the frames of its code have it
+    file = getattr(module, '__file__', None)
+    return file if isinstance(file, str) else None
 
 
 # What the base class gives to await: it waits for the promise itself

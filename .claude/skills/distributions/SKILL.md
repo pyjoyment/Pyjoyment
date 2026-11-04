@@ -64,6 +64,14 @@ back here.
   keeps the callback, and what it refers to, as a controller, until the
   garbage collector runs, which `t/Pyjoyment/longpolling_lite_app.py` catches.
   A finalizer removes what an object leaves in the loop.
+- **Finalizers in the middle of the loop.** The garbage collector runs a
+  finalizer of Pyjoyment anywhere, also in the middle of the code of the
+  reactor or of its event loop, where the cleanup of a stream or a server
+  would change what the loop is changing. Pyjoyment defers it to the next tick
+  below a frame of a module of a class of the reactor, wherever it is
+  installed, and of the modules that `event_loop_modules` of the class names,
+  as `('trio',)`, so a reactor names the Python modules of its event loop
+  there.
 - **The direction of the dependencies.** A distribution depends on
   Pyjoyment, never the other way: its code imports Pyjoyment, its CI checks
   Pyjoyment out, and its documentation may link to the one of Pyjoyment, with

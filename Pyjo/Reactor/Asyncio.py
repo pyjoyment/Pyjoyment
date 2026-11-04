@@ -120,6 +120,9 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
     :mod:`Pyjo.Reactor` and implements the following new ones.
     """
 
+    # Not in Mojolicious: asyncio and the selectors of its event loop
+    event_loop_modules = ('asyncio', 'selectors')
+
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """::
 
