@@ -16,7 +16,14 @@ import sys
 
 # Not in Mojolicious: the standard input and output as a stream
 PYTHON = sys.executable
-ENV = {**os.environ, 'PYTHONPATH': os.pathsep.join([curfile().dirname().dirname().dirname().to_str(), *sys.path])}
+
+# The standard error of a child is compared as a whole, where the debug mode of asyncio, as of PYTHONDEVMODE, would log a
+# callback that is slow on a busy machine
+ENV = {
+    **os.environ,
+    'PYTHONPATH': os.pathsep.join([curfile().dirname().dirname().dirname().to_str(), *sys.path]),
+    'PYJO_ASYNCIO_SLOW_CALLBACK': '10',
+}
 
 # A server of lines in capitals, which prints what it gets, runs a program that writes to the file descriptor 1, and
 # tells the modes of its descriptors
@@ -173,7 +180,7 @@ with subtest('Output closed by its reader'):
 import Pyjo.IOLoop.Stdio, sys
 
 stdio = Pyjo.IOLoop.Stdio.new()
-stdio.on('read', lambda stdio, chunk: stdio.write(chunk * 100000))
+stdio.on('read', lambda stdio, chunk: stdio.write(chunk * 100))
 stdio.on('close', lambda stdio: (print('closed', file=sys.stderr), stdio.reactor.stop()))
 stdio.start()
 stdio.reactor.start()

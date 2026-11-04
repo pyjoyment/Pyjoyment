@@ -756,9 +756,12 @@ messages.on('close', lambda messages: (print('closed', file=sys.stderr), Pyjo.IO
 messages.start()
 Pyjo.IOLoop.start()
 """
+        # The standard error of the child is compared as a whole, where the debug mode of asyncio, as of PYTHONDEVMODE,
+        # would log a callback that is slow on a busy machine
         env = {
             **os.environ,
             'PYTHONPATH': os.pathsep.join([curfile().dirname().dirname().dirname().to_str(), *sys.path]),
+            'PYJO_ASYNCIO_SLOW_CALLBACK': '10',
         }
         child = Pyjo.IOLoop.ChildProcess.new().spawn([sys.executable, '-c', code], env=env)
         errors = []
