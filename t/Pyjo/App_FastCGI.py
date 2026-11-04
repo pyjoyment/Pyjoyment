@@ -485,12 +485,10 @@ with subtest('Response of CGI'):
     is_ok(record[:16], _record(1, 1, struct.pack('>HB5x', 1, 0)), 'request of a responder, closed after it')
 
 with subtest('Errors'):
-    # Refused
-    sock = socket.socket()
-    sock.bind(('127.0.0.1', 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    with Pyjo.App.FastCGI.new(url=f'fcgi://127.0.0.1:{port}') as app:
+    # Refused, by a privileged port, which no test that runs at the same time takes, as it could take the port of a
+    # socket that is closed before the connection, and a socket bound without listening refuses nothing on macOS, where
+    # the connection times out
+    with Pyjo.App.FastCGI.new(url='fcgi://127.0.0.1:1') as app:
         app.log.level = 'fatal'
         t = Pyjo.Test.Pyjo.new(app)
         with app.log.capture('error') as messages:
