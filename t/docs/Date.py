@@ -120,6 +120,22 @@ with subtest('parse'):
         "Pyjo.Date.new('1994-11-06T08:49:37-01:00').epoch",
     )
 
+with subtest('strftime'):
+    import Pyjo.Collection
+
+    string = Pyjo.Date.new(784111777).strftime('%Y-%m-%d')
+    is_ok(string, '1994-11-06', 'string')
+
+    # "19941106T084937Z"
+    is_ok(Pyjo.Date.new(784111777).strftime('%Y%m%dT%H%M%SZ'), '19941106T084937Z', 'example')
+
+    # "1994, 2014"
+    is_ok(
+        Pyjo.Collection.c(Pyjo.Date.new(784111777), Pyjo.Date.new(1408567500)).map('strftime', '%Y').join(', '),
+        '1994, 2014',
+        'map',
+    )
+
 with subtest('to_datetime'):
     dt = date.to_datetime()
     is_ok(dt, datetime(1994, 11, 6, 8, 49, 37, 210000, tzinfo=UTC), 'dt')
