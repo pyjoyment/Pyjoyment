@@ -7,6 +7,7 @@ from Pyjo.Test import *
 
 import contextlib
 import hashlib
+import hmac
 import io
 import re
 
@@ -139,6 +140,18 @@ with subtest('sha256 and sha512'):
             '35154654619b608e2eac85f0f7a227d93e0be66f512c8b768a80fd71b87e015e',
             f'right hmac sha512 checksum of {name}',
         )
+
+        # The binary HMAC, as bytes that chain
+        for method in ('hmac_sha1_bytes', 'hmac_sha256_bytes', 'hmac_sha512_bytes'):
+            data = getattr(string, method)('secr3t')
+            isa_ok(data, Pyjo.String.Bytes.object, f'{method} of {name}')
+            checksum = getattr(string, method.replace('_bytes', '_sum'))(b'secr3t')
+            is_ok(data, bytes.fromhex(checksum), f'right {method} of {name}')
+    is_ok(
+        u('us-east-1').hmac_sha256_bytes(u('20150830').hmac_sha256_bytes('AWS4secret')).hex(),
+        hmac.digest(hmac.digest(b'AWS4secret', b'20150830', 'sha256'), b'us-east-1', 'sha256').hex(),
+        'binary hmac as the key of the next one',
+    )
     is_ok(b(b'foo').sha256_bytes().sha256_sum(), hashlib.sha256(hashlib.sha256(b'foo').digest()).hexdigest(), 'chain')
 
 with subtest('secure_compare'):

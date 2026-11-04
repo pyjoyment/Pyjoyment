@@ -204,6 +204,17 @@ class Pyjo_String_Unicode(str):
         """
         return Pyjo.String.Bytes.new(Pyjo.Util.gzip(self.to_bytes()))
 
+    # Not in Mojolicious: the binary HMAC, as Pyjo.Util has it
+    def hmac_sha1_bytes(self, secret: str | bytes) -> 'Pyjo.String.Bytes.object':
+        """::
+
+            data = string.hmac_sha1_bytes('passw0rd')
+
+        Generate binary HMAC-SHA1 checksum for string with
+        :func:`Pyjo.Util.hmac_sha1_bytes`.
+        """
+        return Pyjo.String.Bytes.new(Pyjo.Util.hmac_sha1_bytes(self.to_bytes(), _bytes(secret)))
+
     def hmac_sha1_sum(self, secret: str | bytes) -> Self:
         """::
 
@@ -218,6 +229,16 @@ class Pyjo_String_Unicode(str):
         return self.new(Pyjo.Util.hmac_sha1_sum(self.to_bytes(), _bytes(secret)))
 
     # Not in Mojolicious: HMAC-SHA256 and HMAC-SHA512, as Pyjo.Util has them
+    def hmac_sha256_bytes(self, secret: str | bytes) -> 'Pyjo.String.Bytes.object':
+        """::
+
+            data = string.hmac_sha256_bytes('passw0rd')
+
+        Generate binary HMAC-SHA256 checksum for string with
+        :func:`Pyjo.Util.hmac_sha256_bytes`.
+        """
+        return Pyjo.String.Bytes.new(Pyjo.Util.hmac_sha256_bytes(self.to_bytes(), _bytes(secret)))
+
     def hmac_sha256_sum(self, secret: str | bytes) -> Self:
         """::
 
@@ -230,6 +251,16 @@ class Pyjo_String_Unicode(str):
             u('foo bar baz').hmac_sha256_sum('secr3t')
         """
         return self.new(Pyjo.Util.hmac_sha256_sum(self.to_bytes(), _bytes(secret)))
+
+    def hmac_sha512_bytes(self, secret: str | bytes) -> 'Pyjo.String.Bytes.object':
+        """::
+
+            data = string.hmac_sha512_bytes('passw0rd')
+
+        Generate binary HMAC-SHA512 checksum for string with
+        :func:`Pyjo.Util.hmac_sha512_bytes`.
+        """
+        return Pyjo.String.Bytes.new(Pyjo.Util.hmac_sha512_bytes(self.to_bytes(), _bytes(secret)))
 
     def hmac_sha512_sum(self, secret: str | bytes) -> Self:
         """::

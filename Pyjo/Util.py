@@ -559,6 +559,17 @@ def header_params(value: str) -> tuple[dict[str, str], str]:
     return params, value[pos:]
 
 
+# Not in Mojolicious: the binary HMAC, as SHA1 has its binary checksum, which a key derived in steps takes
+def hmac_sha1_bytes(data: bytes, secret: bytes) -> bytes:
+    """::
+
+        checksum = hmac_sha1_bytes(data, b'passw0rd')
+
+    Generate binary HMAC-SHA1 checksum for bytes with :mod:`hmac`.
+    """
+    return hmac.digest(secret, data, 'sha1')
+
+
 def hmac_sha1_sum(data: bytes, secret: bytes) -> str:
     """::
 
@@ -573,6 +584,22 @@ def hmac_sha1_sum(data: bytes, secret: bytes) -> str:
 
 
 # Not in Mojolicious: HMAC-SHA256 and HMAC-SHA512, as the signatures of webhooks and of the APIs of the cloud ask for them
+def hmac_sha256_bytes(data: bytes, secret: bytes) -> bytes:
+    """::
+
+        checksum = hmac_sha256_bytes(data, b'passw0rd')
+
+    Generate binary HMAC-SHA256 checksum for bytes with :mod:`hmac`, as for
+    a key derived in steps, each the key of the next one. ::
+
+        # The signing key of Signature Version 4 of AWS
+        key = b'AWS4' + secret
+        for step in (b'20150830', b'us-east-1', b'iam', b'aws4_request'):
+            key = hmac_sha256_bytes(step, key)
+    """
+    return hmac.digest(secret, data, 'sha256')
+
+
 def hmac_sha256_sum(data: bytes, secret: bytes) -> str:
     """::
 
@@ -584,6 +611,16 @@ def hmac_sha256_sum(data: bytes, secret: bytes) -> str:
         hmac_sha256_sum(b'foo', b'passw0rd')
     """
     return hmac.new(secret, data, hashlib.sha256).hexdigest()
+
+
+def hmac_sha512_bytes(data: bytes, secret: bytes) -> bytes:
+    """::
+
+        checksum = hmac_sha512_bytes(data, b'passw0rd')
+
+    Generate binary HMAC-SHA512 checksum for bytes with :mod:`hmac`.
+    """
+    return hmac.digest(secret, data, 'sha512')
 
 
 def hmac_sha512_sum(data: bytes, secret: bytes) -> str:

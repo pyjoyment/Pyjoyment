@@ -180,6 +180,16 @@ with subtest('hmac_sha1_sum'):
     # "11cedfd5ec11adc0ec234466d8a0f2a83736aa68"
     is_ok(hmac_sha1_sum(b'foo', b'passw0rd'), '11cedfd5ec11adc0ec234466d8a0f2a83736aa68', 'foo')
 
+with subtest('hmac_sha256_bytes'):
+    from Pyjo.Util import hmac_sha256_bytes
+
+    # The signing key of Signature Version 4 of AWS
+    secret = b'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
+    key = b'AWS4' + secret
+    for step in (b'20150830', b'us-east-1', b'iam', b'aws4_request'):
+        key = hmac_sha256_bytes(step, key)
+    is_ok(key.hex(), 'c4afb1cc5771d871763a393e44b703571b55cc28424d1a5e86da6ed3c154a4b9', 'signing key')
+
 with subtest('html_attr_unescape'):
     from Pyjo.Util import html_attr_unescape
 

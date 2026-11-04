@@ -58,33 +58,33 @@ python app.py get '/users/23?full=1' # a request without a server
 
 ## Idioms
 
-| Flask, FastAPI, Django                                        | Pyjoyment                                                                                                             |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `@app.route('/x', methods=['POST'])`, `@app.post('/x')`       | `@post('/x')`, `@any(['GET', 'POST'], '/x')`                                                                          |
-| `/<int:id>`, `/{id}`, `path('users/<int:id>/', view)`         | `/<id:num>` or `/:id`, as braces are literal                                                                          |
-| `request.args`, `request.form`, `request.GET`, path params    | `c.param('q')`, also of placeholders, `c.req.query_params`, `c.req.body_params`                                       |
-| `request.get_json()`, a model of pydantic                     | `c.req.json()`, validated with `Pyjo.JSON.Schema`                                                                     |
-| `request.files['f']`                                          | `c.req.upload('f')`                                                                                                   |
-| `request.headers`, `request.cookies`                          | `c.req.headers.header('X-Name')`, `c.cookie('name')`                                                                  |
-| `return 'Hi'`, `jsonify(...)`, `JSONResponse`, `HttpResponse` | `c.render(text='Hi')`, `c.render(json=...)`, `status=201`                                                             |
-| `render_template('page.html', a=1)`, `render(request, ...)`   | `c.render('page', a=1)` with `templates/page.html.ep`                                                                 |
-| `redirect(url_for('name'))`                                   | `c.redirect_to('user', id=23)` of a route named as `@get('/users/<id:num>', 'user')`                                  |
-| `abort(404)`, `raise HTTPException(404)`, `Http404`           | `c.reply.not_found()`                                                                                                 |
-| `response.headers['X'] = 'y'`, `set_cookie`                   | `c.res.headers.header('X', 'y')`, `c.cookie('name', 'value')`                                                         |
-| `session['user']`, `flash(...)`                               | `c.session('user')`, `c.session({'user': name})`, `c.flash(message='Hi')`                                             |
-| `before_request`, middleware                                  | `hook('before_dispatch', cb)`, or `@under` for the routes after it                                                    |
-| a blueprint, `APIRouter`, `include()`                         | `with group():` and `@under('/admin')`                                                                                |
-| `Depends(current_user)`                                       | a helper, `@helper('user')`, called as `c.user()`                                                                     |
-| `app.config`, `settings.py`                                   | `plugin('TOMLConfig')` of `app.toml`, and `app.config`                                                                |
-| `static/`                                                     | `public/`, next to the script                                                                                         |
-| `requests`, `httpx` in a handler                              | `await c.ua().get_p(url)` in an `async def` action                                                                    |
-| `requests.get(url)` in a script                               | `Pyjo.UserAgent.get(url).result`, of the user agent of the module, which follows redirects                            |
-| `TestClient`, `app.test_client()`, `django.test.Client`       | `Pyjo.Test.Pyjo`                                                                                                      |
-| `flask run`, `uvicorn app:app`, `manage.py runserver`         | `python app.py daemon`, `prefork` with workers                                                                        |
-| a WSGI or ASGI server                                         | `application = app.start()`, `PYJO_ASGI=1 uvicorn app:application`                                                    |
-| the ORM of Django, SQLAlchemy                                 | none: a library of asyncio awaited in `async def`, or a blocking one in workers of `prefork`                          |
-| `hashlib`, `hmac`, `base64`, `secrets.compare_digest`         | `sha256_sum`, `hmac_sha256_sum`, `b64_encode`, `b64url_encode` for URLs, `secure_compare` of `Pyjo.Util`, which chain |
-| `pathlib.Path(f).read_bytes()`, `tempfile.TemporaryDirectory` | `Pyjo.File.path(f).slurp()`, `with Pyjo.File.tempdir() as tmp:`                                                       |
+| Flask, FastAPI, Django                                        | Pyjoyment                                                                                                                                     |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@app.route('/x', methods=['POST'])`, `@app.post('/x')`       | `@post('/x')`, `@any(['GET', 'POST'], '/x')`                                                                                                  |
+| `/<int:id>`, `/{id}`, `path('users/<int:id>/', view)`         | `/<id:num>` or `/:id`, as braces are literal                                                                                                  |
+| `request.args`, `request.form`, `request.GET`, path params    | `c.param('q')`, also of placeholders, `c.req.query_params`, `c.req.body_params`                                                               |
+| `request.get_json()`, a model of pydantic                     | `c.req.json()`, validated with `Pyjo.JSON.Schema`                                                                                             |
+| `request.files['f']`                                          | `c.req.upload('f')`                                                                                                                           |
+| `request.headers`, `request.cookies`                          | `c.req.headers.header('X-Name')`, `c.cookie('name')`                                                                                          |
+| `return 'Hi'`, `jsonify(...)`, `JSONResponse`, `HttpResponse` | `c.render(text='Hi')`, `c.render(json=...)`, `status=201`                                                                                     |
+| `render_template('page.html', a=1)`, `render(request, ...)`   | `c.render('page', a=1)` with `templates/page.html.ep`                                                                                         |
+| `redirect(url_for('name'))`                                   | `c.redirect_to('user', id=23)` of a route named as `@get('/users/<id:num>', 'user')`                                                          |
+| `abort(404)`, `raise HTTPException(404)`, `Http404`           | `c.reply.not_found()`                                                                                                                         |
+| `response.headers['X'] = 'y'`, `set_cookie`                   | `c.res.headers.header('X', 'y')`, `c.cookie('name', 'value')`                                                                                 |
+| `session['user']`, `flash(...)`                               | `c.session('user')`, `c.session({'user': name})`, `c.flash(message='Hi')`                                                                     |
+| `before_request`, middleware                                  | `hook('before_dispatch', cb)`, or `@under` for the routes after it                                                                            |
+| a blueprint, `APIRouter`, `include()`                         | `with group():` and `@under('/admin')`                                                                                                        |
+| `Depends(current_user)`                                       | a helper, `@helper('user')`, called as `c.user()`                                                                                             |
+| `app.config`, `settings.py`                                   | `plugin('TOMLConfig')` of `app.toml`, and `app.config`                                                                                        |
+| `static/`                                                     | `public/`, next to the script                                                                                                                 |
+| `requests`, `httpx` in a handler                              | `await c.ua().get_p(url)` in an `async def` action                                                                                            |
+| `requests.get(url)` in a script                               | `Pyjo.UserAgent.get(url).result`, of the user agent of the module, which follows redirects                                                    |
+| `TestClient`, `app.test_client()`, `django.test.Client`       | `Pyjo.Test.Pyjo`                                                                                                                              |
+| `flask run`, `uvicorn app:app`, `manage.py runserver`         | `python app.py daemon`, `prefork` with workers                                                                                                |
+| a WSGI or ASGI server                                         | `application = app.start()`, `PYJO_ASGI=1 uvicorn app:application`                                                                            |
+| the ORM of Django, SQLAlchemy                                 | none: a library of asyncio awaited in `async def`, or a blocking one in workers of `prefork`                                                  |
+| `hashlib`, `hmac`, `base64`, `secrets.compare_digest`         | `sha256_sum`, `hmac_sha256_sum` and `hmac_sha256_bytes`, `b64_encode`, `b64url_encode` for URLs, `secure_compare` of `Pyjo.Util`, which chain |
+| `pathlib.Path(f).read_bytes()`, `tempfile.TemporaryDirectory` | `Pyjo.File.path(f).slurp()`, `with Pyjo.File.tempdir() as tmp:`                                                                               |
 
 ## Validation, dependencies and middleware
 

@@ -31,8 +31,11 @@ from Pyjo.Util import (
     gunzip,
     gzip,
     header_params,
+    hmac_sha1_bytes,
     hmac_sha1_sum,
+    hmac_sha256_bytes,
     hmac_sha256_sum,
+    hmac_sha512_bytes,
     hmac_sha512_sum,
     html_attr_unescape,
     html_unescape,
@@ -631,6 +634,21 @@ with subtest('hmac_sha512_sum'):
         '9758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737',
         'right hmac sha512 checksum',
     )
+
+# Not in Mojolicious: the binary HMAC, the bytes of the checksums, and a key derived in steps, as the signing key of the
+# example of Signature Version 4 of AWS
+with subtest('hmac_sha1_bytes, hmac_sha256_bytes and hmac_sha512_bytes'):
+    for binary, checksum in (
+        (hmac_sha1_bytes, hmac_sha1_sum),
+        (hmac_sha256_bytes, hmac_sha256_sum),
+        (hmac_sha512_bytes, hmac_sha512_sum),
+    ):
+        isa_ok(binary(*RFC4231), bytes, f'{binary.__name__} gives bytes')
+        is_ok(binary(*RFC4231), bytes.fromhex(checksum(*RFC4231)), f'right {binary.__name__}')
+    key = b'AWS4wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
+    for step in (b'20150830', b'us-east-1', b'iam', b'aws4_request'):
+        key = hmac_sha256_bytes(step, key)
+    is_ok(key.hex(), 'c4afb1cc5771d871763a393e44b703571b55cc28424d1a5e86da6ed3c154a4b9', 'key derived in steps')
 
 with subtest('secure_compare'):
     ok(secure_compare('hello', 'hello'), 'values are equal')
