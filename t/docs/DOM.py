@@ -71,7 +71,11 @@ with subtest('HTML and XML'):
         # Force XML semantics
         dom = Pyjo.DOM.new().set(xml=True).parse('<P ID="greeting">Hi!</P>')
         print(dom.at('P[ID]').text)
-    is_ok(output.getvalue(), 'Hi!\nHi!\nHi!\nHi!\n', 'output')
+
+        # Bytes of a page in windows-1250
+        dom = Pyjo.DOM.new('<meta charset="windows-1250"><p>Zażółć gęślą jaźń</p>'.encode('windows-1250'))
+        print(dom.at('p').text)
+    is_ok(output.getvalue(), 'Hi!\nHi!\nHi!\nHi!\nZażółć gęślą jaźń\n', 'output')
 
 with subtest('new'):
     dom = Pyjo.DOM.new()

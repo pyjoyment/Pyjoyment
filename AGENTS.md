@@ -70,12 +70,14 @@ of them is a regression.
   of such a conversion, the conversion keeps it, and the Mojo method gets a
   name that says what it renders: Mojo's `to_datetime` is `to_rfc3339`.
 - **A parser takes the text and its bytes.** A function that parses a format,
-  as `decode_json` of `Pyjo.JSON` and `load` of `Pyjo.YAML`, `Pyjo.INI` and
-  `Pyjo.TOML`, takes a string and bytes, and decodes the bytes as a whole
-  document: UTF-8, or the encoding of its byte order mark, which a file of
-  Windows PowerShell has, or the one that the format detects otherwise, as
-  JSON and YAML do from the null bytes of the first character. Only a whole
-  file or stream is detected, so that one document is not decoded in
+  as `decode_json` of `Pyjo.JSON`, `load` of `Pyjo.YAML`, `Pyjo.INI` and
+  `Pyjo.TOML`, and `Pyjo.DOM`, takes a string and bytes, and decodes the bytes
+  as a whole document: UTF-8, or the encoding of its byte order mark, which a
+  file of Windows PowerShell has, or the one that the format detects
+  otherwise, as JSON and YAML do from the null bytes of the first character,
+  and HTML as the HTML Living Standard sniffs it, from an XML declaration or a
+  `<meta charset>`, after the charset of `Content-Type` in `msg.dom()`. Only
+  a whole file or stream is detected, so that one document is not decoded in
   different ways; a part of a message, as the parameters of a URL, a header or
   a frame of a WebSocket, is decoded with its charset alone. A function that
   gives several documents, as `load_all`, gives a `Pyjo.Collection`, as every

@@ -88,6 +88,7 @@ import Pyjo.JSON.Pointer
 import Pyjo.Parameters
 import Pyjo.Upload
 
+from Pyjo.DOM.HTML import _decode  # pyright: ignore[reportPrivateUsage]
 from Pyjo.JSON import j
 from Pyjo.Util import decode
 
@@ -378,8 +379,11 @@ class Pyjo_Message(Pyjo.EventEmitter.object):
             dom = msg.dom()
             collection = msg.dom('a[href]')
 
-        Retrieve message body from :attr:`text` and turn it into a
-        :mod:`Pyjo.DOM` object, an optional selector can be used to call the
+        Retrieve message body and turn it into a :mod:`Pyjo.DOM` object, with
+        its encoding found as the HTML Living Standard sniffs it, a byte order
+        mark, the :attr:`Pyjo.Content.Pyjo_Content.charset`, the encoding of an
+        XML declaration or of a ``<meta charset>``, and
+        :attr:`default_charset`, an optional selector can be used to call the
         method :meth:`Pyjo.DOM.Pyjo_DOM.find` on it right away, which then
         returns a :mod:`Pyjo.Collection` object. Note that this method caches
         all data, so it should not be called before the entire message body has
@@ -397,7 +401,10 @@ class Pyjo_Message(Pyjo.EventEmitter.object):
         if self.content.is_multipart:
             return None
         if self._dom is None:
-            self._dom = Pyjo.DOM.new(self.text)
+            # Unlike Mojolicious: the encoding of the page, where Mojo decodes the text with the charset of Content-Type
+            # or the default, as a page in another encoding often says it in a meta element only
+            text = _decode(self.body, self.content.charset, self.default_charset)
+            self._dom = Pyjo.DOM.new(text)
         return self._dom.find(args[0]) if args else self._dom
 
     @property

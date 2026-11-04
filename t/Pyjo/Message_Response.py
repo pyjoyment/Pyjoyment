@@ -1164,4 +1164,34 @@ with subtest('Build DOM from response with charset'):
     res.dom('a').each(count_cb)
     is_ok(count, 2, 'all anchors found')
 
+# Unlike Mojolicious: the encoding of the page, a byte order mark, the charset of Content-Type, a meta element and the
+# default, where Mojo decodes with the charset or the default only
+with subtest('Build DOM from response with the encoding of the page'):
+    html = '<meta charset="windows-1250"><p>Zażółć</p>'.encode('windows-1250')
+    res = Pyjo.Message.Response.new()
+    res.parse(b'HTTP/1.1 200 OK\x0d\x0aContent-Type: text/html\x0d\x0a')
+    res.parse(b'Content-Length: %d\x0d\x0a\x0d\x0a' % len(html) + html)
+    ok(res.is_finished, 'response is finished')
+    is_ok(res.dom().at('p').text, 'Zażółć', 'encoding of the meta element')
+    is_ok(res.text, html.decode('latin-1'), 'text without the encoding of the page')
+
+    res = Pyjo.Message.Response.new()
+    res.parse(b'HTTP/1.1 200 OK\x0d\x0aContent-Type: text/html; charset=ISO-8859-2\x0d\x0a')
+    body = '<meta charset="windows-1250"><p>Zażółć</p>'.encode('iso-8859-2')
+    res.parse(b'Content-Length: %d\x0d\x0a\x0d\x0a' % len(body) + body)
+    is_ok(res.dom().at('p').text, 'Zażółć', 'charset of Content-Type before the meta element')
+
+    res = Pyjo.Message.Response.new()
+    res.parse(b'HTTP/1.1 200 OK\x0d\x0aContent-Type: text/html; charset=ISO-8859-2\x0d\x0a')
+    body = '\ufeff<p>Zażółć</p>'.encode('UTF-16LE')
+    res.parse(b'Content-Length: %d\x0d\x0a\x0d\x0a' % len(body) + body)
+    is_ok(res.dom().at('p').text, 'Zażółć', 'byte order mark before the charset of Content-Type')
+
+    res = Pyjo.Message.Response.new()
+    res.default_charset = 'windows-1250'
+    res.parse(b'HTTP/1.1 200 OK\x0d\x0aContent-Type: text/html\x0d\x0a')
+    body = '<p>Zażółć</p>'.encode('windows-1250')
+    res.parse(b'Content-Length: %d\x0d\x0a\x0d\x0a' % len(body) + body)
+    is_ok(res.dom().at('p').text, 'Zażółć', 'default charset')
+
 done_testing()

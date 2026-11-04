@@ -101,6 +101,16 @@ attribute. ::
     dom = Pyjo.DOM.new().set(xml=True).parse('<P ID="greeting">Hi!</P>')
     print(dom.at('P[ID]').text)
 
+Bytes are a whole document, as a file or the body of a response, whose
+encoding is found as the HTML Living Standard sniffs it: a byte order mark,
+the ``encoding`` of an XML declaration, a ``<meta charset>`` or
+``<meta http-equiv="Content-Type">`` in the first 1024 bytes, and ``UTF-8``
+by default. ::
+
+    # Bytes of a page in windows-1250
+    dom = Pyjo.DOM.new('<meta charset="windows-1250"><p>Zażółć gęślą jaźń</p>'.encode('windows-1250'))
+    print(dom.at('p').text)
+
 See also
 --------
 

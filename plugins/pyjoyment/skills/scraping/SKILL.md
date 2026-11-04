@@ -58,6 +58,10 @@ print(api.json('/items/0/name'))
 - `ua.get(url, headers, form={...})`, `ua.post(url, json={...})`, a body as
   bytes after the headers; `res.code`, `res.headers.content_type`, `res.text`,
   `res.json()`, `res.dom()`, `res.save_to(path)`.
+- `res.dom()` finds the encoding of a page as a browser does, from the charset
+  of `Content-Type` or a `<meta charset>`, and so does `Pyjo.DOM.new(data)` of
+  the bytes of a file; `res.text` decodes with the charset of `Content-Type`
+  or UTF-8 only.
 - The user agent keeps the cookies of its responses, as a browser does, in
   `ua.cookie_jar`; `ua.proxy.detect()` takes the proxy of `HTTP_PROXY` and
   `HTTPS_PROXY`.

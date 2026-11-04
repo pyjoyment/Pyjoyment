@@ -1,5 +1,6 @@
 import Pyjo.DOM
 import Pyjo.DOM.HTML
+import Pyjo.String.Bytes
 
 from Pyjo.DOM.HTML import tag_to_html
 from Pyjo.Test import *
@@ -3350,5 +3351,41 @@ with subtest('Lazy selection'):
     dom.find('p')[2].attr(**{'class': 'x'})
     is_deeply_ok([e.text for e in elements], ['3'], 'the rest matched as they are taken')
     is_deeply_ok([e.text for e in dom.iterate('p.x')], ['1', '3'], 'matched anew for each iteration')
+
+with subtest('Bytes'):
+    # Not in Mojolicious: bytes of a whole document, whose encoding is sniffed as the HTML Living Standard does it
+    text = 'Zażółć'
+    is_ok(Pyjo.DOM.new(f'<p>{text}'.encode()).at('p').text, text, 'UTF-8 by default')
+    is_ok(Pyjo.DOM.new(bytearray(f'<p>{text}'.encode())).at('p').text, text, 'bytearray')
+    for encoding in ('UTF-8-SIG', 'UTF-16', 'UTF-16LE', 'UTF-16BE'):
+        is_ok(Pyjo.DOM.new(f'\ufeff<p>{text}'.encode(encoding.removesuffix('-SIG'))).at('p').text, text, encoding)
+    is_ok(
+        Pyjo.DOM.new(f'<meta charset="windows-1250"><p>{text}'.encode('windows-1250')).at('p').text,
+        text,
+        'meta charset',
+    )
+    is_ok(Pyjo.DOM.new(f'<META CHARSET=ISO-8859-2><p>{text}'.encode('iso-8859-2')).at('p').text, text, 'unquoted')
+    html = f'<meta http-equiv="Content-Type" content="text/html; charset=windows-1250"><p>{text}'
+    is_ok(Pyjo.DOM.new(html.encode('windows-1250')).at('p').text, text, 'meta http-equiv')
+    xml = f'<?xml version="1.0" encoding="ISO-8859-2"?><P>{text}</P>'
+    dom = Pyjo.DOM.new(xml.encode('iso-8859-2'))
+    is_ok(dom.at('P').text, text, 'XML declaration')
+    ok(dom.xml, 'XML semantics')
+    is_ok(Pyjo.DOM.new(f'<!-- <meta charset="koi8-r"> --><p>{text}'.encode()).at('p').text, text, 'meta in a comment')
+    is_ok(Pyjo.DOM.new(f'<meta charset="bogus"><p>{text}'.encode()).at('p').text, text, 'unknown encoding')
+    is_ok(Pyjo.DOM.new(f'<meta charset="UTF-16"><p>{text}'.encode()).at('p').text, text, 'UTF-16 of an ASCII prescan')
+    is_ok(
+        Pyjo.DOM.new('<meta charset="iso-8859-1"><p>\u201cq\u201d'.encode('cp1252')).at('p').text,
+        '\u201cq\u201d',
+        'Latin-1 is windows-1252',
+    )
+    is_ok(
+        Pyjo.DOM.new(b' ' * 1024 + f'<meta charset="windows-1250"><p>{text}'.encode('windows-1250')).at('p').text,
+        'Za\xbf\xf3\xb3\xe6',
+        'meta after 1024 bytes',
+    )
+    is_ok(Pyjo.DOM.new(b'<p>caf\xe9').at('p').text, 'caf\xe9', 'bytes that do not decode')
+    is_ok(Pyjo.DOM.new().parse(f'<p>{text}'.encode()).at('p').text, text, 'parse')
+    is_ok(Pyjo.DOM.new(Pyjo.String.Bytes.b(f'<p>{text}'.encode())).at('p').text, text, 'Pyjo.String.Bytes')
 
 done_testing()

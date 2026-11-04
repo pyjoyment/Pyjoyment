@@ -37,9 +37,16 @@ Functions
 
 import Pyjo.Base
 
-from Pyjo.Util import html_attr_unescape, html_unescape, xml_escape
+from Pyjo.Util import (
+    _bom,  # pyright: ignore[reportPrivateUsage]
+    decode,
+    html_attr_unescape,
+    html_unescape,
+    xml_escape,
+)
 
 import builtins
+import codecs
 import re
 
 from collections.abc import Callable
@@ -187,9 +194,14 @@ class Pyjo_DOM_HTML(Pyjo.Base.object):
 
             html = html.parse('<foo bar="baz">I ♥ Pyjoyment!</foo>')
 
-        Parse HTML/XML fragment.
+        Parse HTML/XML fragment. Bytes are a whole document, whose encoding is
+        found as the HTML Living Standard sniffs it: a byte order mark, the
+        ``encoding`` of an XML declaration, a ``<meta charset>`` or
+        ``<meta http-equiv="Content-Type">`` in the first 1024 bytes, and
+        ``UTF-8`` by default.
         """
-        string = str(html)
+        # Not in Mojolicious: bytes, which Mojo::DOM takes as characters
+        string = _decode(bytes(html)) if isinstance(html, (bytes, bytearray)) else str(html)
 
         # Detect XML from a leading declaration
         if not self._xml_set and re.match(r'﻿?\s*<\?xml[\s?]', string, re.I):
@@ -360,6 +372,46 @@ def tag_to_html(name: str, content: str | Callable[[], str] | None = None, /, **
     have to generate a lot of tags.
     """
     return _render(_tag(name, content, attrs), None)
+
+
+# The encoding of an XML declaration at the start, and a charset of a meta element, of either form, outside of comments
+_XML_ENCODING_RE = re.compile(rb'\s*<\?xml\s[^>]*?\bencoding\s*=\s*["\']([^"\'\s]+)', re.I)
+_META_CHARSET_RE = re.compile(rb'<meta\s[^>]*?\bcharset\s*=\s*["\']?\s*([^"\'\s;/>]+)', re.I)
+_COMMENT_RE = re.compile(rb'<!--.*?-->', re.S)
+
+
+# Not in Mojolicious: the bytes of a whole document, decoded as the HTML Living Standard sniffs their encoding, after a
+# byte order mark and the charset of the transport, with the default of Pyjoyment, and as the bytes they are when they
+# do not decode, as Pyjo.Message.text has them
+def _decode(data: bytes, charset: str | None = None, default: str | None = 'UTF-8') -> str:
+    found, rest = _bom('UTF-8', data)
+    if len(rest) != len(data):
+        candidates = [found]
+    else:
+        head = _COMMENT_RE.sub(b'', data[:1024])
+        xml, meta = _XML_ENCODING_RE.match(head), _META_CHARSET_RE.search(head)
+        # A UTF-16 that an ASCII prescan has read is not one, as the HTML Living Standard says
+        candidates = [charset, *(_ascii(m[1]) for m in (xml, meta) if m), default]
+    for candidate in candidates:
+        if (encoding := _encoding(candidate)) is not None:
+            return text if (text := decode(encoding, rest)) is not None else rest.decode('latin-1')
+    return rest.decode('latin-1')
+
+
+def _ascii(label: bytes) -> str:
+    encoding = label.decode('ascii', 'replace')
+    return 'UTF-8' if _encoding(encoding) in ('utf-16-le', 'utf-16-be', 'utf-16') else encoding
+
+
+# The name of a label that Python knows, where the labels of ASCII and Latin-1 are windows-1252, as WHATWG has them
+def _encoding(label: str | None) -> str | None:
+    if label is None:
+        return None
+    try:
+        name = codecs.lookup(label).name
+    except LookupError:
+        return None
+    return 'cp1252' if name in ('ascii', 'iso8859-1') else name
 
 
 def _end(end: str, xml: bool | None, current: list[Tree]) -> None:
