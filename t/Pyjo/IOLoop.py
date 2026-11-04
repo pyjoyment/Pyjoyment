@@ -4,7 +4,6 @@ import Pyjo.IOLoop.Client
 import Pyjo.IOLoop.Server
 import Pyjo.IOLoop.Stream
 import Pyjo.Promise
-import Pyjo.Reactor.Asyncio
 import Pyjo.String.Bytes
 
 from Pyjo.Test import *
@@ -119,7 +118,7 @@ with subtest('Recurring timer'):
 
 
 def handle_and_reset(freeze):
-    global handle, handle2, reset, close, count, running, timer
+    global handle, handle2, reset, close, count, running, riding, timer
     handle = handle2 = None
     reset = close = 0
 
@@ -154,9 +153,13 @@ def handle_and_reset(freeze):
         timer += 1
 
     def reset_tick(loop):
-        global running
+        global running, riding
         Pyjo.IOLoop.reset(freeze=freeze)
         running = Pyjo.IOLoop.is_running()
+
+        # Not in Mojolicious: whether a new reactor of the same class runs in the loop that runs, as one on an event loop
+        # that does not nest
+        riding = type(Pyjo.IOLoop.singleton.reactor).new().is_running
 
     Pyjo.IOLoop.recurring(10, timer_cb)
     Pyjo.IOLoop.next_tick(reset_tick)
@@ -177,9 +180,9 @@ with subtest('Handle and reset'):
 
 with subtest('Handle and reset with freeze'):
     id, id2 = handle_and_reset(True)
-    # Unlike Mojolicious: the reactor of asyncio after the freeze runs in the event loop that the frozen one runs, as
-    # asyncio does not nest event loops, where Mojo starts the new reactor inside the old one
-    if isinstance(Pyjo.IOLoop.singleton.reactor, Pyjo.Reactor.Asyncio.object):
+    # Unlike Mojolicious: a reactor on an event loop that does not nest, as of asyncio or Trio, runs after the freeze in
+    # the loop that the frozen one runs, as any new reactor there, where Mojo starts the new reactor inside the old one
+    if riding:
         ok(running, 'running in the loop of the frozen reactor')
     else:
         ok(not running, 'not running')
