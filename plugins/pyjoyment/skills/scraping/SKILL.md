@@ -136,8 +136,9 @@ and output as bytes.
 - A user agent of `Pyjo.UserAgent.new()` follows no redirects by default:
   `max_redirects`. The singleton of the functions of the module follows ten.
 - A blocking request inside an application, `c.ua().get(url)` or
-  `Pyjo.UserAgent.get(url)` in an action, stops the event loop: an action
-  awaits `c.ua().get_p(url)`.
+  `Pyjo.UserAgent.get(url)` in an action, or in a coroutine, raises
+  `RuntimeError: Blocking request in a running event loop` on the reactor of
+  asyncio: an action awaits `c.ua().get_p(url)`.
 - `text` is the text of the element itself, without the text of its
   descendants, as `<p>Hello <b>World</b></p>` gives `Hello`: `all_text` takes
   it all.

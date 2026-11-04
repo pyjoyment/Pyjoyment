@@ -207,7 +207,6 @@ import socket
 import ssl
 import sys
 import threading
-import warnings
 import weakref
 
 from collections.abc import Callable
@@ -798,12 +797,12 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
             if not Pyjo.IOLoop.is_running():
                 Pyjo.IOLoop.start()
 
-        A blocking request cannot wait for its response in an event loop of
-        :mod:`asyncio` that runs already, as in a coroutine or in an action of
-        an application on :mod:`Pyjo.Reactor.Asyncio`, as asyncio does not
-        nest event loops: it warns with :class:`RuntimeWarning` and returns
-        the transaction without the response. Await the promise of
-        :meth:`start_p`, or of a method like :attr:`get_p`, there.
+        A blocking request cannot wait for its response while :attr:`ioloop`
+        is running, as in an event loop of :mod:`asyncio` that runs already, in
+        a coroutine or in an action of an application on
+        :mod:`Pyjo.Reactor.Asyncio`, as asyncio does not nest event loops: it
+        raises :class:`RuntimeError`. Await the promise of :meth:`start_p`, or
+        of a method like :attr:`get_p`, there.
         """
         # Fork-safety
         pid = os.getpid()
@@ -821,7 +820,15 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
         # Blocking
         if DEBUG:
             warn(f'-- Blocking request ({_url(tx)})\n')
-        result: list[Pyjo.Transaction.HTTP.object | None] = [None]
+
+        # Not in Mojolicious: an error of a blocking request in an event loop that runs already, as of asyncio, which
+        # does not nest event loops, before the request starts, where Mojo would fail in start of the event loop
+        if self.ioloop.is_running:
+            raise RuntimeError(
+                'Blocking request in a running event loop, await a promise of a request, as of get_p, instead'
+            )
+
+        result = [tx]
 
         def blocking(ua: Pyjo_UserAgent, tx: Pyjo.Transaction.HTTP.object) -> None:
             ua.ioloop.stop()
@@ -829,18 +836,6 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
 
         self._start(self.ioloop, tx, blocking)
         self.ioloop.start()
-
-        # Not in Mojolicious: a warning of a blocking request in an event loop of asyncio that runs already, where the
-        # event loop returns at once, as asyncio does not nest event loops, before the response
-        if result[0] is None:
-            warnings.warn(
-                'Blocking request in a running event loop of asyncio, which does not wait for the response, '
-                'await a promise of a request, as of get_p, instead',
-                RuntimeWarning,
-                skip_file_prefixes=(os.path.dirname(__file__),),
-            )
-            return tx
-
         return result[0]
 
     def start_p(self, tx: Pyjo.Transaction.HTTP.object) -> Pyjo.Promise.object:

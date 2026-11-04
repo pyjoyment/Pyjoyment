@@ -12,7 +12,6 @@ import os
 import socket
 import ssl
 import threading
-import warnings
 
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
@@ -178,18 +177,17 @@ with subtest('Blocking request in a running event loop of asyncio'):
 
     async def blocking():
         ioloop = Pyjo.IOLoop.new(reactor=Pyjo.Reactor.Asyncio.new())
-        with Pyjo.UserAgent.new(ioloop=ioloop) as ua, warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter('always')
-            tx = ua.get(f'{url}/blocking')
-        return tx, caught
+        with Pyjo.UserAgent.new(ioloop=ioloop) as ua:
+            running = ioloop.is_running
+            try:
+                ua.get(f'{url}/blocking')
+            except RuntimeError as e:
+                return running, str(e)
 
     # A SelectorEventLoop, as the ProactorEventLoop that asyncio.run makes on Windows cannot watch handles
-    tx, caught = asyncio.run(blocking(), loop_factory=asyncio.SelectorEventLoop)
-    is_ok(tx.res.code, None, 'no response')
-    is_ok(len(caught), 1, 'one warning')
-    is_ok(caught[0].category, RuntimeWarning, 'RuntimeWarning')
-    like_ok(str(caught[0].message), r'await a promise of a request', 'right message')
-    is_ok(caught[0].filename, __file__, 'location of the request')
+    running, error = asyncio.run(blocking(), loop_factory=asyncio.SelectorEventLoop)
+    ok(running, 'the event loop of the user agent runs')
+    like_ok(error, r'^Blocking request in a running event loop, await a promise of a request', 'right error')
 
     async def awaited():
         with Pyjo.UserAgent.new() as ua:

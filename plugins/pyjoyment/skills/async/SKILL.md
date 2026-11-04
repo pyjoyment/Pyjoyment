@@ -159,8 +159,9 @@ app.start()
 - A coroutine of asyncio awaits a promise of Pyjoyment, and
   `promise.to_future()` gives a future of asyncio.
 - `promise.wait()` runs the event loop until the promise settles, in a script;
-  in an action, where the event loop runs already, it returns at once, so an
-  action awaits.
+  in an action or a coroutine of asyncio, as in `asyncio.run` or a notebook of
+  Jupyter, where the event loop runs already, it returns at once, so they
+  await.
 
 ## Mistakes
 
@@ -172,9 +173,10 @@ app.start()
 - `time.sleep`, `requests`, `urllib.request` or a blocking database driver in
   an action stop every connection. `PYTHONDEVMODE=1` logs a callback that
   blocked the loop, as `Executing <Handle ...> took 2.003 seconds`.
-- A blocking request in an action, `c.ua().get(url)` without a callback, does
-  not wait for the response, and warns `Blocking request in a running event
-  loop of asyncio`: await `get_p` instead.
+- A blocking request in an action or a coroutine, `c.ua().get(url)` without a
+  callback, cannot wait for the response in the event loop of asyncio that
+  runs, and raises `RuntimeError: Blocking request in a running event loop`:
+  await `get_p` instead.
 - A promise without `await`, `tx = c.ua().get_p(url)` and then `tx.result`,
   fails with `a promise gives its value to await or to a callback of then`.
 - A long wait, as a stream of events, needs a longer inactivity timeout of its
