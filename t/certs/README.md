@@ -11,13 +11,17 @@ Mojolicious. They are not secret and must not be used for anything else.
 | `client.crt`, `client.key`           | `client`, for a client                                           |
 | `bad.crt`, `bad.key`                 | `localhost` and `127.0.0.1`, self-signed, which `ca.crt` rejects |
 
-The key of the CA is not kept, so a certificate cannot be added to the set:
-all of them are made again, with a new CA. They are RSA 2048 keys, valid for
-a hundred years, made with OpenSSL 3 in a temporary directory, from the root
-of the repository:
+The key of the CA is not in the repository, as whoever trusts `ca.crt` would
+trust any certificate that the key signs, for any name. The maintainer keeps
+it outside of the repository, in `$keep`, and signs a certificate added to the
+set with it, with `sign` below in that directory; without it, all of them are
+made again, with a new CA. They are RSA 2048 keys, valid for a hundred years,
+made with OpenSSL 3 in a temporary directory, from the root of the
+repository:
 
 ```sh
 certs=$PWD/t/certs
+keep=$HOME/.config/pyjoyment/certs/t
 cd "$(mktemp -d)"
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 36500 \
@@ -48,10 +52,12 @@ openssl verify -CAfile ca.crt server.crt mojo_server.crt client.crt
 ```
 
 Then copy the certificates and their keys into `t/certs`, readable by
-everyone, and delete the temporary directory, the key of the CA with it:
+everyone, keep the key of the CA, readable by its owner only, and delete the
+temporary directory:
 
 ```sh
-chmod 644 *.key
+chmod 644 server.key mojo_server.key client.key bad.key
 cp ca.crt {server,mojo_server,client,bad}.{crt,key} "$certs/"
+mkdir -p "$keep" && install -m 600 ca.key "$keep/" && cp ca.crt ca.srl "$keep/"
 cd "$certs" && rm -rf "$OLDPWD"
 ```

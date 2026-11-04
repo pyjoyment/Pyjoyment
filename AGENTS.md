@@ -461,27 +461,33 @@ Never read, display, reference, or include the contents of the following files:
 
 The same list is git-ignored in `.gitignore` and enforced for Claude Code by
 the `permissions.deny` rules in `.claude/settings.json`. Change all three
-together. The one exception is `Pyjo/IOLoop/certs/server.key`, the key of
-the default certificate for TLS servers (as in Mojo): it is tracked, and
-`.gitignore` whitelists it, because hatchling builds packages from the
-`.gitignore` patterns and would otherwise leave it out of the wheel.
+together. The one exception is the keys of `Pyjo/IOLoop/certs`,
+`server.key`, of the default certificate for TLS servers (as in Mojo), and
+`client.key`, of a certificate of a client for the tests of the distributions:
+they are tracked, and `.gitignore` whitelists them, because hatchling builds
+packages from the `.gitignore` patterns and would otherwise leave them out of
+the wheel.
 
-The certificate `server.crt` is for `localhost` and `127.0.0.1`, and a CA of
-its own, `ca.crt`, signs it, so that the tests can verify it. The key of the
-CA is not kept: new certificates come with a new CA, made with OpenSSL 3
+The certificate `server.crt` is for `localhost` and `127.0.0.1`, `client.crt`
+for a client, and a CA of its own, `ca.crt`, signs them, so that the tests can
+verify them. The key of the CA is not in the repository, as whoever trusts
+`ca.crt`, which the wheel has, as a developer who adds it to the trust store
+of a system for `https://localhost`, would trust any certificate that the key
+signs, for any name. The maintainer keeps it outside of the repository, as
+`Pyjo/IOLoop/certs/README.md` says, and signs a new certificate of the set
+with it; without it, all of them are made again with a new CA, with OpenSSL 3
 (RSA 2048, a hundred years, `basicConstraints`, `keyUsage`,
 `extendedKeyUsage=serverAuth` and `subjectAltName=DNS:localhost,IP:127.0.0.1`
-for the server), and the key of the CA is deleted afterwards.
+for the server, `extendedKeyUsage=clientAuth` for the client).
 
 The certificates of the tests in `t/certs` are the other exception: their
 keys are tracked, and `.gitignore` lets `t/certs/*.key` in, as the tests of
-TLS need them. Another CA of its own, `t/certs/ca.crt`, whose key is not kept
-either, signs `server` (`localhost`, `127.0.0.1`, `::1`, `serverAuth`),
-`mojo_server` (`mojolicious.org`) and `client` (`clientAuth`), and `bad` is
-self-signed. They are made all of them together with a new CA, with the
-commands in `t/certs/README.md`. Claude Code does not read these keys either: the
-rules of `.claude/settings.json` stay as they are, and the tests read the
-keys.
+TLS need them. Another CA of its own, `t/certs/ca.crt`, whose key is kept
+outside of the repository too, signs `server` (`localhost`, `127.0.0.1`,
+`::1`, `serverAuth`), `mojo_server` (`mojolicious.org`) and `client`
+(`clientAuth`), and `bad` is self-signed. They are made with the commands in
+`t/certs/README.md`. Claude Code does not read these keys either: the rules
+of `.claude/settings.json` stay as they are, and the tests read the keys.
 
 ## Documentation
 

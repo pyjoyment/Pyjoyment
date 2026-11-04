@@ -11,6 +11,8 @@ import sys
 
 
 CA = os.path.join(os.path.dirname(Pyjo.IOLoop.TLS.CERT), 'ca.crt')
+CLIENT_CERT = os.path.join(os.path.dirname(Pyjo.IOLoop.TLS.CERT), 'client.crt')
+CLIENT_KEY = os.path.join(os.path.dirname(Pyjo.IOLoop.TLS.CERT), 'client.key')
 
 # The asyncio reactor, whatever PYJO_REACTOR says
 Pyjo.IOLoop.singleton.reactor = Pyjo.Reactor.Asyncio.new()
@@ -78,10 +80,17 @@ with subtest('Client certificate'):
         {'tls_ca': CA},
         {'address': 'localhost', 'tls_ca': CA, 'tls_cert': Pyjo.IOLoop.TLS.CERT, 'tls_key': Pyjo.IOLoop.TLS.KEY},
     )
-    # The certificate of the server is for servers only; a certificate of a client comes with the tests of the client
+    # The certificate of the server is for servers only
     like_ok(
         str(got['errors'][0]), r'unsuitable certificate purpose', 'the certificate of a server is not one of a client'
     )
+    got = negotiate(
+        {'tls_ca': CA}, {'address': 'localhost', 'tls_ca': CA, 'tls_cert': CLIENT_CERT, 'tls_key': CLIENT_KEY}
+    )
+    isa_ok(got['server'], ssl.SSLSocket, 'the certificate of a client, which the CA signs')
+    is_ok(dict(n[0] for n in got['server'].getpeercert()['subject'])['commonName'], 'client', 'right client')
+    got = negotiate({'tls_cert': CLIENT_CERT, 'tls_key': CLIENT_KEY}, {'address': 'localhost', 'tls_ca': CA})
+    ok(len(got['errors']), 'the certificate of a client is not one of a server')
 
 with subtest('SNI'):
     got = negotiate(

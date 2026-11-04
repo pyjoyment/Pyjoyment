@@ -61,7 +61,8 @@ npm-debug.log*
 *.pfx
 *.pem
 *.key
-# The key of the default certificate for TLS servers, like in Mojo
+# The keys of the default certificates for TLS servers, like in Mojo, and clients
 !/Pyjo/IOLoop/certs/server.key
+!/Pyjo/IOLoop/certs/client.key
 # Certificates of the tests, like t/mojo/certs in Mojo
 !/t/certs/*.key
