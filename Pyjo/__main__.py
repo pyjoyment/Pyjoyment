@@ -28,7 +28,8 @@ def main(argv: list[str] | None = None) -> None:
     except SyntaxError:
         exec(compile(code, '<string>', 'exec'), namespace)
         return
-    if (value := eval(expression, namespace)) is not None:
+    # What s wrote to the standard output already is not printed again
+    if (value := eval(expression, namespace)) is not None and value is not Pyjo._written:  # pyright: ignore[reportPrivateUsage]
         # Bytes, as of j or a body, printed as Pyjo.String.Bytes prints them, where print would write their repr
         print(Pyjo.b(value) if isinstance(value, (bytes, bytearray)) else value)
 

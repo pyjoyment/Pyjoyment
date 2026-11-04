@@ -150,11 +150,12 @@ copy:
   modules it uses when it is called, as every `import Pyjo.X` runs
   `Pyjo/__init__.py`. Its `u`, PUT, is `w`, as `u` is for characters, as in
   `Pyjo.String.Unicode`. `y`, which ojo does not have, loads and dumps YAML
-  with `Pyjo.YAML`, as `j` does JSON. `z`, which ojo does not have either, is
-  the builder of `Pyjo.JSON.Schema`, as `z` of zod: an object that imports the
-  module when a method of the builder is read, as the class itself would need
-  the import when `from Pyjo import *` runs, and that type checkers take for
-  the class.
+  with `Pyjo.YAML`, as `j` does JSON, and `s` reads and writes the standard
+  input and output as bytes, as `perl -n` and `<STDIN>` give the input. `z`,
+  which ojo does not have either, is the builder of `Pyjo.JSON.Schema`, as `z`
+  of zod: an object that imports the module when a method of the builder is
+  read, as the class itself would need the import when `from Pyjo import *`
+  runs, and that type checkers take for the class.
 - Where Mojo uses an optional XS module for speed, as `Mojo::JSON` uses
   `Cpanel::JSON::XS`, the port uses the module of the standard library in its
   place and keeps the port of the pure-Perl code behind a `PYJO_NO_*`

@@ -24,6 +24,8 @@ app.log.level = 'fatal'
 HTML = '<html><head><title>Mojolicious</title></head><body><h1>One</h1><h1>Two &amp; Three</h1></body></html>'
 app.routes.any('/', {'text': HTML})
 app.routes.get('/repos/pyjoyment/Pyjoyment', {'json': {'id': 1, 'name': 'Pyjoyment'}})
+PNG = b'\x89PNG\r\n\x1a\n'
+app.routes.get('/mojo/logo-white.png', lambda c: c.render(data=PNG, format='png'))
 local = Pyjo.Server.Daemon.new(app=app, ioloop=Pyjo.IOLoop.singleton, listen=['http://127.0.0.1'], silent=True)
 port = local.start().ports()[0]
 
@@ -255,6 +257,26 @@ with subtest('r'):
     python = r({'data': 'structure'})
     is_ok(python, "{'data': 'structure'}\n", 'dumped')
     like_ok(r(g('example.com').headers.to_dict()), r"'Server': 'Pyjoyment \(Python\)'", 'headers')
+
+with subtest('s'):
+    is_ok(one_liner('data = s(); print(data.size)', input='input').stdout, '5\n', 'read')
+    if sys.platform != 'win32':
+        dir = Pyjo.File.tempdir()
+        dir.child('fd.txt').spew(b'data')
+        with open(dir.child('fd.txt').to_str(), 'rb') as handle:
+            result = one_liner(f'data = s(fd={handle.fileno()}); print(data)', pass_fds=(handle.fileno(),))
+        is_ok(result.stdout, 'data\n', 'read from a file descriptor')
+    result = one_liner('data = s(b"data"); data = s("chars ", b"data"); data = s(b"error", fd=2)')
+    is_ok(result.stdout, 'datachars data', 'written')
+    is_ok(result.stderr, 'error', 'written to the standard error')
+
+    result = one_liner('j(s())["status"]["phase"]', input='{"status": {"phase": "Running"}}')
+    is_ok(result.stdout, 'Running\n', 'JSON of the standard input')
+    printed = in_process('s(g("https://mojolicious.org/mojo/logo-white.png").body)')
+    is_ok(printed, PNG.decode('latin-1'), 'bytes of an image')
+    result = one_liner('s(s(s(), fd=2))', input='kind: Pod\n')
+    is_ok(result.stdout, 'kind: Pod\n', 'standard output')
+    is_ok(result.stderr, 'kind: Pod\n', 'standard error')
 
 with subtest('t'):
     res = t('example.com')

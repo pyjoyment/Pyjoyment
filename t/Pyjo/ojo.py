@@ -16,6 +16,7 @@ import contextlib
 import io
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
@@ -160,5 +161,43 @@ with subtest('Lazy imports'):
         text=True,
     )
     is_ok(result.stdout, 'False\n', 'no JSON Schema for the functions of ojo')
+
+
+# Not in Mojolicious: s for the standard input and output, as bytes, and the line break of print, which is CRLF on
+# Windows, where s writes its bytes as they are
+def stdio(code, input=b'', **kwargs):
+    env = {k: v for k, v in os.environ.items() if k != 'PYJO_LOG_LEVEL'} | {'PYTHONPATH': ROOT}
+    return subprocess.run([sys.executable, '-m', 'Pyjo', code], env=env, input=input, capture_output=True, **kwargs)
+
+
+with subtest('Standard input and output'):
+    newline = os.linesep.encode()
+    is_ok(stdio('y(s()).first()["a"]', 'a: 1\n'.encode('UTF-16')).stdout, b'1' + newline, 'input of UTF-16')
+    is_ok(stdio('j(s())["a"]', b'\xef\xbb\xbf{"a": 1}').stdout, b'1' + newline, 'input with a byte order mark')
+    is_ok(stdio('s() is s()', b'x').stdout, b'True' + newline, 'input read once')
+    is_ok(stdio('s().size').stdout, b'0' + newline, 'no input')
+    is_ok(stdio('s(b"\\x89PNG\\r\\n\\x1a\\n")').stdout, b'\x89PNG\r\n\x1a\n', 'bytes written as they are')
+    is_ok(stdio('s("\\u2665", b"\\xff", 1)').stdout, b'\xe2\x99\xa5\xff1', 'characters as UTF-8')
+    result = stdio('s(s(s(), fd=2))', b'hello\n')
+    is_ok(result.stdout, b'hello\n', 'written to the standard output once')
+    is_ok(result.stderr, b'hello\n', 'and to the standard error')
+    result = stdio('s("x", fd=2)')
+    is_ok(result.stderr, b'x', 'written to the standard error')
+    is_ok(result.stdout, b'x' + newline, 'and printed')
+    is_ok(stdio('s("abc").size').stdout, b'abc3' + newline, 'chained')
+    is_ok(stdio('print("first"); s("second")').stdout, b'first' + newline + b'second', 'after print')
+
+    if sys.platform == 'win32':
+        skip('other file descriptors are not passed on Windows', 2)
+    else:
+        with tempfile.TemporaryDirectory() as dir:
+            path = os.path.join(dir, 'fd.txt')
+            with open(path, 'wb') as handle:
+                stdio(f's("to the descriptor", fd={handle.fileno()})', pass_fds=(handle.fileno(),))
+            with open(path, 'rb') as handle:
+                is_ok(handle.read(), b'to the descriptor', 'written to a file descriptor')
+            with open(path, 'rb') as handle:
+                result = stdio(f's(fd={handle.fileno()}).decode()', pass_fds=(handle.fileno(),))
+            is_ok(result.stdout, b'to the descriptor\n', 'read from a file descriptor')
 
 done_testing()

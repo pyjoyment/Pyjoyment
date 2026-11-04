@@ -98,7 +98,7 @@ import time
 
 from collections.abc import AsyncIterable, Callable, Iterable
 from pkgutil import extend_path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 
 if TYPE_CHECKING:
@@ -121,9 +121,11 @@ __path__ = extend_path(__path__, __name__)
 
 # The functions of ojo, which the modules they use are imported for when they are called, so that a module of Pyjo
 # does not import them
-__all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 't', 'u', 'w', 'x', 'y', 'z']
+__all__ = ['a', 'b', 'c', 'd', 'f', 'g', 'h', 'i', 'j', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'w', 'x', 'y', 'z']
 
 _agent: 'Pyjo.UserAgent.object | None' = None
+_read: 'dict[int, Pyjo.String.Bytes.object]' = {}
+_written: 'Pyjo.String.Bytes.object | None' = None
 
 
 # Unlike Mojolicious: the user agent of the functions is one of their own, whose server gets the application of
@@ -376,6 +378,80 @@ def r(*values: object) -> str:
     import Pyjo.Util
 
     return Pyjo.Util.dumper(*values)
+
+
+# Not in Mojolicious: the standard input and output, as bytes, which ojo has no function for, as perl -n and <STDIN> give
+# the input
+@overload
+def s(*, fd: int = 0) -> 'Pyjo.String.Bytes.object': ...
+
+
+@overload
+def s(part: object, /, *parts: object, fd: int = 1) -> 'Pyjo.String.Bytes.object': ...
+
+
+def s(*parts: object, fd: int | None = None) -> 'Pyjo.String.Bytes.object':
+    """::
+
+        data = s()
+        data = s(fd=3)
+        data = s(data)
+        data = s(chars, data)
+        data = s(data, fd=2)
+
+    Read the whole standard input, or the file descriptor ``fd``, once, as a
+    :mod:`Pyjo.String.Bytes` object, which another call returns again, or
+    write the parts to the standard output, or to ``fd``, as they are, without
+    a line break, bytes as bytes and anything else as ``UTF-8`` characters, as
+    :func:`b` joins them, and return what it wrote, so that the calls nest
+    and write to several streams, as ``tee`` does. ``python -m Pyjo`` does not
+    print what was written to the standard output already. A terminal is read
+    until its end, as ``cat`` reads it. The bytes keep their encoding for
+    :func:`j` and :func:`y`, which detect it, with a byte order mark too, and
+    the output its bytes, as of an image. ::
+
+        $ kubectl get pod myapp -o json | python -m Pyjo 'j(s())["status"]["phase"]'
+        $ python -m Pyjo 's(g("https://mojolicious.org/mojo/logo-white.png").body)' > logo-white.png
+        $ kubectl get pod myapp -o yaml | python -m Pyjo 's(s(s(), fd=2))' > pod.yaml
+    """
+    import Pyjo.String.Bytes
+
+    global _written
+    if not parts:
+        fd = 0 if fd is None else fd
+        if (data := _read.get(fd)) is None:
+            data = _read[fd] = Pyjo.String.Bytes.b(_slurp(fd))
+        return data
+
+    fd = 1 if fd is None else fd
+    data = Pyjo.String.Bytes.b(*parts)
+    stream = {1: sys.stdout, 2: sys.stderr}.get(fd)
+    if stream is None:
+        view = memoryview(data.to_bytes())
+        while view:
+            view = view[os.write(fd, view) :]
+        return data
+
+    stream.flush()
+    if (out := getattr(stream, 'buffer', None)) is None:
+        stream.write(data.to_str())
+    else:
+        out.write(data.to_bytes())
+        out.flush()
+    if fd == 1:
+        _written = data
+    return data
+
+
+def _slurp(fd: int) -> bytes:
+    # The bytes of the standard input, or the characters of a stream that replaces it, as io.StringIO
+    if fd == 0:
+        data = getattr(sys.stdin, 'buffer', sys.stdin).read()
+        return data if isinstance(data, bytes) else str(data).encode('UTF-8')
+    chunks: list[bytes] = []
+    while chunk := os.read(fd, 131072):
+        chunks.append(chunk)
+    return b''.join(chunks)
 
 
 def t(*args: Any, **kwargs: Any) -> 'Pyjo.Message.Response.object':
