@@ -240,6 +240,11 @@ class Pyjo_Steps[T](Pyjo.Base.object):
         gen = self.__await__()
         promise = Pyjo.Promise.new()
 
+        # The reactor keeps the steps until they end, as run_coroutine keeps a coroutine: only the promise of their
+        # operation refers to them otherwise, in a cycle that the garbage collector would free while they wait
+        running = promise.ioloop.reactor._coroutines  # pyright: ignore[reportPrivateUsage]
+        running.add(gen)
+
         def step(value: Any = None, error: Exception | None = None) -> None:
             try:
                 op = gen.send(value) if error is None else gen.throw(error)
@@ -247,9 +252,11 @@ class Pyjo_Steps[T](Pyjo.Base.object):
                     raise unexpected
                 started = _nonblocking_p(op, ua)
             except StopIteration as e:
+                running.discard(gen)
                 promise.resolve(e.value)
                 return
             except Exception as e:
+                running.discard(gen)
                 promise.reject(e)
                 return
 

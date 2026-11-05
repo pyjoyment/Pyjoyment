@@ -200,10 +200,11 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
         # Not in Mojolicious: the thread that made the reactor, where it runs
         self._thread = threading.get_ident()
 
-        # Not in Mojolicious: the coroutines that run_coroutine runs, which wait for promises, and which only these
-        # promises refer to otherwise, through the objects that they wait for, which the reactor refers to weakly, in a
-        # cycle that the garbage collector would free, as the reactor of asyncio keeps its tasks
-        self._coroutines: set[Coroutine[Any, Any, Any]] = set()
+        # Not in Mojolicious: the coroutines that run_coroutine runs, which wait for promises, and the steps that run_p of
+        # Pyjo.Steps runs, which only these promises refer to otherwise, through the objects that they wait for, which
+        # the reactor refers to weakly, in a cycle that the garbage collector would free, as the reactor of asyncio keeps
+        # its tasks
+        self._coroutines: set[Coroutine[Any, Any, Any] | Generator[Any, Any, Any]] = set()
         _ALL.add(self)
 
     def again(self, id: str, after: float | None = None) -> None:

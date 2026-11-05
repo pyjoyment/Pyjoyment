@@ -8,6 +8,7 @@ from Pyjo.Steps import Command, Request, Sleep, Steps
 from Pyjo.Test import *
 from Pyjoyment.Lite import app, get
 
+import gc
 import os
 import re
 import sys
@@ -71,6 +72,16 @@ with subtest('Requests'):
     result = wait(Steps(refused()).run_p(ua))
     like_ok(
         result['value'], re.compile(r'^GET http://127\.0\.0\.1:1/token: '), 'connection error thrown in, non-blocking'
+    )
+
+    # Only the promise of the request refers to the steps, whose user agent the event loop refers to weakly
+    promise = Steps(refused()).run_p(ua)
+    Pyjo.IOLoop.next_tick(lambda loop: gc.collect())
+    result = wait(promise)
+    like_ok(
+        result.get('value'),
+        re.compile(r'^GET http://127\.0\.0\.1:1/token: '),
+        'steps kept while they wait, non-blocking',
     )
 
     # The user agent of the request, whose event start changes it, not the one of run
