@@ -426,8 +426,10 @@ async def run_script(
         result.errors.append(f'Invalid script metadata: {e}')
         return result
 
-    # The script leads a process group of its own, so that the processes it starts are killed with it; a command that
-    # cannot start fails the script with the reason, and the run goes on
+    # The script leads a process group of its own, so that the processes it starts are killed with it, or on Windows
+    # joins a job, before it runs, as it starts suspended, so that a process that it starts at once joins the job too, as
+    # the interpreter that the launcher of a virtual environment starts in a job of its own, whose processes break away
+    # from it; a command that cannot start fails the script with the reason, and the run goes on
     try:
         process = await asyncio.create_subprocess_exec(
             *command,
@@ -437,11 +439,14 @@ async def run_script(
             env=env,
             cwd=cwd,
             process_group=0 if hasattr(os, 'killpg') else None,
+            creationflags=_SUSPENDED,
         )
     except OSError as e:
         result.errors.append(f"Can't run {command[0]}: {e.strerror or e}")
         return result
     job = _job(process.pid)
+    if not _resume(process.pid):
+        _kill(process, job)
     assert process.stdout is not None
     started = result.mark = time.monotonic()
     if progress is not None:
@@ -1172,8 +1177,19 @@ if sys.platform == 'win32':
     _kernel32.TerminateJobObject.argtypes = (wintypes.HANDLE, wintypes.UINT)
     _kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
 
-    # PROCESS_SET_QUOTA and PROCESS_TERMINATE, which AssignProcessToJobObject needs
+    # NtResumeProcess resumes the threads of a process, its one thread of a process that starts suspended, as
+    # psutil.Process.resume does on Windows
+    _ntdll = ctypes.WinDLL('ntdll')
+    _ntdll.NtResumeProcess.argtypes = (wintypes.HANDLE,)
+    _ntdll.NtResumeProcess.restype = ctypes.c_long
+
+    # PROCESS_SET_QUOTA and PROCESS_TERMINATE, which AssignProcessToJobObject needs, PROCESS_SUSPEND_RESUME, and
+    # CREATE_SUSPENDED
     _ASSIGN = 0x0100 | 0x0001
+    _RESUME = 0x0800
+    _SUSPENDED = 0x00000004
+else:
+    _SUSPENDED = 0
 
 
 def _job(pid: int) -> int | None:
@@ -1187,6 +1203,16 @@ def _job(pid: int) -> int | None:
         _kernel32.CloseHandle(job)
         return None
     return job
+
+
+def _resume(pid: int) -> bool:
+    if sys.platform != 'win32':
+        return True
+    if not (process := _kernel32.OpenProcess(_RESUME, False, pid)):
+        return False
+    resumed = _ntdll.NtResumeProcess(process) >= 0
+    _kernel32.CloseHandle(process)
+    return resumed
 
 
 def _close_job(job: int | None) -> None:

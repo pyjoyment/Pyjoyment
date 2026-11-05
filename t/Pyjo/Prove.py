@@ -5,6 +5,7 @@ from Pyjo.Test import *
 
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -518,6 +519,37 @@ with subtest('Timeout'):
     out, code = prove('--timeout', '30', 'pass.py')
     like_ok(out, r'(?m)^pass\.py \.+ ok$', 'a script within the time')
     is_ok(code, 0, 'right exit status')
+
+# Not in prove: a process that the script starts at once is killed with it, also when the harness is slow to put the
+# script in its job of Windows, as the launcher of a virtual environment starts the interpreter at once, in a job of its
+# own, whose processes break away from it; the job is a second late here
+with subtest('A process that the script starts at once'):
+    harness = textwrap.dedent("""
+        import sys, time
+        import Pyjo.Prove
+        job = Pyjo.Prove._job
+        Pyjo.Prove._job = lambda pid: (time.sleep(1), job(pid))[1]
+        sys.argv[0] = 'prove'
+        sys.exit(Pyjo.Prove.main())
+    """)
+    removed = True
+    started = time.monotonic()
+    tmp = tempfile.mkdtemp()
+    try:
+        with open(os.path.join(tmp, 'child.py'), 'w') as f:
+            f.write(textwrap.dedent(SCRIPTS['child.py']))
+        env = {k: v for k, v in os.environ.items() if k != 'PYJO_PROVE_OPTS'} | {'PYTHONPATH': ROOT}
+        args = [sys.executable, '-c', harness, '--capture-stderr', '--timeout', '2', 'child.py']
+        p = subprocess.run(args, cwd=tmp, env=env, capture_output=True)
+    finally:
+        try:
+            shutil.rmtree(tmp)
+        except OSError:
+            removed = False
+            shutil.rmtree(tmp, ignore_errors=True)
+    like_ok(p.stdout.decode().replace('\r\n', '\n'), r'(?m)^child\.py \.+ Timed out$', 'script stopped')
+    ok(time.monotonic() - started < 30, 'the run does not wait for the process of the script')
+    ok(removed, 'no process of the script left in its directory')
 
 with subtest('Ctrl-C'):
     # Ctrl-C of a console of Windows reaches all its processes, and a signal cannot be sent to one of them
