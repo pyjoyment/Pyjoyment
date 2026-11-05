@@ -10,7 +10,11 @@ import http.client
 import os
 import socket
 import ssl
+import struct
+import sys
 import threading
+
+from unittest.mock import patch
 
 
 # Clients of the standard library in a thread of their own, while the event loop of the daemon runs
@@ -227,6 +231,35 @@ with subtest('TLS of ssl'):
 
     is_deeply_ok(run(client), ('TLSv1.2', b'GET /secure 1.1 0'), 'verified certificate, version of the location')
     tls.stop()
+
+with subtest('Connection reset by the client after the request'):
+    # The client resets the connection while the daemon is about to build the transaction of the request, so
+    # getpeername fails
+    read, reset = threading.Event(), threading.Event()
+    build_tx = Pyjo.Server.Daemon.object._build_tx
+
+    def wait_for_reset(self, id, c):
+        read.set()
+        reset.wait(5)
+        return build_tx(self, id, c)
+
+    def client():
+        conn = socket.create_connection(('127.0.0.1', port))
+        conn.sendall(b'GET /reset HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n')
+        read.wait(5)
+        conn.setsockopt(
+            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('HH' if sys.platform == 'win32' else 'ii', 1, 0)
+        )
+        conn.close()
+        reset.set()
+
+    errors = []
+    error = Pyjo.IOLoop.singleton.reactor.on('error', lambda reactor, err: errors.append(repr(err)))
+    with patch.object(Pyjo.Server.Daemon.object, '_build_tx', wait_for_reset):
+        run(client)
+    Pyjo.IOLoop.singleton.reactor.unsubscribe('error', error)
+    ok(read.is_set(), 'request read')
+    is_deeply_ok(errors, [], 'no error of the reactor')
 
 with subtest('Context manager'):
     with (

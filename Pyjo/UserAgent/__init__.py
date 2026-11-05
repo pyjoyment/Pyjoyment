@@ -1146,8 +1146,8 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
         tx.connection = id
         handle = stream.handle
         if handle.family != getattr(socket, 'AF_UNIX', None):
-            tx.local_address, tx.local_port = handle.getsockname()[:2]
-            tx.remote_address, tx.remote_port = handle.getpeername()[:2]
+            tx.local_address, tx.local_port = _address(handle.getsockname)
+            tx.remote_address, tx.remote_port = _address(handle.getpeername)
 
         ref = weakref.ref(self)
 
@@ -1255,6 +1255,16 @@ def _callback(args: tuple[Any, ...], cb: Callback | None) -> tuple[tuple[Any, ..
             raise TypeError('callback given twice, as the last argument and as cb')
         return args[:-1], args[-1]
     return args, cb
+
+
+# The address of a socket, or none, as sockhost and peerhost of IO::Socket give undef, not an error, of a connection that
+# the peer has closed already, as a server of TLS 1.3 that rejects the certificate of the client after its handshake
+def _address(name: Callable[[], Any]) -> tuple[str | None, int | None]:
+    try:
+        address = name()
+    except OSError:
+        return None, None
+    return address[0], address[1]
 
 
 # A method of the user agent, as long as it exists, as Mojo weakens the user agent in its callbacks

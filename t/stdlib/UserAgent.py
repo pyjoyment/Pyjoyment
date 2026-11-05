@@ -11,9 +11,12 @@ import json
 import os
 import socket
 import ssl
+import struct
+import sys
 import threading
 
 from http.cookies import SimpleCookie
+from unittest.mock import patch
 from urllib.parse import urlsplit
 
 
@@ -214,6 +217,41 @@ with subtest('TLS of ssl'):
 
 server.shutdown()
 server.server_close()
+
+with subtest('Connection reset by the server before the request'):
+    # The server resets the connection while the user agent is about to send the request, as a server of TLS 1.3 that
+    # rejects the certificate of the client after the handshake of the client, so getpeername fails
+    listener = socket.create_server(('127.0.0.1', 0))
+    connected, reset = threading.Event(), threading.Event()
+
+    def server_thread():
+        conn, _ = listener.accept()
+        connected.wait(5)
+        conn.setsockopt(
+            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('HH' if sys.platform == 'win32' else 'ii', 1, 0)
+        )
+        conn.close()
+        reset.set()
+
+    thread = threading.Thread(target=server_thread)
+    thread.start()
+    process = Pyjo.UserAgent.object._process
+
+    def wait_for_reset(self, id):
+        connected.set()
+        reset.wait(5)
+        process(self, id)
+
+    ua = Pyjo.UserAgent.new()
+    errors = []
+    ua.ioloop.reactor.on('error', lambda reactor, err: errors.append(repr(err)))
+    with patch.object(Pyjo.UserAgent.object, '_process', wait_for_reset):
+        tx = ua.get(f'http://127.0.0.1:{listener.getsockname()[1]}/')
+    thread.join()
+    listener.close()
+    ok(tx.error, 'error of the transaction')
+    is_deeply_ok(errors, [], 'no error of the reactor')
+    ua.close()
 
 with subtest('Context manager'):
     with Pyjo.UserAgent.new() as ua:

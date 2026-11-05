@@ -143,7 +143,7 @@ import sys
 import threading
 import weakref
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from types import TracebackType
 from typing import Any, Self
 
@@ -682,7 +682,7 @@ class Pyjo_Server_Daemon(Pyjo.Server.object):
         handle = stream.handle
         if handle.family != getattr(socket, 'AF_UNIX', None):
             if (addr := c.get('addr')) is None:
-                addr = c['addr'] = (*handle.getsockname()[:2], *handle.getpeername()[:2])
+                addr = c['addr'] = (*_address(handle.getsockname), *_address(handle.getpeername))
             tx.local_address, tx.local_port, tx.remote_address, tx.remote_port = addr
         if c.get('tls'):
             tx.req.url.base.scheme = 'https'
@@ -962,6 +962,16 @@ class Pyjo_Server_Daemon(Pyjo.Server.object):
         stream.write(chunk, written)
 
 
+# The address of a socket, or none, as sockhost and peerhost of IO::Socket give undef, not an error, of a connection that
+# the peer has closed already
+def _address(name: Callable[[], Any]) -> tuple[str | None, int | None]:
+    try:
+        address = name()
+    except OSError:
+        return None, None
+    return address[0], address[1]
+
+
 # A method of the daemon, as long as it exists, as Mojo weakens the daemon in its callbacks
 def _call(ref: 'weakref.ref[Any]', method: str, *args: Any) -> None:
     if (daemon := ref()) is not None:
@@ -977,8 +987,11 @@ def _number(value: str | None, default: float) -> float:
 
 def _peer(handle: Any) -> str:
     if handle.family == getattr(socket, 'AF_UNIX', None):
-        return str(handle.getpeername())
-    return str(handle.getpeername()[0])
+        try:
+            return str(handle.getpeername())
+        except OSError:
+            return ''
+    return _address(handle.getpeername)[0] or ''
 
 
 def _url(tx: Pyjo.Transaction.object) -> str:

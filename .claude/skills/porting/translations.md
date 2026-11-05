@@ -430,6 +430,11 @@ pattern.match_partial(path)`.
 - `die` or `croak` with a message raises a `Pyjo.Exception`. An error of the
   system, `$!`, is the `OSError` itself, with the message of Mojo in front of
   its `strerror`.
+- `sockhost`, `sockport`, `peerhost` and `peerport` of IO::Socket give
+  `undef` of a connection that the peer has closed already, where
+  `getsockname` and `getpeername` raise `OSError`, `ENOTCONN` on Linux and
+  `EINVAL` on macOS, so a port catches it and leaves the address `None`: an
+  exception in an I/O watcher is an error of the reactor, which it logs.
 - A callback returns a list in Perl and one value in Python. Where Mojo
   makes values of what a callback returns, as `then` of `Mojo::Promise` does,
   the return value is one value, `None` is none, as Perl's `return;`, and a
