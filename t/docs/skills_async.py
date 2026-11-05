@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
 Skills = importlib.import_module('Skills')
 
 code = Skills.blocks('async')
-is_ok(len(code), 3, 'three applications')
+is_ok(len(code), 4, 'four applications')
 
 tmp = Pyjo.File.tempdir()
 
@@ -47,8 +47,20 @@ with subtest('Code that blocks'):
         digest = hashlib.pbkdf2_hmac('sha256', b'secret', b'salt', 100_000).hex()
         t.get_ok('/hash?password=secret').status_is(200).content_is(digest)
 
-with subtest('Callbacks and timers'):
+with subtest('Code for a script and an action'):
     t = load(2)
+    t.get_ok('/data').status_is(200).json_is({'answer': 42})
+    t.get_ok('/data').status_is(200).json_is({'answer': 42})
+
+    # The same steps blocking, as a script runs them, with the function of the loaded application
+    from Pyjo.Steps import Steps
+
+    path = tmp.child('app2.py').to_abs().to_str()
+    module = next(m for m in list(sys.modules.values()) if getattr(m, '__file__', None) == path)
+    is_ok(Steps(module.fetch(t.app.ua, '/api')).run(t.app.ua), {'answer': 42}, 'blocking')
+
+with subtest('Callbacks and timers'):
+    t = load(3)
     t.get_ok('/delayed').status_is(200)
     ok(t.tx.res.json('/ticks') >= 1, 'background work')
     t.get_ok('/callback').status_is(200)

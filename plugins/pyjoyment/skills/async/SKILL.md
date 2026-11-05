@@ -1,6 +1,6 @@
 ---
 name: async
-description: Write non-blocking code with Pyjoyment, of Pyjo and Pyjoyment.Lite alike. Use whenever the code waits for I/O, a timer or another service, for async def actions, Pyjo.Promise (then, all, race, timeout, map), get_p of the user agent, timers, code that blocks the event loop and how to run it in a subprocess or in workers, and the reactors with libraries of asyncio.
+description: Write non-blocking code with Pyjoyment, of Pyjo and Pyjoyment.Lite alike. Use whenever the code waits for I/O, a timer or another service, for async def actions, Pyjo.Promise (then, all, race, timeout, map), get_p of the user agent, timers, code that blocks the event loop and how to run it in a subprocess or in workers, the code of a library that a script and an action share with Pyjo.Steps, and the reactors with libraries of asyncio.
 ---
 
 # Asynchronous code
@@ -111,6 +111,65 @@ app.start()
   library of asyncio, as asyncpg or aiobotocore, or `asyncio.to_thread` for a
   blocking library that releases the GIL.
 
+## Code for a script and an action
+
+```python
+import Pyjo.Exception
+
+from Pyjo.Steps import Request, Sleep, Steps
+from Pyjoyment.Lite import *
+
+
+# The code of a library, written once for a script and for an action, which awaits only the steps of Pyjo.Steps
+async def fetch(ua, url, tries=3):
+    for attempt in range(tries):
+        tx = await Request(ua.build_tx('GET', url))
+        if tx.res.code != 503:
+            return tx.result.json()
+        await Sleep(0.1 * 2**attempt)
+    raise Pyjo.Exception.new(f'Unavailable: {url}')
+
+
+# A service that is busy at every other request, of the application itself
+busy = False
+
+
+@get('/api')
+def api(c):
+    global busy
+    busy = not busy
+    if busy:
+        return c.render(json={'error': 'Busy'}, status=503)
+    c.render(json={'answer': 42})
+
+
+# The same steps in an action, non-blocking, with the user agent of the application
+@get('/data')
+async def data(c):
+    c.render(json=await Steps(fetch(c.ua(), '/api')).run_p(c.ua()))
+
+
+app.start()
+```
+
+- `Pyjo.Steps` runs a coroutine that awaits a `Request` of a transaction, a
+  `Command` of a program, `Command(['hostname'])`, with `env=` and
+  `timeout=`, which gives its exit code, output and error, a `Sleep` of
+  seconds, and the `Steps` of another coroutine.
+- `Steps(fetch(ua, url)).run(ua)` runs them blocking in a script, with
+  `ua.start`, `subprocess.run` and `time.sleep`; `run_p(ua)` gives a promise
+  and runs them with `start_p`, `Pyjo.IOLoop.ChildProcess` and a timer, which
+  leave the event loop to the other connections.
+- An error of a connection or a program that cannot be run is a
+  `Pyjo.Exception` that `await` raises in the coroutine, which catches it as
+  any exception; a response with an error status is not an error, the
+  transaction gives it, as `tx.res.code` above.
+- `Request(tx, ua)` starts a transaction with a user agent of its own, as one
+  whose event `start` adds credentials; the user agent of `run` or `run_p` is
+  the default.
+- A generator that yields the steps, and takes other steps with
+  `yield from`, runs as a coroutine does.
+
 ## Callbacks and timers
 
 ```python
@@ -179,6 +238,10 @@ app.start()
   await `get_p` instead.
 - A promise without `await`, `tx = c.ua().get_p(url)` and then `tx.result`,
   fails with `a promise gives its value to await or to a callback of then`.
+- `await Steps(...)` in an action gives its steps to the event loop, which
+  does not know them, `Task got bad yield: <Pyjo.Steps.Request ...>`: await
+  `Steps(...).run_p(c.ua())`. Inside the steps, a promise or a coroutine of
+  asyncio is a `TypeError`, as nothing runs the event loop for `run`.
 - A long wait, as a stream of events, needs a longer inactivity timeout of its
   connection: `c.inactivity_timeout(300)`.
 
@@ -187,3 +250,4 @@ app.start()
 - Cookbook, the real-time web: https://pyjoyment.readthedocs.io/en/stable/guides/cookbook.html
 - Pyjo.Promise: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_Promise.html
 - Pyjo.IOLoop.Subprocess: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_IOLoop_Subprocess.html
+- Pyjo.Steps: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_Steps.html
