@@ -19,8 +19,29 @@ application uses it through :mod:`Pyjo.IOLoop`, as it uses
 :mod:`Pyjo.Reactor.Asyncio` and :mod:`Pyjo.Reactor.Poll`, and needs nothing
 of its own for it. A reactor passes the whole test suite of Pyjoyment.
 
+- `Pyjo.Reactor.Gevent - Low-level event reactor on gevent
+  <https://pyjoyment.readthedocs.io/projects/pyjo-reactor-gevent/en/stable/>`_
+- `Pyjo.Reactor.Trio - Low-level event reactor on Trio
+  <https://pyjoyment.readthedocs.io/projects/pyjo-reactor-trio/en/stable/>`_
 - `Pyjo.Reactor.Twisted - Low-level event reactor with Twisted support
   <https://pyjoyment.readthedocs.io/projects/pyjo-reactor-twisted/en/stable/>`_
+- `Pyjo.Reactor.Uvloop - Low-level event reactor on uvloop
+  <https://pyjoyment.readthedocs.io/projects/pyjo-reactor-uvloop/en/stable/>`_
+- `Pyjo.Reactor.Winloop - Low-level event reactor on Winloop
+  <https://pyjoyment.readthedocs.io/projects/pyjo-reactor-winloop/en/stable/>`_
+
+Clouds
+------
+
+A cloud is a package of the namespace ``Pyjo``, with the credentials that the
+SDKs of the cloud find and the clients of its APIs, which sign or authorize
+the requests of :mod:`Pyjo.UserAgent`, without an SDK, blocking in a script
+and non-blocking in an action, as :mod:`Pyjo.Steps` runs them.
+
+- `Pyjo.AWS - Amazon Web Services for Pyjoyment
+  <https://pyjoyment.readthedocs.io/projects/pyjo-aws/en/stable/>`_
+- `Pyjo.GCP - Google Cloud for Pyjoyment
+  <https://pyjoyment.readthedocs.io/projects/pyjo-gcp/en/stable/>`_
 
 Layers of AWS Lambda
 --------------------

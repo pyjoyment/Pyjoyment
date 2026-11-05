@@ -421,8 +421,14 @@ often than Pyjoyment is released, is a distribution of its own, which adds a
 module to a namespace of Pyjoyment, as `Pyjo.Reactor` for a reactor,
 `Pyjoyment.Plugin` for a plugin or `Pyjo` for a protocol.
 
-- [Pyjo.MCP - Model Context Protocol for Pyjoyment](https://pyjoyment.readthedocs.io/projects/pyjo-mcp/en/stable/)
-- [Pyjo.Reactor.Twisted - Low-level event reactor with Twisted support](https://pyjoyment.readthedocs.io/projects/pyjo-reactor-twisted/en/stable/)
+- [Pyjo.AWS - Amazon Web Services for Pyjoyment](https://github.com/pyjoyment/Pyjo-AWS)
+- [Pyjo.GCP - Google Cloud for Pyjoyment](https://github.com/pyjoyment/Pyjo-GCP)
+- [Pyjo.MCP - Model Context Protocol for Pyjoyment](https://github.com/pyjoyment/Pyjo-MCP)
+- [Pyjo.Reactor.Gevent - Low-level event reactor on gevent](https://github.com/pyjoyment/Pyjo-Reactor-Gevent)
+- [Pyjo.Reactor.Trio - Low-level event reactor on Trio](https://github.com/pyjoyment/Pyjo-Reactor-Trio)
+- [Pyjo.Reactor.Twisted - Low-level event reactor with Twisted support](https://github.com/pyjoyment/Pyjo-Reactor-Twisted)
+- [Pyjo.Reactor.Uvloop - Low-level event reactor on uvloop](https://github.com/pyjoyment/Pyjo-Reactor-Uvloop)
+- [Pyjo.Reactor.Winloop - Low-level event reactor on Winloop](https://github.com/pyjoyment/Pyjo-Reactor-Winloop)
 
 ## Documentation
 
