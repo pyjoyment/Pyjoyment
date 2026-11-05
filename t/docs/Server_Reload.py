@@ -47,18 +47,20 @@ app.start()
 
 
 # A server in a process of its own, on a port that the arguments name as {port}, until the port accepts connections,
-# started again on a new port when it is taken, and killed when the test ends before it stops it
+# started again on a new port when it is taken, and ended when the test ends before it stops it. Its temporary
+# directory is the one of the test, where the default process id files of prefork and prethread are not shared with
+# the servers of other tests
 def server(*args, **kwargs):
     def start():
         port = ServerStart.port()
         process = subprocess.Popen(
             [sys.executable, *(arg.format(port=port) for arg in args)],
-            env=dict(os.environ, PYTHONPATH=ROOT),
+            env=dict(os.environ, PYTHONPATH=ROOT, TMPDIR=dir.to_str()),
             stdout=subprocess.PIPE,
             text=True,
             **kwargs,
         )
-        atexit.register(lambda: process.poll() is None and process.kill())
+        atexit.register(end, process)
         # The listen socket of the manager accepts connections before the server answers them
         if ServerStart.listening(port, process) and answers(port):
             return port, process
@@ -66,6 +68,17 @@ def server(*args, **kwargs):
         return None
 
     return ServerStart.retry(start)
+
+
+# A server that the test has not stopped, as after a failure, with TERM, as Reload stops the process group of its server
+# then, which KILL of Reload would leave running with the standard error of the test, which the harness waits for
+def end(process):
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(10)
+        except subprocess.TimeoutExpired:
+            process.kill()
 
 
 def answers(port):

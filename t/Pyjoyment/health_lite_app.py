@@ -10,6 +10,7 @@ import Pyjo.Test.Pyjo
 import Pyjo.UserAgent
 import Pyjoyment
 
+from Pyjo.File import tempdir
 from Pyjo.Test import *
 from Pyjoyment.Lite import app, get, hook, plugin
 
@@ -229,7 +230,13 @@ else:
         import Pyjo.Server.Prefork
 
         results = stopping(
-            Pyjo.Server.Prefork.new(heartbeat_interval=0.1, listen=['http://127.0.0.1'], silent=True, workers=1)
+            Pyjo.Server.Prefork.new(
+                heartbeat_interval=0.1,
+                listen=['http://127.0.0.1'],
+                pid_file=tempdir().child('prefork.pid'),
+                silent=True,
+                workers=1,
+            )
         )
         is_ok(results[0], (200, b'ok'), 'ready')
         is_ok(results[-1][0], 503, 'not ready')
@@ -239,7 +246,13 @@ with subtest('Readiness while the workers of prethread stop gracefully'):
     import Pyjo.Server.Prethread
 
     results = stopping(
-        Pyjo.Server.Prethread.new(heartbeat_interval=0.1, listen=['http://127.0.0.1'], silent=True, workers=1)
+        Pyjo.Server.Prethread.new(
+            heartbeat_interval=0.1,
+            listen=['http://127.0.0.1'],
+            pid_file=tempdir().child('prethread.pid'),
+            silent=True,
+            workers=1,
+        )
     )
     is_ok(results[0], (200, b'ok'), 'ready')
     is_ok(results[-1][0], 503, 'not ready')

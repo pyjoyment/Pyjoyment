@@ -1,5 +1,6 @@
 import Pyjo.File
 import Pyjo.Test.Pyjo
+import Pyjo.UserAgent
 
 from Pyjo.Test import *
 
@@ -252,9 +253,26 @@ with subtest('User agent'):
     t.get_ok('/headers?url=/page').status_is(200).json_is(['One', 'Two', 'Three'])
 
     if os.environ.get('TEST_ONLINE'):
+        # The remote hosts answer within the timeout of the harness, also with the reruns
+        t.ua.request_timeout = t.app.ua.request_timeout = 10
+
+        # A page of GitHub without its title, of an error or of a rate limit, fails the callbacks of the tutorial, which
+        # render nothing then, so the pages are checked first, as an unreachable host is skipped
+        def titled(url):
+            ua = Pyjo.UserAgent.new(max_redirects=3, request_timeout=10)
+            try:
+                tx = ua.get(url)
+                return tx.res.code == 200 and tx.res.dom().at('title') is not None
+            finally:
+                ua.close()
 
         @subtest('Remote hosts', reruns=2, reruns_delay=10)
         def _():
+            if not all(
+                titled(url) for url in ('https://github.com/mojolicious/mojo', 'https://github.com/pyjoyment/Pyjoyment')
+            ):
+                skip('GitHub does not give its pages', 7)
+                return
             t.get_ok('/title').status_is(200).content_like(re.compile(r'Mojolicious'))
             t.get_ok('/titles').status_is(200).json_like('/mojo', re.compile(r'Mojolicious'))
             t.json_like('/pyjo', re.compile(r'Pyjoyment'))
