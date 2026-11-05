@@ -33,12 +33,15 @@ sys.path.insert(0, LIB)
 ServerStart = importlib.import_module('ServerStart')
 
 dir = tempdir()
+# The log of the application tells what a server that did not answer or did not stop has done
+log = dir.child('myapp.log')
 myapp = dir.child('myapp.py').spew(
     f"""
 import sys, threading
 sys.path.insert(0, {LIB!r})
 from Pyjoyment.Lite import app, get
-app.log.level = 'fatal'
+app.log.path = {log.to_str()!r}
+app.log.level = 'trace'
 get('/', {{'text': 'Hello!'}})
 get('/thread', lambda c: c.render(text=threading.current_thread().name))
 app.start()
@@ -100,7 +103,11 @@ def answers(port):
 
 def stop(process):
     process.send_signal(signal.SIGINT)
-    status = process.wait(30)
+    try:
+        status = process.wait(30)
+    except subprocess.TimeoutExpired:
+        ServerStart.report(log, myapp.to_str())
+        raise
     output = process.stdout.read()
     process.stdout.close()
     return status, output
@@ -171,9 +178,14 @@ with subtest('Description'):
 with subtest('Server command'):
     port, process = server('-m', 'Pyjo.Server.Reload', '-l', 'http://127.0.0.1:{port}', myapp.to_str(), 'prethread')
     conn = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
-    conn.request('GET', '/thread')
-    is_ok(conn.getresponse().read(), b'Pyjo.Server.Prethread', 'served by a thread')
-    conn.close()
+    try:
+        conn.request('GET', '/thread')
+        is_ok(conn.getresponse().read(), b'Pyjo.Server.Prethread', 'served by a thread')
+    except OSError:
+        ServerStart.report(log, myapp.to_str())
+        raise
+    finally:
+        conn.close()
     status, output = stop(process)
     is_ok(status, 0, 'stopped')
 

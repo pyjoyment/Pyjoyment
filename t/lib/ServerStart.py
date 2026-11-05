@@ -1,6 +1,7 @@
 import os
 import random
 import socket
+import subprocess
 import sys
 import tempfile
 import time
@@ -89,6 +90,23 @@ def listening(port, process=None, timeout=20):
                 return False
             time.sleep(0.1)
     raise TimeoutError(f'port {port} does not accept connections after {timeout} seconds')
+
+
+def report(log, pattern, lines=300):
+    # What a server that did not answer or did not stop has done, for a failure that comes now and then in CI only: the
+    # end of its log, which its application writes with the level trace, and its processes, whose command lines have
+    # the pattern, as the path of the application
+    from Pyjo.Test import diag
+
+    try:
+        with open(log, encoding='utf-8', errors='replace') as f:
+            diag(f'The last lines of {log}:\n', '\n'.join(f.read().splitlines()[-lines:]))
+    except OSError as e:
+        diag(f'No log {log}: {e}')
+    if sys.platform != 'win32':
+        ps = subprocess.run(['ps', '-eo', 'pid,ppid,pgid,stat,etime,args'], capture_output=True, text=True)
+        rows = [row for n, row in enumerate(ps.stdout.splitlines()) if n == 0 or pattern in row]
+        diag('The processes of the server:\n', '\n'.join(rows))
 
 
 def wait_for(condition, what, timeout=30, interval=0.1):

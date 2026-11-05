@@ -35,23 +35,22 @@ sys.path.insert(0, LIB)
 ServerStart = importlib.import_module('ServerStart')
 
 
-# An application in a directory of its own, for its hot.pid
+# An application in a directory of its own, for its hot.pid, and its log, which tells what a server that did not
+# answer or did not stop has done
 def application(port):
-    return (
-        tempdir()
-        .child('myapp.py')
-        .spew(
-            f"""
+    dir = tempdir()
+    return dir.child('myapp.py').spew(
+        f"""
 import sys, threading
 sys.path.insert(0, {LIB!r})
 from Pyjoyment.Lite import app, get
-app.log.level = 'fatal'
+app.log.path = {dir.child('myapp.log').to_str()!r}
+app.log.level = 'trace'
 app.config(hot={{'listen': ['http://127.0.0.1:{port}'], 'workers': 1}})
 get('/', {{'text': 'Hello!'}})
 get('/thread', lambda c: c.render(text=threading.current_thread().name))
 app.start()
 """.encode()
-        )
     )
 
 
@@ -81,15 +80,23 @@ def wait_for(condition):
 
 # The server of the application, stopped gracefully, and killed when the test ends before it stops it
 def stop(app, port):
-    os.kill(pid(app), signal.SIGTERM)
-    return wait_for(lambda: not listening(port) and not os.path.exists(app.sibling('hot.pid')))
+    manager = pid(app)
+    os.kill(manager, signal.SIGTERM)
+    if wait_for(lambda: not listening(port) and not os.path.exists(app.sibling('hot.pid'))):
+        return True
+    diag(f'Manager {manager} alive: {alive(manager)}, listening: {listening(port)}, hot.pid: {pid(app)}')
+    ServerStart.report(app.sibling('myapp.log'), app.to_str())
+    return False
 
 
-def get(port, path):
+def get(app, port, path):
     conn = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
     try:
         conn.request('GET', path)
         return conn.getresponse().read().decode()
+    except OSError:
+        ServerStart.report(app.sibling('myapp.log'), app.to_str())
+        raise
     finally:
         conn.close()
 
@@ -183,19 +190,19 @@ with subtest('threads'):
     port, myapp, result = daemonized('-m', 'Pyjo.Server.Hot', '--threads', '{myapp}')
     is_ok(result.returncode, 0, 'python -m Pyjo.Server.Hot --threads')
     ok(wait_for(lambda: listening(port) and pid(myapp)), 'listening')
-    is_ok(get(port, '/thread'), 'Pyjo.Server.Prethread', 'served by a thread')
+    is_ok(get(myapp, port, '/thread'), 'Pyjo.Server.Prethread', 'served by a thread')
     old = pid(myapp)
     result = command('-m', 'Pyjo.Server.Hot', '--threads', myapp.to_str())
     is_ok(result.stdout, f'Starting hot deployment for Hot server {old}.\n', 'hot deployment')
     ok(wait_for(lambda: pid(myapp) not in (None, old)), 'new manager')
     ok(wait_for(lambda: not alive(old)), 'old manager stopped')
-    is_ok(get(port, '/thread'), 'Pyjo.Server.Prethread', 'served by a thread of the new manager')
+    is_ok(get(myapp, port, '/thread'), 'Pyjo.Server.Prethread', 'served by a thread of the new manager')
     ok(stop(myapp, port), 'stopped')
 
     # Without it, a worker process
     port, myapp, result = daemonized('-m', 'Pyjo.Server.Hot', '{myapp}')
     ok(wait_for(lambda: listening(port) and pid(myapp)), 'listening')
-    is_ok(get(port, '/thread'), 'MainThread', 'served by a process')
+    is_ok(get(myapp, port, '/thread'), 'MainThread', 'served by a process')
     ok(stop(myapp, port), 'stopped')
 
 with subtest('pyjo-hot'):
