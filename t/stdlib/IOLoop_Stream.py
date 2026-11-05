@@ -5,6 +5,7 @@ import Pyjo.Reactor.Poll
 
 from Pyjo.Test import *
 
+import errno
 import gc
 import os
 import socket
@@ -44,6 +45,25 @@ with subtest('A closed peer'):
     Pyjo.IOLoop.start()
     is_deeply_ok(closed, [True], 'closed')
     is_ok(a.fileno(), -1, 'the socket is closed too')
+
+with subtest('A connection that the peer aborted'):
+    # As a read of Windows after a write to a peer that has closed the socket, WSAECONNABORTED
+    class Aborted(socket.socket):
+        def recv(self, *args):
+            raise ConnectionAbortedError(errno.ECONNABORTED, 'Software caused connection abort')
+
+    a, b = socket.socketpair()
+    stream = Pyjo.IOLoop.Stream.new(Aborted(fileno=a.detach()))
+    closed, errors = [], []
+    stream.on('error', lambda stream, err: errors.append(err))
+    stream.on('close', lambda stream: closed.append(True) or Pyjo.IOLoop.stop())
+    stream.start()
+    b.send(b'readable')
+    Pyjo.IOLoop.timer(5, lambda loop: Pyjo.IOLoop.stop())
+    Pyjo.IOLoop.start()
+    is_deeply_ok(closed, [True], 'closed')
+    is_deeply_ok(errors, [], 'without an error')
+    b.close()
 
 with subtest('An error'):
     a, b = socket.socketpair()
