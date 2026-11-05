@@ -117,7 +117,9 @@ with subtest('Sleep'):
     ok(Steps(sleeps()).run(ua) >= 0.6, 'sleeps, blocking')
     result = []
     Pyjo.Steps.new(sleeps()).run_p(ua).then(result.append).wait()
-    ok(result[0] >= 0.6, 'sleeps, non-blocking')
+    # A timer of an event loop on libuv, as the ones of uvloop and gevent, counts whole milliseconds of a clock that
+    # libuv rounds down, so each one may be due up to a millisecond early by time.monotonic
+    ok(result[0] >= 0.59, 'sleeps, non-blocking')
 
 with subtest('Steps'):
 

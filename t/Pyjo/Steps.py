@@ -167,7 +167,9 @@ with subtest('Sleeps'):
     Pyjo.IOLoop.remove(timer)
     value, slept = result['value']
     is_ok(value, None, 'nothing, non-blocking')
-    ok(slept >= 0.2, 'slept, non-blocking')
+    # A timer of an event loop on libuv, as the ones of uvloop and gevent, counts whole milliseconds of a clock that
+    # libuv rounds down, so it may be due up to a millisecond early by time.monotonic
+    ok(slept >= 0.19, 'slept, non-blocking')
     ok(len(ticks) >= 3, 'other events meanwhile')
 
     async def retried():
