@@ -261,6 +261,49 @@ with subtest('Connection reset by the client after the request'):
     ok(read.is_set(), 'request read')
     is_deeply_ok(errors, [], 'no error of the reactor')
 
+with subtest('Data of a connection that the daemon has removed'):
+    # The stream of a connection that the daemon removes closes gracefully, as long as it is writing, and reads on, as
+    # while a callback of drain of another write, which comes in the emit of drain of the last one, waits for the next one
+    finish = Pyjo.Server.Daemon.object._finish
+    streams = []
+
+    def kept_writing(self, id):
+        stream = self.ioloop.stream(id)
+        streams.append(stream)
+
+        # Writing until the data that the client sends after the response has been read, or a second, as the error
+        # of the daemon stops the event read before the subscriber of the test
+        def keep(stream):
+            pass
+
+        def stop(*args):
+            stream.unsubscribe('drain', keep)
+
+        stream.on('drain', keep)
+        stream.on('read', stop)
+        self.ioloop.timer(1, stop)
+        return finish(self, id)
+
+    def client():
+        with socket.create_connection(('127.0.0.1', port)) as conn:
+            conn.settimeout(10)
+            conn.sendall(b'GET /gone HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+            response = b''
+            while b'\r\n\r\n' not in response or not response.endswith(b'0'):
+                response += conn.recv(4096)
+            conn.sendall(b'more')
+            while conn.recv(4096):
+                pass
+        return response
+
+    errors = []
+    error = Pyjo.IOLoop.singleton.reactor.on('error', lambda reactor, err: errors.append(repr(err)))
+    with patch.object(Pyjo.Server.Daemon.object, '_finish', kept_writing):
+        like_ok(run(client), rb'\r\n\r\nGET /gone 1\.1 0$', 'response')
+    Pyjo.IOLoop.singleton.reactor.unsubscribe('error', error)
+    ok(streams and streams[0].handle is None, 'stream closed after the data')
+    is_deeply_ok(errors, [], 'no error of the reactor')
+
 with subtest('Context manager'):
     with (
         Pyjo.IOLoop.new() as loop,

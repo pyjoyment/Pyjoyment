@@ -914,8 +914,12 @@ class Pyjo_Server_Daemon(Pyjo.Server.object):
         self._close(id)
 
     def _read(self, id: str, chunk: bytes) -> None:
+        # Unlike Mojolicious: the data of a connection that the daemon has removed, whose stream reads on while it closes
+        # gracefully, is discarded, where Mojo makes the connection again and builds a transaction of it
+        if (c := self._connections.get(id)) is None:
+            return
+
         # Make sure we have a transaction
-        c = self._connections[id]
         if (fcgi := c.get('fcgi')) is not None:
             return fcgi.read(chunk)
         if (tx := c.get('tx')) is None:
