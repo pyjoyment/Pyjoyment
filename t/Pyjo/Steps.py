@@ -156,9 +156,13 @@ with subtest('Sleeps'):
         value = await Sleep(seconds)
         return value, time.monotonic() - start
 
+    # time.monotonic of Windows before Python 3.13 counts the ticks of GetTickCount64, of 15.6 milliseconds, so a time
+    # that it measures may be a tick short
+    tick = time.get_clock_info('monotonic').resolution
+
     value, slept = Steps(nap(0.2)).run(ua)
     is_ok(value, None, 'nothing, blocking')
-    ok(slept >= 0.2, 'slept, blocking')
+    ok(slept >= 0.2 - tick, 'slept, blocking')
 
     # The event loop runs the other events while the steps sleep
     ticks = []
@@ -169,7 +173,7 @@ with subtest('Sleeps'):
     is_ok(value, None, 'nothing, non-blocking')
     # A timer of an event loop on libuv, as the ones of uvloop and gevent, counts whole milliseconds of a clock that
     # libuv rounds down, so it may be due up to a millisecond early by time.monotonic
-    ok(slept >= 0.19, 'slept, non-blocking')
+    ok(slept >= 0.19 - tick, 'slept, non-blocking')
     ok(len(ticks) >= 3, 'other events meanwhile')
 
     async def retried():
