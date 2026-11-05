@@ -22,6 +22,14 @@ targets of the options), `Pyjo.IOLoop.Datagram` (inspired by `dgram` of Node.js)
 `Pyjo.Iterator` (a lazy iterator of the elements of an iterable or of an
 asynchronous iterable, for `for` and `async for` alike, inspired by the
 iterator helpers of JavaScript, with the methods of `Pyjo.Collection`),
+`Pyjo.Steps` (the steps of a coroutine that awaits requests, programs and
+sleeps, which `run` drives blocking and `run_p` non-blocking, so that the code
+of a library is written once for a script and for an action of a server,
+where Mojolicious has a blocking and a non-blocking method of each operation;
+no event loop runs the coroutine, so it awaits nothing else, not a promise,
+whose `__await__` yields what only an event loop knows, and the driver raises
+that `TypeError` instead of throwing it into the coroutine, where the `except`
+of the errors of a connection would hide it),
 `Pyjo.App` (inspired by `Mojo` of Mojolicious 6, the base class of
 `Mojolicious` until Mojolicious 7, as `Pyjo_App` is of `Pyjoyment_App`),
 `Pyjo.HelloWorld` (an application of pure Pyjo, where `Mojo::HelloWorld` is

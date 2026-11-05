@@ -320,6 +320,7 @@ strict = [
   "Pyjo/Reactor/Asyncio.py",
   "Pyjo/Reactor/Poll.py",
   "Pyjo/SSE.py",
+  "Pyjo/Steps.py",
   "Pyjo/Server/__init__.py",
   "Pyjo/Server/ASGI.py",
   "Pyjo/Server/CGI.py",
