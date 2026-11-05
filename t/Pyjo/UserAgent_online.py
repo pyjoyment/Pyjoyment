@@ -50,6 +50,40 @@ loop = Pyjo.IOLoop.singleton
 # with a user agent that the subtests after it share
 RERUNS = {'reruns': 2, 'reruns_delay': 10}
 
+# Not in Mojolicious: a response 504 Gateway Timeout of a remote host, which GitHub gives now and then to all the jobs
+# of CI at once, for longer than the reruns wait, skips the rest of its subtest, as a host that cannot be reached; a
+# blocking request skips it at once, and a callback is not called, but stops the event loop, after which the subtest
+# skips itself with gateway_timeout
+GATEWAY_TIMEOUTS = []
+start = Pyjo.UserAgent.object.start
+
+
+def start_or_skip(ua, tx, cb=None):
+    if cb is None:
+        tx = start(ua, tx)
+        if tx.res.code == 504:
+            GATEWAY_TIMEOUTS.append(tx)
+            gateway_timeout()
+        return tx
+
+    def checked(ua, tx):
+        if tx.res.code != 504:
+            return cb(ua, tx)
+        GATEWAY_TIMEOUTS.append(tx)
+        loop.stop()
+
+    return start(ua, tx, checked)
+
+
+def gateway_timeout():
+    if GATEWAY_TIMEOUTS:
+        tx = GATEWAY_TIMEOUTS.pop()
+        GATEWAY_TIMEOUTS.clear()
+        plan(skip_all=f'{tx.req.url} gives 504 Gateway Timeout')
+
+
+Pyjo.UserAgent.object.start = start_or_skip
+
 
 @subtest('Make sure user agents dont taint the ioloop', **RERUNS)
 def _():
@@ -62,6 +96,7 @@ def _():
 
     ua.get('http://github.com', cb)
     loop.start()
+    gateway_timeout()
     ua = None
     # Not in Mojolicious: the garbage collector runs, as PyPy frees the user agent only then, where Perl frees it at once
     gc.collect()
@@ -125,6 +160,7 @@ def _():
     ua = Pyjo.UserAgent.new()
     ua.get('http://github.com', lambda ua, tx: Pyjo.IOLoop.singleton.stop())
     Pyjo.IOLoop.singleton.start()
+    gateway_timeout()
     kept_alive = []
 
     def keep_alive(ua, tx):
@@ -133,6 +169,7 @@ def _():
 
     ua.get('http://github.com', keep_alive)
     Pyjo.IOLoop.singleton.start()
+    gateway_timeout()
     ok(kept_alive[0], 'connection was kept alive')
 
 
@@ -142,6 +179,7 @@ def _():
     ua = Pyjo.UserAgent.new()
     ua.get('http://github.com', lambda ua, tx: Pyjo.IOLoop.singleton.stop())
     Pyjo.IOLoop.singleton.start()
+    gateway_timeout()
     kept_alive = []
 
     def first(ua, tx):
@@ -160,6 +198,7 @@ def _():
 
     ua.get('http://github.com', first)
     Pyjo.IOLoop.singleton.start()
+    gateway_timeout()
     is_deeply_ok(kept_alive, [True, True, True], 'connections kept alive')
 
 
