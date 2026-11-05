@@ -830,7 +830,8 @@ with subtest('Summary in Markdown'):
         with open(summary, 'w') as f:
             f.write('Before\n')
         prove('--formatter', f'markdown={summary}', 'pass.py')
-        with open(summary) as f:
+        # In UTF-8, as the harness writes it, and not in the encoding of the locale of Windows before Python 3.15
+        with open(summary, encoding='utf-8') as f:
             like_ok(f.read(), r'^### Pyjo\.Prove\n', 'written over')
 
 with subtest('Formatters'):

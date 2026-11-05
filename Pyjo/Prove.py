@@ -172,6 +172,7 @@ import argparse
 import asyncio
 import collections
 import contextlib
+import io
 import operator
 import os
 import re
@@ -884,8 +885,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             continue
         report = f'{junit(results)}\n' if name == 'junit' else markdown(results, elapsed)
         if file is None:
-            sys.stdout.write(report)
-            sys.stdout.flush()
+            # In UTF-8, as the file of a formatter and as the JUnit XML declares, not in the encoding of the locale, as
+            # cp1252 of Windows before Python 3.15, which has no marks of the summary in Markdown
+            stdout: TextIO = sys.stdout
+            if isinstance(stdout, io.TextIOWrapper):
+                stdout.reconfigure(encoding='utf-8')
+            stdout.write(report)
+            stdout.flush()
         else:
             with _open(file) as output:
                 output.write(report)
