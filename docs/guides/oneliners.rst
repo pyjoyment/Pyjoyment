@@ -94,7 +94,7 @@ The other methods of HTTP have their own functions, :func:`Pyjo.p` for
     $ python -m Pyjo 'y(g("https://pypi.org/pypi/Pyjoyment/json").json("/info/project_urls"))'
     Changelog: https://github.com/pyjoyment/Pyjoyment/releases
     Documentation: https://pyjoyment.readthedocs.io/
-    Homepage: https://github.com/pyjoyment/Pyjoyment
+    Homepage: https://pyjoyment.dev/
     Issues: https://github.com/pyjoyment/Pyjoyment/issues
     Source: https://github.com/pyjoyment/Pyjoyment
 

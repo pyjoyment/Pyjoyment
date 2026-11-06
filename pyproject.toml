@@ -72,7 +72,7 @@ pyjo-reload = "Pyjo.Server.Reload:main"
 pyjo = "Pyjo.Test.pytest_plugin"
 
 [project.urls]
-Homepage = "https://github.com/pyjoyment/Pyjoyment"
+Homepage = "https://pyjoyment.dev/"
 Documentation = "https://pyjoyment.readthedocs.io/"
 Source = "https://github.com/pyjoyment/Pyjoyment"
 Issues = "https://github.com/pyjoyment/Pyjoyment/issues"
