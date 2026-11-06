@@ -567,6 +567,15 @@ maintainer on it, and starts Release on the tag with `workflow_dispatch`, as
 a tag of the token of a workflow starts no workflow; a tag that is pushed
 starts Release too. A development version, as `0.1.1.dev1`, is not tagged.
 
+Each release has a milestone of GitHub named after its version, as `0.4.0`,
+which holds the pull requests and the issues that go into it, so that the
+milestone says what the diff and the notes of the release have. A pull
+request or an issue gets the milestone of the next release when it is
+opened, as `gh pr create --milestone 0.4.0`, and the pull request of
+Automated version too. After a release, its milestone is closed and the
+milestone of the next release is created, with the version that the next
+release is expected to have, which is renamed if it gets another.
+
 Release builds the sdist and the wheel with an SBOM of SPDX, which Syft makes
 of `package-lock.json` only: the JavaScript libraries that `npm run bundle`
 copies into the package are all of others that the package has, and
