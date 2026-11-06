@@ -570,11 +570,16 @@ starts Release too. A development version, as `0.1.1.dev1`, is not tagged.
 Each release has a milestone of GitHub named after its version, as `0.4.0`,
 which holds the pull requests and the issues that go into it, so that the
 milestone says what the diff and the notes of the release have. A pull
-request or an issue gets the milestone of the next release when it is
-opened, as `gh pr create --milestone 0.4.0`, and the pull request of
-Automated version too. After a release, its milestone is closed and the
-milestone of the next release is created, with the version that the next
-release is expected to have, which is renamed if it gets another.
+request that a maintainer or an agent opens gets the milestone of the next
+release when it is opened, as `gh pr create --milestone 0.4.0`, and so does
+the issue that it closes, as the change is then on its way into that
+release. An issue alone waits for its triage without a milestone, and so
+does a pull request of Renovate or of a workflow, as Automated version,
+which none of them gives one. After a release, its milestone is closed, and
+the milestone of the next release is named after the version of
+`pyproject.toml` without its pre-release, as `0.4.0` of `0.4.0.dev1`, or the
+next patch release while the version is still the one released, and is
+renamed when a bump changes it.
 
 Release builds the sdist and the wheel with an SBOM of SPDX, which Syft makes
 of `package-lock.json` only: the JavaScript libraries that `npm run bundle`
