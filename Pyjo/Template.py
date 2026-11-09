@@ -75,6 +75,13 @@ attribute. ::
     <%= Python expression, replaced with XML escaped result %>
     <%== Python expression, replaced with result %>
 
+The default is for text that is not markup, as a configuration file or the
+source of a program, where an escaped value would be wrong. A template of HTML
+or XML sets :attr:`~Pyjo_Template.auto_escape`, as the renderer ``ep`` of
+:mod:`Pyjoyment.Plugin.EPRenderer` does: without it, a value from a request, a
+database or any other input of the application is inserted as markup, which
+is a hole for cross-site scripting.
+
 Markup, an object with the method ``__html__``, as :mod:`Pyjo.String.HTML`,
 is always excluded from automatic escaping, and a value is rendered as an
 interpolation of :mod:`Pyjo.String.Template`: ``None`` is nothing, a template
@@ -288,7 +295,8 @@ class Pyjo_Template(Pyjo.Base.object):
             boolean = mt.auto_escape
             mt.auto_escape = boolean
 
-        Activate automatic escaping. ::
+        Activate automatic escaping. A template of HTML or XML
+        sets it, so that a value is not inserted as markup. ::
 
             # "&lt;html&gt;"
             Pyjo.Template.new(auto_escape=True).render("<%= '<html>' %>")

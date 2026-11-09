@@ -127,6 +127,11 @@ app.start()
   `text_field('q', **{'class': 'search', 'data-id': 1})`.
 - `<%= %>` escapes what is not markup: a helper returns markup, and
   `Pyjo.String.HTML.html('<b>x</b>')` makes it.
+- `Pyjo.Template` used directly, and the handler `epl`, do not escape
+  `<%= %>`, as their default is for text that is not markup. A template of
+  HTML that renders values from outside without the renderer `ep` takes
+  `Pyjo.Template.new(auto_escape=True)`, or it is a hole for cross-site
+  scripting.
 
 ## Template strings
 
