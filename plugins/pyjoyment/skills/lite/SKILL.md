@@ -210,6 +210,7 @@ python app.py daemon                                # http://127.0.0.1:3000
 python app.py daemon -l 'http://*:8080'             # another port
 python app.py prefork -w 4                          # workers in processes of their own
 pyjo-reload app.py                                  # restarts when the files change
+python app.py reload                                # the same, as a command of the application
 python app.py routes                                # the routes and their names
 python app.py get /users/23                         # a request without a server
 uvx --from Pyjoyment pyjo generate lite-app app.py  # a new script

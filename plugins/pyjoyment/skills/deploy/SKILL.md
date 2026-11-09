@@ -42,6 +42,7 @@ app.start()
 
 ```sh
 pyjo-reload app.py                                 # development, restarts when the files change
+python -m MyApp reload                             # the same, as a command, watching the package too
 python app.py daemon -l 'http://*:8080'            # one process
 python app.py prefork -w 8 -l 'http://*:8080'      # eight worker processes, for code that blocks too
 python app.py prethread -w 8                       # eight worker threads, on every core with a free-threaded Python

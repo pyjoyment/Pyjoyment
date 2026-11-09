@@ -163,8 +163,8 @@ process to many:
   build of Python anywhere;
 * ``pyjo-hot``, with worker processes and deployment without downtime, which
   ``HUP`` starts, for systems with ``fork``;
-* ``pyjo-reload``, for development, which restarts the server when a file
-  changes.
+* ``pyjo-reload``, or the command ``reload``, for development, which restarts
+  the server when a file changes.
 
 Each stops gracefully on ``TERM``, finishing the requests in progress, and runs
 the hooks of the application around its life, ``before_server_start`` and

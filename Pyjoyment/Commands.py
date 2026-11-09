@@ -228,6 +228,16 @@ prethread
 Use :mod:`Pyjoyment.Command.prethread` to start application with standalone
 pre-threading HTTP and WebSocket server.
 
+reload
+~~~~~~
+::
+
+    $ ./myapp.py reload
+    $ python -m MyApp reload
+
+Use :mod:`Pyjoyment.Command.reload` to start application with the
+auto-restarting development server of :mod:`Pyjo.Server.Reload`.
+
 routes
 ~~~~~~
 ::
