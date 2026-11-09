@@ -85,7 +85,7 @@ jobs:
           include_skipped: false
 
       # The JUnit XML for the summary of the summaries of all the jobs, which
-      # the job report makes
+      # the job Tests makes
       - name: Upload the report of the tests
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -386,20 +386,23 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # The summary of the summaries of the jobs of the tests, from the JUnit XML
-  # that they upload, as the summary of this job, which the check of the job
+  # The one check that the ruleset of main requires, whatever the matrices
+  # have: it fails when a job of a matrix failed or was cancelled, so a new
+  # version of Python or a new platform needs no change of the ruleset. Before
+  # that, it makes the summary of the summaries of the jobs of the tests, from
+  # the JUnit XML that they upload, as the summary of this job, which the check
   # in the pull request links to, and as a comment of the pull request, which
   # each run edits, as the job summary of each job is apart. A pull request of
   # a fork has a token that cannot comment.
-  report:
-    name: report
+  tests:
+    name: Tests
     needs:
       - prove-mise
       - prove-windows
       - prove
       - servers
       - pytest
-    if: ${{ !cancelled() }}
+    if: always()
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 5
     permissions:
@@ -450,23 +453,9 @@ jobs:
             gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@report.md > /dev/null
           fi
 
-  # The one check that the ruleset of main requires, whatever the matrices
-  # have: it fails when a job of a matrix failed or was cancelled, so a new
-  # version of Python or a new platform needs no change of the ruleset.
-  tests:
-    name: Tests
-    needs:
-      - prove-mise
-      - prove-windows
-      - prove
-      - servers
-      - pytest
-    if: always()
-    runs-on: ubuntu-26.04-arm
-    timeout-minutes: 5
-
-    steps:
+      # Also when a step of the report failed, or the run was cancelled
       - name: Check the results of the matrices
+        if: always()
         shell: bash
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}

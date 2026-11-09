@@ -319,7 +319,7 @@ whose diagnostics of the failures come from the standard error that
 `--capture-stderr` captures, as `Pyjo.Test` writes them there and not into the
 TAP output, as `Test::More` does.
 Each job of the tests uploads its JUnit XML, also the one of pytest, as an
-artifact named `junit-` and the name of the job, from which the job `report`
+artifact named `junit-` and the name of the job, from which the job `Tests`
 makes the summary of the summaries of all the jobs, with
 `.github/scripts/test-report.py`, as its summary and as a comment of the pull
 request, which each run edits, found by the marker it starts with.
