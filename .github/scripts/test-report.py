@@ -1,18 +1,20 @@
 """
-The summary of the summaries of the jobs of the workflow Tests, in Markdown, from
-the JUnit XML that each job uploads as an artifact named "junit-" and the name
-of the job, which download-artifact puts in a directory of the same name:
+The summary of the summaries of the jobs of a workflow, in Markdown, from the
+JUnit XML that each job uploads as an artifact named "junit-" and the name of
+the job, which download-artifact puts in a directory of the same name, with the
+name of the workflow, Tests by default, as its title:
 
     PYTHONPATH=. python .github/scripts/test-report.py reports > report.md
-    PYTHONPATH=. python .github/scripts/test-report.py reports jobs.tsv > report.md
+    PYTHONPATH=. python .github/scripts/test-report.py reports jobs.tsv "Docker Smoke Test" > report.md
 
 The file of the jobs has the name and the URL of each job of the run, separated
 by a tab, as the API of the jobs of a run gives them, which link the jobs.
 
 A row for each job, with its tests that passed, were skipped and failed, the
 totals, and the tests that failed, with the name of their job. It starts with a
-comment that marks it, so that the comment of the pull request that has it is
-found and edited, instead of a new one for each run. The time is left out, as
+comment that marks it, with its title, so that the comment of the pull request
+that has it is found and edited, instead of a new one for each run, and the
+comments of two workflows are apart. The time is left out, as
 the one of Pyjo.Prove is the sum of the scripts, which run at the same time,
 and the one of pytest is the time of the run.
 """
@@ -23,13 +25,11 @@ import os
 import sys
 
 
-MARKER = '<!-- pyjo-prove-report -->'
-
 # The tests that failed in the summary, at most, as a comment has at most 65536 characters
 FAILED = 50
 
 
-def main(directory: str, links: str | None = None) -> None:
+def main(directory: str, links: str | None = None, title: str = 'Tests') -> None:
     urls: dict[str, str] = {}
     if links is not None:
         with open(links, encoding='utf-8') as f:
@@ -66,7 +66,7 @@ def main(directory: str, links: str | None = None) -> None:
                     failed.append((script, '' if test == script else test, message))
         jobs.append((name.removeprefix('junit-'), counts, failed))
 
-    lines = [MARKER, '### Tests', '']
+    lines = [f'<!-- pyjo-prove-report: {title} -->', f'### {_cell(title)}', '']
     if not jobs:
         lines.append('No reports of the jobs.')
     else:
@@ -118,4 +118,4 @@ def _cell(text: str) -> str:
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:4])
