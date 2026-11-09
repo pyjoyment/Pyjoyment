@@ -52,6 +52,12 @@
       "matchDepTypes": ["dependencies"],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "The image caddy names the repository of its Dockerfile, caddyserver/caddy-docker, which has no releases, as its source. Its tags are the releases of Caddy, whose notes the pull request shows.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["caddy"],
+      "sourceUrl": "https://github.com/caddyserver/caddy"
     }
   ],
   "customManagers": [
