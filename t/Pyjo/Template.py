@@ -1154,6 +1154,54 @@ many
 """)
     is_ok(output, '012\n', 'blocks in tags')
 
+# Not in Mojolicious: the end of a nested block does not continue it
+with subtest('Branch after a nested block'):
+    mt = Pyjo.Template.new(vars=True)
+    template = """% if x:
+%   for item in items:
+<%= item %>
+%   end
+% else:
+nothing
+% end
+"""
+    is_ok(mt.render(template, {'x': True, 'items': [1, 2]}), '1\n2\n', 'first branch with a loop')
+    is_ok(mt.render(template, {'x': False, 'items': [1, 2]}), 'nothing\n', 'else of the outer block')
+    template = """% if x:
+%   if y:
+A
+%   end
+% elif z:
+B
+% else:
+C
+% end
+"""
+    is_ok(mt.render(template, {'x': True, 'y': False, 'z': True}), '', 'inner block without its branch')
+    is_ok(mt.render(template, {'x': False, 'y': False, 'z': True}), 'B\n', 'elif of the outer block')
+    is_ok(mt.render(template, {'x': False, 'y': False, 'z': False}), 'C\n', 'else of the outer block')
+    output = mt.render("""% for i in []:
+%   for j in [1]:
+<%= j %>
+%   end
+% else:
+empty
+% end
+""")
+    is_ok(output, 'empty\n', 'else of the outer loop')
+    output = mt.render("""% for i in [1] {
+%   if i {
+yes
+%   }
+%   else {
+no
+%   }
+% } else {
+empty
+% }
+""")
+    is_ok(output, 'yes\nempty\n', 'else after a closing brace continues its block')
+
 # Not in Mojolicious: a block without statements
 with subtest('Empty blocks'):
     mt = Pyjo.Template.new()

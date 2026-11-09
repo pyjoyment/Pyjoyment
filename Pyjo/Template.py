@@ -1022,7 +1022,6 @@ class _Compiler:
             self.continuation = block.head
         elif block.keyword == 'case' and len(self.blocks) and self.blocks[-1].keyword == 'match':
             self.close()
-        self.closed = True
 
     def expression(self, kind: str, parts: list[tuple[int, str]]) -> None:
         call = '_escape' if kind == 'escp' else '_str'
