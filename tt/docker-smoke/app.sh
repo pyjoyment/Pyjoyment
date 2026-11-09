@@ -19,4 +19,4 @@ smoke_dockerfile --user app --health /livez / /index.html
 # would fail the pipe of docker logs with pipefail
 logs=$(docker logs "${name}" 2>&1)
 grep -q 'gracefully (8 seconds)' <<<"${logs}" || fail "graceful timeout"
-echo "ok - graceful timeout of the image"
+ok "graceful timeout of the image"

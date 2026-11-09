@@ -1,11 +1,19 @@
 # shellcheck shell=bash
 # The steps that the variants of the smoke test share, which a variant
 # sources: a temporary project, the wheel of the checkout, the image of
-# "generate dockerfile" and its checks.
+# "generate dockerfile" and its checks, and the TAP of the test, which
+# Pyjo.Prove reads.
 
 set -euo pipefail
 
+# The TAP of the test on the standard output of the script, and the output of
+# the commands, as of docker build, on its standard error, which Pyjo.Prove
+# passes on as it comes
+exec 3>&1 1>&2
+tests=0
+
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+dir=$(cd "$(dirname "$0")" && pwd)
 work=$(mktemp -d)
 name=pyjo-smoke-$(basename "$0" .sh)
 
@@ -23,12 +31,17 @@ cleanup() {
   docker rm -f "${name}" >/dev/null 2>&1 || true
   docker rmi -f "${name}" >/dev/null 2>&1 || true
   rm -rf "${work}"
+  echo "1..${tests}" >&3
   exit "${status}"
 }
 trap cleanup EXIT
 
+ok() {
+  echo "ok $((tests += 1)) - $*" >&3
+}
+
 fail() {
-  echo "not ok - $*" >&2
+  echo "not ok $((tests += 1)) - $*" >&3
   exit 1
 }
 
@@ -103,7 +116,7 @@ smoke_dockerfile() {
   local exposed
   exposed=$(docker inspect --format '{{range $port, $_ := .Config.ExposedPorts}}{{$port}} {{end}}' "${name}")
   [[ ${exposed} == "${expose}/tcp " ]] || fail "exposed ${exposed}"
-  echo "ok - exposed ${expose}"
+  ok "exposed ${expose}"
 
   docker run --detach --name "${name}" "${env[@]}" --publish "127.0.0.1::${listen}" "${name}" >/dev/null
   local port url
@@ -122,14 +135,14 @@ smoke_dockerfile() {
     # of curl with pipefail
     body=$(curl --silent --fail "${url}${page}") || fail "GET ${page}"
     grep -q 'Welcome to the Pyjoyment real-time web framework!' <<<"${body}" || fail "GET ${page}"
-    echo "ok - GET ${page}"
+    ok "GET ${page}"
   done
 
   if [[ -n ${user} ]]; then
     local config
     config=$(docker inspect --format '{{.Config.User}}' "${name}")
     [[ ${config} == "${user}" ]] || fail "user ${config}"
-    echo "ok - user ${config}"
+    ok "user ${config}"
   fi
 
   healthy "${health}"
@@ -144,7 +157,7 @@ healthy() {
   test=$(docker inspect --format '{{if .Config.Healthcheck}}{{json .Config.Healthcheck.Test}}{{end}}' "${name}")
   if [[ -z ${health} ]]; then
     [[ -z ${test} ]] || fail "healthcheck ${test}"
-    echo "ok - no healthcheck"
+    ok "no healthcheck"
     return
   fi
   grep -qF "c.request('GET', '${health}')" <<<"${test}" || fail "healthcheck ${test}"
@@ -154,7 +167,7 @@ healthy() {
     sleep 0.5
   done
   [[ ${status} == healthy ]] || fail "health ${status}"
-  echo "ok - healthy with ${health}"
+  ok "healthy with ${health}"
 }
 
 # TERM of docker stop is a graceful shutdown, well before the KILL after 10
@@ -167,5 +180,16 @@ stop_gracefully() {
   [[ ${elapsed} -lt 5 ]] || fail "stopped in ${elapsed}s"
   code=$(docker inspect --format '{{.State.ExitCode}}' "${name}")
   [[ ${code} -eq 0 ]] || fail "exit code ${code}"
-  echo "ok - stopped gracefully in ${elapsed}s"
+  ok "stopped gracefully in ${elapsed}s"
+}
+
+# The emulator of the Runtime API of AWS Lambda on the port invoked with the
+# event of a file, buffered or with --stream
+#
+#   invoke_event PORT EVENT [--stream]
+invoke_event() {
+  local test="invoke with ${2##*/}${3:+ streaming}"
+  python "${dir}/invoke.py" "${@:3}" "http://127.0.0.1:$1/2015-03-31/functions/function/invocations" "$2" ||
+    fail "${test}"
+  ok "${test}"
 }

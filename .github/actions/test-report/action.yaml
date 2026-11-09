@@ -1,0 +1,53 @@
+name: Test report
+description: The summary of the summaries of the jobs of the run, from the JUnit XML that they upload as the artifacts junit-*, as the summary of the job and as a comment of the pull request
+inputs:
+  title:
+    description: The title of the report, which tells its comment from the one of another workflow
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: 3.15.2
+
+    - name: Download the reports of the tests
+      uses: actions/download-artifact@v8
+      with:
+        pattern: junit-*
+        path: reports
+
+    # The names and the URLs of the jobs of the run, of its latest attempt,
+    # which link the jobs of the summary
+    - name: Summary of the reports
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PYTHONPATH: .
+        TITLE: ${{ inputs.title }}
+      run: |-
+        gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | [.name, .html_url] | @tsv' > jobs.tsv
+        python .github/scripts/test-report.py reports jobs.tsv "$TITLE" > report.md
+        cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+    # The comment that starts with the marker of the report, its first line,
+    # edited, or a new one. A pull request of a fork has a token that cannot
+    # comment.
+    - name: Comment on the pull request
+      if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name ==
+        github.repository }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR: ${{ github.event.pull_request.number }}
+      run: |-
+        MARKER="$(head -n 1 report.md)"
+        export MARKER
+        id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq '.[] | select(.body | startswith(env.MARKER)) | .id' | head -n 1)"
+        if [ -n "$id" ]; then
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@report.md > /dev/null
+        else
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@report.md > /dev/null
+        fi

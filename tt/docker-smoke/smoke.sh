@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Smoke test of the images of Pyjoyment: runs the script of a variant, which
 # generates an application, builds its image with the wheel of the checkout,
-# runs it and checks it. The only entry point of the workflow Docker Smoke
-# Test.
+# runs it and checks it, under Pyjo.Prove, which reads its TAP and takes the
+# options that follow the variant, as its formatters. The only entry point of
+# the workflow Docker Smoke Test.
 #
-# Usage: tt/docker-smoke/smoke.sh app|lite|lite-pep723|lambda|lambda-stream|lambda-image|lambda-zip|fastcgi|kubernetes
+# Usage: tt/docker-smoke/smoke.sh app|lite|lite-pep723|lambda|lambda-stream|lambda-image|lambda-zip|fastcgi|kubernetes [OPTION...]
 #
 #   app           generate app, run as python -m MyApp, with --user app
 #   lite          generate lite-app, with generate pyproject
@@ -32,7 +33,10 @@ variant=${1:?Usage: $0 app|lite|lite-pep723|lambda|lambda-stream|lambda-image|la
 dir=$(cd "$(dirname "$0")" && pwd)
 
 [[ ${variant} =~ ^[a-z0-9-]+$ && -x ${dir}/${variant}.sh ]] || {
-  echo "not ok - unknown variant ${variant}" >&2
+  echo "unknown variant ${variant}" >&2
   exit 1
 }
-exec "${dir}/${variant}.sh"
+
+# The path of the script from the root of the checkout, as the reports name it
+cd "${dir}/../.."
+exec python -m Pyjo.Prove -l -v --ext .sh --exec bash "${@:2}" "tt/docker-smoke/${variant}.sh"

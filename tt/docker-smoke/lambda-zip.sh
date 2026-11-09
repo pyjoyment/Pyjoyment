@@ -12,8 +12,6 @@
 
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-
-dir=$(cd "$(dirname "$0")" && pwd)
 image=public.ecr.aws/lambda/provided:al2023
 
 # The containers of the two invoke modes and of the runtime of Python
@@ -27,7 +25,7 @@ invoke() {
   local port
   port=$(docker port "$1" 8080/tcp | perl -ne 'print $1 and last if /:(\d+)$/')
   for event in "${dir}"/events/*.json; do
-    python "${dir}/invoke.py" "${@:2}" "http://127.0.0.1:${port}/2015-03-31/functions/function/invocations" "${event}"
+    invoke_event "${port}" "${event}" "${@:2}"
   done
 }
 
@@ -53,7 +51,7 @@ unzip -q dist/function.zip -d "${work}/task"
 cat "${work}/task/bootstrap"
 interpreter=$(perl -ne 'print $1 if m{^exec (/opt/python/bin/\S+) myapp\.py$}' "${work}/task/bootstrap")
 [[ -n ${interpreter} && -x ${work}${interpreter} ]] || fail "interpreter of the bootstrap"
-echo "ok - bootstrap with ${interpreter}"
+ok "bootstrap with ${interpreter}"
 
 for mode in BUFFERED RESPONSE_STREAM; do
   container=${name}
@@ -73,13 +71,13 @@ done
 docker exec "${name}" "${interpreter}" -c \
   'import ssl, sys; sys.exit(not ssl.create_default_context().cert_store_stats()["x509_ca"])' ||
   fail "certificates of the system"
-echo "ok - certificates of the system"
+ok "certificates of the system"
 
 # Pyjoyment of the layer, in the site-packages of the Python of the layer
 site=/opt/python/lib/${interpreter##*/}/site-packages
 docker exec "${name}" "${interpreter}" -c 'import Pyjoyment; print(Pyjoyment.__file__)' |
   grep -qx "${site}/Pyjoyment/__init__.py" || fail "Pyjoyment of the layer"
-echo "ok - Pyjoyment of the layer"
+ok "Pyjoyment of the layer"
 
 # The runtime of Python, with the handler of the script and the layer of
 # Pyjoyment in the site-packages of its version, which only its runtime client

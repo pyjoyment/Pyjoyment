@@ -18,6 +18,8 @@ on:
     paths:
       - tt/docker-smoke/**
       - .github/workflows/docker-smoke.yaml
+      - .github/actions/test-report/**
+      - .github/scripts/test-report.py
       - examples/lambda_stream/function/wrapper.py
       - Pyjo/**
       - Pyjoyment/**
@@ -30,6 +32,8 @@ on:
     paths:
       - tt/docker-smoke/**
       - .github/workflows/docker-smoke.yaml
+      - .github/actions/test-report/**
+      - .github/scripts/test-report.py
       - examples/lambda_stream/function/wrapper.py
       - Pyjo/**
       - Pyjoyment/**
@@ -92,21 +96,57 @@ jobs:
           KIND_NODE_IMAGE: kindest/node:v${{ env.kubernetes_version }}
           # The emulator of the Runtime API of the variant lambda-image, which its image does not have
           RIE_VERSION: 1.38 # datasource=github-releases depName=aws/aws-lambda-runtime-interface-emulator versioning=loose
-        run: tt/docker-smoke/smoke.sh "${VARIANT}"
+        run: tt/docker-smoke/smoke.sh "${VARIANT}" --color --formatter junit=smoke-report.xml --formatter "markdown=$GITHUB_STEP_SUMMARY"
+
+      # The JUnit XML of the harness, as the annotations of the failed tests
+      - name: Publish the report of the tests
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: smoke-report.xml
+          annotate_only: true
+          job_summary: false
+          include_skipped: false
+
+      # The JUnit XML for the summary of the summaries of all the variants,
+      # which the job Docker Smoke Test makes
+      - name: Upload the report of the tests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-smoke (${{ matrix.variant }})
+          path: smoke-report.xml
+          if-no-files-found: ignore
+          retention-days: 7
 
   # The one check of the matrix, whatever variants it has: it fails when a
   # variant failed or was cancelled. The workflow runs only for the paths
   # above, so a ruleset that required it would wait for it forever in a pull
-  # request that does not change them.
+  # request that does not change them. Before that, it makes the summary of
+  # the summaries of the variants, as the job Tests of the workflow Tests does.
   docker-smoke:
     name: Docker Smoke Test
     needs: smoke
     if: always()
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Report of the tests
+        uses: ./.github/actions/test-report
+        with:
+          title: Docker Smoke Test
+
+      # Also when a step of the report failed, or the run was cancelled
       - name: Check the result of the matrix
+        if: always()
         shell: bash
         env:
           RESULT: ${{ needs.smoke.result }}

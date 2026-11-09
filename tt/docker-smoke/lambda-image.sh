@@ -8,8 +8,6 @@
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
-dir=$(cd "$(dirname "$0")" && pwd)
-
 # The containers of the two invoke modes
 extra_cleanup() {
   docker rm -f "${name}-stream" >/dev/null 2>&1 || true
@@ -37,7 +35,7 @@ chmod 755 "${work}/aws-lambda-rie"
 # The command of the image as the bootstrap of the emulator
 mapfile -t cmd < <(docker image inspect --format '{{json .Config.Cmd}}' "${name}" | python -c 'import json, sys; print(*json.load(sys.stdin), sep="\n")')
 [[ ${cmd[*]} == 'python myapp.py' ]] || fail "command ${cmd[*]}"
-echo "ok - command ${cmd[*]}"
+ok "command ${cmd[*]}"
 
 for mode in BUFFERED RESPONSE_STREAM; do
   container=${name}
@@ -50,9 +48,9 @@ for mode in BUFFERED RESPONSE_STREAM; do
   # APIs with a stage
   for event in "${dir}"/events/*.json; do
     if [[ ${mode} == BUFFERED ]]; then
-      python "${dir}/invoke.py" "http://127.0.0.1:${port}/2015-03-31/functions/function/invocations" "${event}"
+      invoke_event "${port}" "${event}"
     else
-      python "${dir}/invoke.py" --stream "http://127.0.0.1:${port}/2015-03-31/functions/function/invocations" "${event}"
+      invoke_event "${port}" "${event}" --stream
     fi
   done
 done

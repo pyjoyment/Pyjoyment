@@ -392,8 +392,7 @@ jobs:
   # that, it makes the summary of the summaries of the jobs of the tests, from
   # the JUnit XML that they upload, as the summary of this job, which the check
   # in the pull request links to, and as a comment of the pull request, which
-  # each run edits, as the job summary of each job is apart. A pull request of
-  # a fork has a token that cannot comment.
+  # each run edits, as the job summary of each job is apart.
   tests:
     name: Tests
     needs:
@@ -414,44 +413,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Report of the tests
+        uses: ./.github/actions/test-report
         with:
-          python-version: 3.15.2
-
-      - name: Download the reports of the tests
-        uses: actions/download-artifact@v8
-        with:
-          pattern: junit-*
-          path: reports
-
-      # The names and the URLs of the jobs of the run, of its latest attempt,
-      # which link the jobs of the summary
-      - name: Summary of the reports
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PYTHONPATH: .
-        run: |-
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | [.name, .html_url] | @tsv' > jobs.tsv
-          python .github/scripts/test-report.py reports jobs.tsv > report.md
-          cat report.md >> "$GITHUB_STEP_SUMMARY"
-
-      # The comment that starts with the marker of the report, edited, or a new one
-      - name: Comment on the pull request
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name ==
-          github.repository }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-        run: |-
-          id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq '.[] | select(.body | startswith("<!-- pyjo-prove-report -->")) | .id' | head -n 1)"
-          if [ -n "$id" ]; then
-            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@report.md > /dev/null
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@report.md > /dev/null
-          fi
+          title: Tests
 
       # Also when a step of the report failed, or the run was cancelled
       - name: Check the results of the matrices
