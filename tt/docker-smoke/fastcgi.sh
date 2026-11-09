@@ -5,8 +5,6 @@
 
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-
-dir=$(cd "$(dirname "$0")" && pwd)
 caddy=${name}-caddy
 
 extra_cleanup() {
@@ -49,18 +47,18 @@ done
 # curl with pipefail
 body=$(curl --silent --fail "${url}/") || fail "GET /"
 grep -q 'Welcome to the Pyjoyment real-time web framework!' <<<"${body}" || fail "GET /"
-echo "ok - GET /"
+ok "GET /"
 
 headers=$(curl --silent --head "${url}/") || fail "HEAD /"
 grep -qi '^Server: Pyjoyment' <<<"${headers}" || fail "HEAD / served by Pyjoyment"
-echo "ok - HEAD /"
+ok "HEAD /"
 
 code=$(curl --silent --output /dev/null --write-out '%{http_code}' "${url}/missing")
 [[ ${code} -eq 404 ]] || fail "GET /missing ${code}"
-echo "ok - GET /missing 404"
+ok "GET /missing 404"
 
 code=$(curl --silent --output /dev/null --write-out '%{http_code}' --data 'name=Pyjoyment' "${url}/")
 [[ ${code} -eq 404 ]] || fail "POST / ${code}"
-echo "ok - POST / 404"
+ok "POST / 404"
 
 stop_gracefully

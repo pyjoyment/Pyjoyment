@@ -82,7 +82,7 @@ for file in base/kustomization.yaml base/deployment.yaml base/probes.yaml base/s
 done
 [[ $(cd kubernetes/dev/files && find . -type f) == ./myapp.py ]] || fail "copy of the application"
 grep -q 'exec /uv/venv/bin/python myapp.py daemon"' kubernetes/dev/deployment.yaml || fail "daemon of dev"
-echo "ok - generated"
+ok "generated"
 
 # An overlay of the test over the one of dev, which mounts the wheel in /wheel
 overlay() {
@@ -131,21 +131,21 @@ kind load docker-image "${name}" --name "${cluster}" >/dev/null
 for ns in dev host-path prod; do
   "${kube[@]}" create namespace "${ns}" >/dev/null
 done
-echo "ok - cluster"
+ok "cluster"
 
 # dev with the application in a ConfigMap, and a change of it in a new one
 overlay dev-configmap
 "${kube[@]}" --namespace dev apply --kustomize "${work}/dev-configmap" >/dev/null
 rollout dev
 page_has dev "${welcome}"
-echo "ok - dev with a ConfigMap"
+ok "dev with a ConfigMap"
 perl -pi -e 's/Welcome to the Pyjoyment/Changed: Welcome to the Pyjoyment/' myapp.py
 python myapp.py generate kubernetes >/dev/null
 "${kube[@]}" --namespace dev apply --kustomize "${work}/dev-configmap" >/dev/null
 rollout dev
 page_has dev "Changed: ${welcome}"
 [[ $("${kube[@]}" --namespace dev get configmap --output name | grep -c myapp-files) -eq 2 ]] || fail "new ConfigMap"
-echo "ok - dev with a new ConfigMap"
+ok "dev with a new ConfigMap"
 
 # dev with --host-path, reloaded when the script changes
 python myapp.py generate kubernetes --host-path >/dev/null
@@ -155,10 +155,10 @@ overlay dev-host-path
 "${kube[@]}" --namespace host-path apply --kustomize "${work}/dev-host-path" >/dev/null
 rollout host-path
 page_has host-path "Changed: ${welcome}"
-echo "ok - dev with --host-path"
+ok "dev with --host-path"
 perl -pi -e 's/Changed: /Reloaded: /' myapp.py
 page_has host-path "Reloaded: ${welcome}"
-echo "ok - dev with --host-path reloaded"
+ok "dev with --host-path reloaded"
 
 # prod, with no failed request while it rolls out again, as the shutdown delay
 # of the server keeps a pod serving until the proxies of the cluster know that
@@ -167,7 +167,7 @@ echo "ok - dev with --host-path reloaded"
 rollout prod
 [[ $("${kube[@]}" --namespace prod get deploy/myapp --output jsonpath='{.status.readyReplicas}') -eq 2 ]] || fail "replicas"
 page_has prod "${welcome}"
-echo "ok - prod"
+ok "prod"
 "${kube[@]}" --namespace prod run requests --image "${name}" --image-pull-policy IfNotPresent --restart Never --command -- \
   python -c "
 import time, urllib.request
@@ -190,4 +190,4 @@ rollout prod
   fail "requests ended"
 result=$("${kube[@]}" --namespace prod logs pod/requests | tail -n 1)
 [[ ${result} =~ ^ok=[1-9][0-9]*\ failed=0$ ]] || fail "requests while it rolls out: ${result}"
-echo "ok - prod rolled out without a failed request: ${result}"
+ok "prod rolled out without a failed request: ${result}"

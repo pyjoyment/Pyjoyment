@@ -4,6 +4,8 @@ until it answers, and check that the response is the welcome page, as a
 response of an event function, or with --stream as a streaming response of an
 HTTP integration: the status of its prelude, 8 null bytes and the page, as the
 emulator gives the content type application/octet-stream to every stream.
+Its exit status tells whether it is, and the test point is the one of
+invoke_event of lib.sh.
 
 Usage: python invoke.py [--stream] URL EVENT.json
 """
@@ -47,6 +49,5 @@ else:
     ok = isinstance(response, dict) and response.get('statusCode') == 200 and not response.get('isBase64Encoded')
     ok = ok and welcome in response.get('body', '')
 if not ok:
-    print(f'not ok - invoke with {name}: {response}', file=sys.stderr)
+    print(f'invoke with {name}: {response}', file=sys.stderr)
     sys.exit(1)
-print(f'ok - invoke with {name}{" streaming" if stream else ""}')

@@ -293,6 +293,19 @@ is in files of its own, which run locally as well, with Docker:
 mise exec -- tt/docker-smoke/smoke.sh app
 ```
 
+`smoke.sh` runs the script under `Pyjo.Prove`, with the options that follow
+the variant, as the formatters of the reports in CI. The script prints its TAP
+with `ok` and `fail` of `lib.sh`, which number the test points, and the plan at
+its exit. `lib.sh` moves the standard output of the script to its standard
+error, which `Pyjo.Prove` passes on as it comes, so that the output of `docker
+build` and of the other commands does not mix with the TAP, which goes to the
+file descriptor 3; a test point of a command that runs in a subshell, as `$(...)`
+or a pipe, would not count. Each variant uploads its JUnit XML, as the jobs of
+the workflow Tests do, and the job Docker Smoke Test makes the summary of the
+summaries with the same action, `.github/actions/test-report`, whose comment of
+the pull request has a marker with the name of the workflow, so that the two
+comments are apart.
+
 CI sets `PYTHONWARNINGS=error::SyntaxWarning,error::DeprecationWarning`, so an
 invalid escape sequence or a deprecated API fails the build, before a new
 Python removes it; the weekly run catches the deprecations of a new Python
@@ -320,9 +333,10 @@ whose diagnostics of the failures come from the standard error that
 TAP output, as `Test::More` does.
 Each job of the tests uploads its JUnit XML, also the one of pytest, as an
 artifact named `junit-` and the name of the job, from which the job `Tests`
-makes the summary of the summaries of all the jobs, with
-`.github/scripts/test-report.py`, as its summary and as a comment of the pull
-request, which each run edits, found by the marker it starts with.
+makes the summary of the summaries of all the jobs, with the action
+`.github/actions/test-report` and its `.github/scripts/test-report.py`, as its
+summary and as a comment of the pull request, which each run edits, found by
+the marker it starts with.
 `--stderr-lines 1000` keeps the first and the last lines of the
 standard error of a script, as a script that fails in a loop, like an I/O
 watcher of `Pyjo.Reactor.Poll` that raises each time the reactor calls it, can
