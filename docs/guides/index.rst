@@ -345,6 +345,7 @@ This is the class hierarchy of the :mod:`Pyjoyment` distribution.
 
       - :mod:`Pyjoyment.Command.prethread`
 
+    - :mod:`Pyjoyment.Command.reload`
     - :mod:`Pyjoyment.Command.routes`
     - :mod:`Pyjoyment.Command.stdio`
     - :mod:`Pyjoyment.Command.version`

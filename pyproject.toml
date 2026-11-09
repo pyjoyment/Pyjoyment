@@ -382,6 +382,7 @@ strict = [
   "Pyjoyment/Command/lambda.py",
   "Pyjoyment/Command/prefork.py",
   "Pyjoyment/Command/prethread.py",
+  "Pyjoyment/Command/reload.py",
   "Pyjoyment/Command/routes.py",
   "Pyjoyment/Command/stdio.py",
   "Pyjoyment/Command/version.py",

@@ -32,10 +32,14 @@ alongside the server with :attr:`~Pyjo_Server_Reload.exec`. They only get
 started once, are not restarted together with the server, and get stopped when
 :mod:`Pyjo.Server.Reload` shuts down.
 
-To start applications with it you can use the ``pyjo-reload`` script, or
-``python -m Pyjo.Server.Reload``. ::
+To start applications with it you can use the ``pyjo-reload`` script,
+``python -m Pyjo.Server.Reload``, or the command
+:mod:`Pyjoyment.Command.reload` of the application. ::
 
     $ pyjo-reload ./myapp.py
+    Web application available at http://127.0.0.1:3000
+
+    $ ./myapp.py reload
     Web application available at http://127.0.0.1:3000
 
 The server and the commands run in process groups of their own, which the

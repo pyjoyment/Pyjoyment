@@ -317,11 +317,18 @@ After reading the :doc:`tutorial`, you should already be familiar with
 It is basically a restarter that starts a new :mod:`Pyjo.Server.Daemon` web
 server whenever a file in your project changes, and should therefore only be
 used during development. To start applications with it you can use the
-``pyjo-reload`` script.
+``pyjo-reload`` script, or the command ``reload`` of the application, which
+takes the same options, and watches the package of an application too.
 
 .. code-block:: console
 
     $ pyjo-reload ./myapp.py
+    Web application available at http://127.0.0.1:3000
+
+    $ ./myapp.py reload
+    Web application available at http://127.0.0.1:3000
+
+    $ python -m MyApp reload
     Web application available at http://127.0.0.1:3000
 
 Any other server command can be used too, just put it after the application.
