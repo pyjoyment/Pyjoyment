@@ -692,6 +692,14 @@ machine that builds it.
 
     $ ./myapp.py generate lambda-zip --compress public
 
+With ``--compress-encoding``, both generators write the variants of the
+encodings that the clients get only, as ``br`` and ``gzip`` behind CloudFront,
+which forwards no other encoding of ``Accept-Encoding`` to the application.
+
+.. code-block:: console
+
+    $ ./myapp.py generate lambda-zip --compress public --compress-encoding br --compress-encoding gzip
+
 Content negotiation
 ~~~~~~~~~~~~~~~~~~~
 

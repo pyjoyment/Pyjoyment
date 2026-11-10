@@ -104,6 +104,7 @@ find public -type f -size +1k \( -name '*.css' -o -name '*.js' -o -name '*.svg' 
 python app.py generate dockerfile --compress public   # gzip variants written in the image
 python app.py generate dockerfile -a brotli -a zstd -c public   # and brotli and zstd of the packages of Debian
 python app.py generate lambda-zip --compress public  # variants in function.zip, with the compressors of the machine
+python app.py generate lambda-zip -c public -e br -e gzip   # only the encodings that CloudFront forwards
 ```
 
 - `app.static.encodings`, `{'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}` by
@@ -124,6 +125,12 @@ python app.py generate lambda-zip --compress public  # variants in function.zip,
 - `generate lambda-zip --compress` writes them into `function.zip`: `.gz`
   always, `.zst` with Python 3.14 or the command `zstd`, `.br` with the
   command `brotli` of the machine that builds it.
+- `--compress-encoding` (`-e`) of both generators, repeatable, writes only the
+  encodings that the clients get, as `br` and `gzip` behind CloudFront, which
+  normalizes `Accept-Encoding` to them: a `.zst` there is never served. An
+  encoding of the option without its compressor fails the build. The names
+  are the ones of `app.static.encodings`, which the application sets to the
+  same, as `{'br': '.br', 'gzip': '.gz'}`, to look for no other variant.
 - `app.static.immutable`, a regular expression of the paths of names with a
   hash of their content, as `r'^assets/.+\.[0-9a-f]{8,}\.[^/]+$'`, serves
   them with `Cache-Control: public, max-age=31536000, immutable`, and

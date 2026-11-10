@@ -79,6 +79,23 @@ with subtest('Synopsis'):
     like_ok(content, r'(?m)^    && apt-get install --yes --no-install-recommends brotli zstd \\$', 'packages')
     like_ok(content, r'(?m)^    && if command -v brotli >/dev/null; then brotli ', 'brotli variants')
 
+    # python -m MyApp generate dockerfile --apt-package brotli --compress public --compress-encoding br --compress-encoding gzip
+    tmp = Pyjo.File.tempdir()
+    tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    content = generate(
+        tmp,
+        '--apt-package',
+        'brotli',
+        '--compress',
+        'public',
+        '--compress-encoding',
+        'br',
+        '--compress-encoding',
+        'gzip',
+    )
+    like_ok(content, r"(?m)^    -exec sh -c 'brotli .*\n    && gzip .*' sh \{\} \+$", 'encodings')
+    unlike_ok(content, r'zstd', 'no other encoding')
+
     # ./myapp.py generate dockerfile
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')

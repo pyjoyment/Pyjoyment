@@ -14,6 +14,7 @@ Pyjoyment.Command.Author.generate.dockerfile - Dockerfile generator command
       python -m MyApp generate dockerfile --target lambda
       python -m MyApp generate dockerfile --compress public
       python -m MyApp generate dockerfile --apt-package brotli --apt-package zstd --compress public
+      python -m MyApp generate dockerfile --apt-package brotli --compress public --compress-encoding br --compress-encoding gzip
 
     Options:
       -a, --apt-package <name>           Install a package of Debian in the
@@ -25,6 +26,10 @@ Pyjoyment.Command.Author.generate.dockerfile - Dockerfile generator command
       -C, --compress-pattern <glob>      Name of the files that --compress
                                          compresses, can be repeated, defaults to
                                          the formats of text
+      -e, --compress-encoding <name>     Encoding of the variants that --compress
+                                         writes, "br", "zstd" or "gzip", can be
+                                         repeated, defaults to gzip and the ones
+                                         that the image has
       -G, --graceful-timeout <seconds>   Graceful timeout of the workers of the
                                          server, defaults to the one of the
                                          server
@@ -97,6 +102,9 @@ of images, video, audio, the WOFF fonts, PDF and archives are compressed
 already, and leaves out the files smaller than
 :attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.min_compress_size` of the
 renderer.
+With ``--compress-encoding``, it writes the variants of those encodings only,
+as ``br`` and ``gzip`` for CloudFront, which forwards no other encoding of
+``Accept-Encoding`` to the origin, and the build fails without their tools.
 
 With ``--target lambda``, the image is the one of an event function of AWS
 Lambda: its command runs the script of the application, or its package, which
@@ -210,6 +218,7 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
                     'a|apt-package=s@': None,
                     'c|compress=s@': None,
                     'C|compress-pattern=s@': None,
+                    'e|compress-encoding=s@': None,
                     'G|graceful-timeout=i': None,
                     'H|healthcheck=s': None,
                     'p|port=i': None,
@@ -238,6 +247,20 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         patterns: list[str] = opts.compress_pattern or list(self.compress_patterns)
         if opts.compress_pattern and not compress:
             raise Pyjo.Exception.new('Option --compress-pattern needs --compress')
+        encodings: list[str] = opts.compress_encoding or []
+        if encodings and not compress:
+            raise Pyjo.Exception.new('Option --compress-encoding needs --compress')
+        if unknown := [e for e in encodings if e not in _COMPRESSORS]:
+            raise Pyjo.Exception.new(f'Unknown encoding: {unknown[0]}')
+        # The tools of the encodings of the option, which fail without them, or gzip and the tools that the image has
+        if encodings:
+            commands = [command for encoding, command in _COMPRESSORS.items() if encoding in encodings]
+        else:
+            optional = [c for e, c in _COMPRESSORS.items() if e != 'gzip']
+            commands = [
+                _COMPRESSORS['gzip'],
+                *(f'if command -v {c.split()[0]} >/dev/null; then {c}; fi' for c in optional),
+            ]
 
         name = self.app.moniker
 
@@ -269,6 +292,7 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         values = {
             'apt_packages': ' '.join(shlex.quote(package) for package in packages),
             'compress': ' '.join(shlex.quote(path) for path in compress),
+            'compress_commands': ' \\\n    && '.join(commands),
             'compress_names': ' -o '.join(f'-name {shlex.quote(pattern)}' for pattern in patterns),
             'compress_size': self.app.renderer.min_compress_size - 1,
             'cmd': json.dumps(cmd if target == 'lambda' else [*cmd, 'prefork']),
@@ -287,6 +311,14 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
 
         # Not in Mojolicious: .dockerignore, as the .venv of the host is not the one of the image
         self.render_to_rel_file('dockerignore', '.dockerignore')
+
+
+# Not in Mojolicious: the commands that write the variants of the encodings of Pyjoyment.Static, in its order
+_COMPRESSORS = {
+    'br': 'brotli -k -f -q 11 "$@"',
+    'zstd': 'zstd -q -k -f -19 "$@"',
+    'gzip': 'gzip -k -f -9 -n "$@"',
+}
 
 
 # Not in Mojolicious: whether the script has the inline metadata of PEP 723
@@ -339,9 +371,7 @@ ENV PATH="/opt/<%= name %>/.venv/bin:$PATH"
 % if compress:
 RUN find <%= compress %> -type f -size +<%= compress_size %>c \\
     \( <%= compress_names %> \) \\
-    -exec sh -c 'gzip -k -f -9 -n "$@" \\
-    && if command -v brotli >/dev/null; then brotli -k -f -q 11 "$@"; fi \\
-    && if command -v zstd >/dev/null; then zstd -q -k -f -19 "$@"; fi' sh {} +
+    -exec sh -c '<%= compress_commands %>' sh {} +
 % end
 % if user:
 RUN useradd --system <%= user %>
