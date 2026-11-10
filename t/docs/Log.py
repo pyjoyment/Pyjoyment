@@ -88,20 +88,20 @@ with subtest('Files of a period'):
     log = Pyjo.Log.new(path=dir.child('%Y-%m-%d.log').to_str())
     log.error('Of today')
     log.close()
-    like_ok(dir.child(time.strftime('%Y-%m-%d.log')).slurp().decode(), r'\[error\] Of today\n$', 'file of the day')
+    like_ok(dir.child(time.strftime('%Y-%m-%d.log')).slurp().decode(), r'\[error\] Of today\r?\n$', 'file of the day')
 
     # A file of each hour, with the offset of the time zone
     log = Pyjo.Log.new(path=dir.child('%Y-%m-%dT%H%z.log').to_str())
     log.error('Of this hour')
     log.close()
-    like_ok(dir.child(time.strftime('%Y-%m-%dT%H%z.log')).slurp().decode(), r'Of this hour\n$', 'file of the hour')
+    like_ok(dir.child(time.strftime('%Y-%m-%dT%H%z.log')).slurp().decode(), r'Of this hour\r?\n$', 'file of the hour')
 
     # A file of each day in UTC
     log = Pyjo.Log.new(path=dir.child('utc-%Y-%m-%d.log').to_str(), tz='UTC')
     log.error('Of the day in UTC')
     log.close()
     name = datetime.datetime.now(datetime.UTC).strftime('utc-%Y-%m-%d.log')
-    like_ok(dir.child(name).slurp().decode(), r'Of the day in UTC\n$', 'file of the day in UTC')
+    like_ok(dir.child(name).slurp().decode(), r'Of the day in UTC\r?\n$', 'file of the day in UTC')
 
 with subtest('The logging module'):
     log = Pyjo.Log.new(handle=None)

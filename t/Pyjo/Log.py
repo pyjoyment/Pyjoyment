@@ -59,7 +59,9 @@ with subtest('Files of a period'):
         log.close()
         is_ok(decode('UTF-8', dir.child('2026-11-10.log').slurp()).count('First day'), 2, 'messages of the first day')
         content = decode('UTF-8', dir.child('2026-11-11.log').slurp())
-        like_ok(content, r'\[error\] Second day\n.*\[error\] Second day after close\n$', 'messages of the second day')
+        like_ok(
+            content, r'\[error\] Second day\r?\n.*\[error\] Second day after close\r?\n$', 'messages of the second day'
+        )
         unlike_ok(content, r'First day', 'no messages of the first day')
 
         log = Pyjo.Log.new(path=dir.child('100%%-%Y.log').to_str())
