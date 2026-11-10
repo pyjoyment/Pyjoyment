@@ -51,6 +51,7 @@ import os
 import re
 import stat
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 
@@ -83,6 +84,24 @@ class Pyjoyment_Static(Pyjo.Base.object):
             static.asset_dir = 'assets'
 
         Subdirectory used for all static assets, defaults to ``assets``.
+        """
+
+        # Not in Mojolicious: the Cache-Control of the files
+        self.cache_control: str | Callable[[Pyjoyment.Controller.object, str], str | None] | None = None
+        """::
+
+            cache_control = static.cache_control
+            static.cache_control = 'public, max-age=60'
+            static.cache_control = lambda c, rel: 'no-cache' if rel.endswith('.html') else 'public, max-age=60'
+
+        ``Cache-Control`` of the files that are served, also with ``304``,
+        unless the response has one already, or a function that gets the
+        controller and the path of the file, relative to :attr:`paths` and
+        without :attr:`prefix`, and returns it, or ``None`` for none,
+        defaults to ``None``. The files of :attr:`immutable` get theirs. ::
+
+            # Revalidate every file after a minute
+            static.cache_control = 'public, max-age=60'
         """
 
         self.classes = ['__main__']
@@ -136,6 +155,25 @@ class Pyjoyment_Static(Pyjo.Base.object):
 
             # Remove built-in favicon
             del static.extra['favicon.ico']
+        """
+
+        # Not in Mojolicious: the files that never change
+        self.immutable: str | re.Pattern[str] | None = None
+        """::
+
+            immutable = static.immutable
+            static.immutable = r'\\.[0-9a-f]{12}\\.[^/.]+$'
+
+        Regular expression of the paths of the files, relative to
+        :attr:`paths` and without :attr:`prefix`, whose names have a hash of
+        their content, as the ones of a bundler, and never change, so that
+        they are served with ``Cache-Control: public, max-age=31536000,
+        immutable`` in place of :attr:`cache_control`, defaults to ``None``.
+        The assets of the ``development`` mode are served with
+        ``Cache-Control: no-cache`` still. ::
+
+            # The names of ManifestStaticFilesStorage of Django
+            static.immutable = re.compile(r'\\.[0-9a-f]{12}\\.[^/.]+$')
         """
 
         self.paths: list[str] = []
@@ -333,6 +371,17 @@ class Pyjoyment_Static(Pyjo.Base.object):
         # serve_asset keeps
         if asset.is_file and self.encodings:
             asset = self._variant(c, cast(Pyjo.Asset.File.object, asset))
+
+        # Not in Mojolicious: the Cache-Control of the file, also of a 304, as RFC 9111 has it
+        headers = c.res.headers
+        if not headers.cache_control:
+            if (immutable := self.immutable) is not None and re.search(immutable, rel):
+                headers.cache_control = 'public, max-age=31536000, immutable'
+            elif callable(cache_control := self.cache_control):
+                if value := cache_control(c, rel):
+                    headers.cache_control = value
+            elif cache_control:
+                headers.cache_control = cache_control
 
         return bool(self.serve_asset(c, asset))
 

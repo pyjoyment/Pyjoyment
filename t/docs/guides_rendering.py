@@ -287,6 +287,29 @@ with subtest('Static assets'):
     with Pyjo.Test.Pyjo.new(app) as t:
         t.get_ok('/assets/myapp.ab1234cd5678ef.js').status_is(200).header_is('Cache-Control', 'no-cache')
 
+with subtest('Static assets, Cache-Control'):
+    app = Pyjoyment.new()
+    public = Pyjo.File.tempdir()
+    public.child('assets').make_path().child('myapp.ab1234cd5678ef.js').spew('alert(1);\n')
+    public.child('index.html').spew('<p>Static</p>\n')
+    app.static.paths = [public.to_str()]
+
+    # Revalidate static files after a minute, and never the assets with checksums
+    app.static.cache_control = 'public, max-age=60'
+    app.static.immutable = r'^assets/.+\.[0-9a-f]{8,}\.[^/]+$'
+
+    app.mode = 'production'
+    with Pyjo.Test.Pyjo.new(app) as t:
+        (
+            t.get_ok('/assets/myapp.ab1234cd5678ef.js')
+            .status_is(200)
+            .header_is('Cache-Control', 'public, max-age=31536000, immutable')
+        )
+        t.get_ok('/index.html').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    app.mode = 'development'
+    with Pyjo.Test.Pyjo.new(app) as t:
+        t.get_ok('/assets/myapp.ab1234cd5678ef.js').status_is(200).header_is('Cache-Control', 'no-cache')
+
 with subtest('Precompressed static files'):
     app = Pyjoyment.new()
     public = Pyjo.File.tempdir()
