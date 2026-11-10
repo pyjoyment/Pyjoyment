@@ -233,7 +233,7 @@ with subtest('Access log'):
     with cookbook('health') as t:
         t.app.plugin('AccessLog')
         output = logged(t, '/', {'User-Agent': 'curl/8.7.1'})
-        like_ok(output, r'127\.0\.0\.1 - - \[.+ \+0000\] "GET / HTTP/1\.1" 200 12 "-" "curl/8\.7\.1"\n', 'line')
+        like_ok(output, r'127\.0\.0\.1 - - \[.+ [+-]\d{4}\] "GET / HTTP/1\.1" 200 12 "-" "curl/8\.7\.1"\n', 'line')
         output = logged(t, '/livez')
         unlike_ok(output, r'"GET /livez', 'no probes')
 

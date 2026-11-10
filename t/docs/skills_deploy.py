@@ -77,13 +77,14 @@ with subtest('Access log'):
     (example,) = re.findall(r'^```text\n(.*?)\n```$', section, re.M | re.S)
     like_ok(example, r'^\S+ - - \[\d\d/\w{3}/\d{4}:\d\d:\d\d:\d\d \+0000\] "GET / HTTP/1\.1" 200 \d+ "-" ".+"$', 'line')
     calls = re.findall(r"`(plugin\('AccessLog'.*?\))`", section)
-    is_ok(len(calls), 6, 'calls of the plugin')
+    is_ok(len(calls), 7, 'calls of the plugin')
     for call in calls:
         t = Pyjo.Test.Pyjo.new(app)
         t.app.log.level = 'fatal'
         # The plugin of the call, whose lines go to a log of the test, not to the output of the test
         log = Pyjo.Log.new()
-        code = call.replace('log=app.log', 'log=log') if 'log=app.log' in call else call[:-1] + ', log=log)'
+        # The log of the test in the place of the one of the call
+        code = re.sub(r"log=(?:app\.log|'[^']*')", 'log=log', call) if 'log=' in call else call[:-1] + ', log=log)'
         eval(code, {'plugin': t.app.plugin, 'log': log})
         with log.capture() as messages:
             t.get_ok('/missing' if 'status=' in call else '/', {'X-Envoy-External-Address': '203.0.113.7'})

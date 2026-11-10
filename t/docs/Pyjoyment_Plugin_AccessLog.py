@@ -10,9 +10,12 @@ from Pyjoyment.Lite import app as lite
 from Pyjoyment.Lite import get, plugin
 
 import contextlib
+import datetime
 import io
 import json
 import re
+import time
+import zoneinfo
 
 
 lite.log.level = 'fatal'
@@ -42,7 +45,7 @@ def logged(t, *args, **kwargs):
 def written(path, count=1):
     # The lines of a file, once there are as many
     deadline = steady_time() + 5
-    while len(path.slurp().splitlines()) < count and steady_time() < deadline:
+    while (not path.is_file or len(path.slurp().splitlines()) < count) and steady_time() < deadline:
         Pyjo.IOLoop.timer(0.01, lambda loop: None)
         Pyjo.IOLoop.one_tick()
     content = path.slurp().decode()
@@ -50,7 +53,7 @@ def written(path, count=1):
     return content.splitlines()
 
 
-COMBINED = r'^127\.0\.0\.1 - - \[\d\d/[A-Z][a-z]{2}/\d{4}:\d\d:\d\d:\d\d \+0000\] '
+COMBINED = r'^127\.0\.0\.1 - - \[\d\d/[A-Z][a-z]{2}/\d{4}:\d\d:\d\d:\d\d [+-]\d{4}\] '
 
 with subtest('Synopsis'):
     # Pyjoyment
@@ -82,6 +85,13 @@ with subtest('Synopsis'):
     app.plugin('AccessLog', log=path.to_str(), format='%h %t "%r" %>s %b %{ms}T')
     Pyjo.Test.Pyjo.new(app).get_ok('/')
     like_ok(written(path)[0], COMBINED.replace(' - - ', ' ') + r'"GET / HTTP/1\.1" 200 6 \d+$', 'file of LogFormat')
+
+    # A file of each day in UTC
+    app = application()
+    app.plugin('AccessLog', log=tmp.child('access-%Y-%m-%d.log').to_str(), tz='UTC')
+    Pyjo.Test.Pyjo.new(app).get_ok('/')
+    path = tmp.child(datetime.datetime.now(datetime.UTC).strftime('access-%Y-%m-%d.log'))
+    like_ok(written(path)[0], r' \+0000\] "GET / HTTP/1\.1" 200 6 ', 'file of the day in UTC')
 
 with subtest('Description'):
     app = application()
@@ -219,6 +229,11 @@ with subtest('log'):
     like_ok(written(path)[0], COMBINED, 'file')
 
     app = application()
+    app.plugin('AccessLog', log=tmp.child('myapp', 'access-%Y-%m-%d.log').to_str())
+    Pyjo.Test.Pyjo.new(app).get_ok('/')
+    like_ok(written(tmp.child('myapp', time.strftime('access-%Y-%m-%d.log')))[0], COMBINED, 'file of the day')
+
+    app = application()
     app.plugin('AccessLog', log=app.log)
     t = Pyjo.Test.Pyjo.new(app)
     with app.log.capture('info') as messages:
@@ -235,6 +250,22 @@ with subtest('status'):
     app.plugin('AccessLog', status=[404, 499])
     t = Pyjo.Test.Pyjo.new(app)
     like_ok(logged(t, '/missing')[0], r'" 404 ', 'statuses')
+
+with subtest('tz'):
+    app = application()
+    app.plugin('AccessLog', tz='UTC', format='%t')
+    t = Pyjo.Test.Pyjo.new(app)
+    like_ok(logged(t, '/')[0], r' \+0000\]$', 'UTC')
+
+    try:
+        zoneinfo.ZoneInfo('Europe/Warsaw')
+    except zoneinfo.ZoneInfoNotFoundError:
+        skip('no time zone database, as on Windows without tzdata', 1)
+    else:
+        app = application()
+        app.plugin('AccessLog', tz='Europe/Warsaw', format='%t')
+        t = Pyjo.Test.Pyjo.new(app)
+        like_ok(logged(t, '/')[0], r' \+0[12]00\]$', 'name')
 
 with subtest('register'):
     app = application()
