@@ -102,6 +102,7 @@ clients whose `Accept-Encoding` takes it, as nginx `gzip_static` would:
 find public -type f -size +1k \( -name '*.css' -o -name '*.js' -o -name '*.svg' \) \
   -exec gzip -k -f -9 -n {} + -exec brotli -k -f -q 11 {} + -exec zstd -q -k -f -19 {} +
 python app.py generate dockerfile --compress public   # gzip variants written in the image
+python app.py generate dockerfile -a brotli -a zstd -c public   # and brotli and zstd of the packages of Debian
 ```
 
 - `app.static.encodings`, `{'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}` by
@@ -114,9 +115,11 @@ python app.py generate dockerfile --compress public   # gzip variants written in
   PNG, JPEG, GIF, WebP and AVIF images, video, audio, WOFF and WOFF2 fonts,
   PDF, and archives (`.zip`, `.gz`, `.br`, `.zst`). Skip files under about a
   kilobyte, and remove a variant that is not smaller than its file.
-- The image of `generate dockerfile` has `gzip` only: `--compress` writes the
-  `.gz` variants there, of the formats of text or of `--compress-pattern`;
-  write `.br` and `.zst` before the build, as the image copies them.
+- `generate dockerfile --compress` writes the variants in the image, of the
+  formats of text or of `--compress-pattern`: `.gz` always, `.br` and `.zst`
+  when `--apt-package brotli --apt-package zstd` installs the tools, which the
+  image of Python lacks; otherwise write them before the build, and the image
+  copies them.
 - A variant older than its file is ignored, so a build that changes a file
   without compressing it again serves the file; keep the mtime of the file
   (`gzip -k`, `brotli -k` and `zstd -k` copy it). A `Range` request gets the

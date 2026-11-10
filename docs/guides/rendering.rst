@@ -644,13 +644,15 @@ apart, and each variant has an ``ETag`` of its own.
     app.static.encodings = {}
 
 The ``Dockerfile`` of
-:mod:`Pyjoyment.Command.Author.generate.dockerfile` writes the ``gzip``
-variants in the image with ``--compress``, for the formats of text or the
-patterns of ``--compress-pattern``.
+:mod:`Pyjoyment.Command.Author.generate.dockerfile` writes the variants
+in the image with ``--compress``, for the formats of text or the patterns of
+``--compress-pattern``: ``gzip`` of the image, and ``brotli`` and ``zstd`` if
+the packages of ``--apt-package`` install them.
 
 .. code-block:: console
 
     $ ./myapp.py generate dockerfile --compress public
+    $ ./myapp.py generate dockerfile --apt-package brotli --apt-package zstd --compress public
 
 For production you just run the bundler once before deploying your
 application, with ``PYJO_MODE`` set accordingly.

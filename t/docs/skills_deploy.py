@@ -56,7 +56,14 @@ with subtest('Options of the servers'):
     for option in ('-w, --workers', '-l, --listen', '-p, --proxy', '-G, --graceful-timeout', '-S, --shutdown-delay'):
         like_ok(stdout, re.escape(option), option)
     stdout, status = run('app.py', 'generate', 'dockerfile', '--help')
-    for option in ('-p, --port', '-G, --graceful-timeout', '-t, --target', '-u, --user', '-c, --compress'):
+    for option in (
+        '-p, --port',
+        '-G, --graceful-timeout',
+        '-t, --target',
+        '-u, --user',
+        '-c, --compress',
+        '-a, --apt-package',
+    ):
         like_ok(stdout, re.escape(option), option)
 
 with subtest('Precompressed static files'):
@@ -72,7 +79,9 @@ with subtest('Precompressed static files'):
     stdout, status = run('app.py', 'generate', 'dockerfile', '--compress', 'public')
     is_ok(status, 0, 'generate dockerfile --compress')
     dockerfile = tmp.child('Dockerfile').slurp().decode()
-    like_ok(dockerfile, r'RUN find public .*\n.*\n +-exec gzip -k -f -9 -n', 'gzip variants in the image')
+    like_ok(dockerfile, r"RUN find public .*\n.*\n +-exec sh -c 'gzip -k -f -9 -n", 'gzip variants in the image')
+    like_ok(dockerfile, r'command -v brotli .* brotli -k -f -q 11', 'brotli variants if the image has it')
+    like_ok(dockerfile, r'command -v zstd .* zstd -q -k -f -19', 'zstd variants if the image has it')
     for ext in ('css', 'js', 'mjs', 'json', 'map', 'svg', 'html', 'txt', 'csv', 'xml', 'wasm', 'ttf', 'otf'):
         like_ok(dockerfile, rf"-name '\*\.{ext}'", f'{ext} compressed')
     for ext in ('png', 'jpg', 'gif', 'webp', 'avif', 'mp4', 'woff', 'woff2', 'pdf', 'zip', 'gz'):

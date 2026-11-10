@@ -464,8 +464,9 @@ with subtest('generate dockerfile'):
     with contextlib.redirect_stdout(io.StringIO()):
         dockerfile.run('-t', 'lambda', '-u', 'app')
     like_ok(app.rel_file('Dockerfile').slurp().decode(), r'(?m)^USER app\nCMD ', 'right user')
-    # Not in Mojolicious: the gzip variants of the static files
+    # Not in Mojolicious: the packages of Debian and the variants of gzip, brotli and zstd of the static files
     unlike_ok(app.rel_file('Dockerfile').slurp().decode(), r'gzip', 'no variants')
+    unlike_ok(app.rel_file('Dockerfile').slurp().decode(), r'apt-get', 'no packages')
     app.rel_file('Dockerfile').remove()
     with contextlib.redirect_stdout(io.StringIO()):
         dockerfile.run('-c', 'public')
@@ -474,7 +475,9 @@ with subtest('generate dockerfile'):
         content,
         r'(?m)^COPY \. \.\nENV PATH=.*\nRUN find public -type f -size \+859c \\\n'
         + r"    \\\( -name '\*\.css' -o -name '\*\.csv' -o .* -o -name '\*\.xml' \\\) \\\n"
-        + r'    -exec gzip -k -f -9 -n \{\} \+\n',
+        + r"    -exec sh -c 'gzip -k -f -9 -n \"\$@\" \\\n"
+        + r'    && if command -v brotli >/dev/null; then brotli -k -f -q 11 "\$@"; fi \\\n'
+        + r"    && if command -v zstd >/dev/null; then zstd -q -k -f -19 \"\$@\"; fi' sh \{\} \+\n",
         'right variants',
     )
     like_ok(content, r"-name '\*\.js' -o -name '\*\.json'", 'JavaScript')
@@ -486,6 +489,19 @@ with subtest('generate dockerfile'):
         app.rel_file('Dockerfile').slurp().decode(),
         r"(?m)^RUN find public 'my static' -type f -size \+859c \\\n    \\\( -name '\*\.css' -o -name '\*\.js' \\\) \\\n",
         'right paths and patterns',
+    )
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('-a', 'brotli', '--apt-package', 'zstd', '-u', 'app')
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(),
+        r'(?m)^FROM python:\S+\nWORKDIR /opt/\S+\nRUN apt-get update \\\n'
+        + r'    && apt-get install --yes --no-install-recommends brotli zstd \\\n'
+        + r'    && rm -rf /var/lib/apt/lists/\*\nCOPY --from=builder ',
+        'right packages',
+    )
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(), r'(?s)apt-get install.*\nUSER app\n', 'packages installed as root'
     )
     throws_ok(
         lambda: dockerfile.run('-C', '*.css'),

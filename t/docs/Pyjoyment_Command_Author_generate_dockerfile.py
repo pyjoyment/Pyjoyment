@@ -72,6 +72,13 @@ with subtest('Synopsis'):
     content = generate(tmp, '--compress', 'public')
     like_ok(content, r'(?m)^RUN find public -type f -size \+859c \\$', 'variants')
 
+    # python -m MyApp generate dockerfile --apt-package brotli --apt-package zstd --compress public
+    tmp = Pyjo.File.tempdir()
+    tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    content = generate(tmp, '--apt-package', 'brotli', '--apt-package', 'zstd', '--compress', 'public')
+    like_ok(content, r'(?m)^    && apt-get install --yes --no-install-recommends brotli zstd \\$', 'packages')
+    like_ok(content, r'(?m)^    && if command -v brotli >/dev/null; then brotli ', 'brotli variants')
+
     # ./myapp.py generate dockerfile
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')
