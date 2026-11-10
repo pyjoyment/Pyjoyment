@@ -157,6 +157,30 @@ is ``-``, as of Apache, and ``null`` in JSON. A quote, a backslash and a
 character that is not printable ASCII, as of a header that a client made up
 to forge a line, are escaped as ``\\xhh`` of its bytes, as nginx escapes them.
 
+A dict of fields is a line of JSON of fields of its own, in the place of the
+ones of the request of ``json``, after the fields of a message of JSON of
+:mod:`Pyjo.Log`, which a field of the same name does not replace. A field is a
+format of ``LogFormat``, whose directive alone is a value of its type, as a
+number of ``%>s`` or ``null`` of a header that is missing, and a text with
+directives a string, with ``-`` for a value that is missing, or a dict of
+fields, a function of the transaction and of the dict of the values of the
+request, or a constant. ::
+
+    app.plugin('AccessLog', format={
+        'client': '%h',
+        'request': '%m %U%q',
+        'status': '%>s',
+        'bytes': '%B',
+        'ms': '%{ms}T',
+        'request_id': '%{X-Request-ID}i',
+        'http': {'user_agent': '%{User-Agent}i', 'referrer': '%{Referer}i'},
+        'service': 'myapp',
+    })
+
+    {"time":"...","level":"info","severity":"INFO","message":"GET /?q=1 200","pid":7,"client":"203.0.113.7",
+     "request":"GET /?q=1","status":200,"bytes":6,"ms":3,"request_id":null,"http":{"user_agent":"curl/8.7.1",
+     "referrer":null},"service":"myapp"}
+
 Options
 -------
 
@@ -191,13 +215,15 @@ Options
 
     app.plugin('AccessLog', format='json')
     app.plugin('AccessLog', format='%h %t "%r" %>s %b %{ms}T')
+    app.plugin('AccessLog', format={'client': '%h', 'status': '%>s', 'request_id': '%{X-Request-ID}i'})
     app.plugin('AccessLog', format=lambda tx, entry: f'{entry["method"]} {entry["path"]} {entry["status"]}')
 
-    The format of the lines, ``combined``, ``common``, ``json`` or one of
-    ``LogFormat``, see `Formats`_, or a function of the transaction and of a dict with the
-    values of the request, ``client``, ``time``, ``method``, ``path``,
-    ``protocol``, ``status``, ``bytes``, ``referrer``, ``user_agent`` and
-    ``duration``, which returns the line, defaults to ``json`` with
+    The format of the lines, ``combined``, ``common``, ``json``, one of
+    ``LogFormat`` or a dict of the fields of JSON, see `Formats`_, or a
+    function of the transaction and of a dict with the values of the
+    request, ``client``, ``time``, ``method``, ``path``, ``protocol``,
+    ``status``, ``bytes``, ``referrer``, ``user_agent`` and ``duration``,
+    which returns the line, defaults to ``json`` with
     :attr:`Pyjo.Log.Pyjo_Log.json` of the log and to ``combined``
     otherwise.
 
@@ -247,7 +273,7 @@ import os
 import re
 import sys
 
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 
@@ -257,7 +283,7 @@ if TYPE_CHECKING:
 
 type _Transaction = 'Pyjo.Transaction.object'
 type _Entry = dict[str, Any]
-type _Format = str | Callable[[_Transaction, _Entry], str]
+type _Format = str | Mapping[str, Any] | Callable[[_Transaction, _Entry], str]
 type _Item = Callable[[_Transaction, _Entry], Any]
 type _Exclude = Iterable[str | re.Pattern[str]] | Callable[[_Transaction], bool]
 
@@ -305,7 +331,8 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
         else:
             if format is None:
                 format = 'json' if Pyjo.Log.new().json else 'combined'
-            log = Pyjo.Log.new(json=True) if format == 'json' else Pyjo.Log.new(json=False, format=_text)
+            of_json = format == 'json' or isinstance(format, Mapping)
+            log = Pyjo.Log.new(json=True) if of_json else Pyjo.Log.new(json=False, format=_text)
             if target is not None:
                 log.path = os.fspath(target)
         level: str = conf.get('level', 'info')
@@ -317,9 +344,15 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
                 log.handle = sys.stdout
             message(*lines)
 
-        line: Callable[[_Transaction, _Entry], str] | None = (
-            None if format == 'json' else format if callable(format) else _compile(FORMATS.get(format, format))
-        )
+        # A line of text, or the fields of a line of JSON
+        line: Callable[[_Transaction, _Entry], str] | None = None
+        fields: Callable[[_Transaction, _Entry], list[Pyjo.Log.Field]] = _fields
+        if isinstance(format, Mapping):
+            fields = _custom(cast(Mapping[str, Any], format))
+        elif callable(format):
+            line = format
+        elif format != 'json':
+            line = _compile(FORMATS.get(format, format))
         client = _client(conf.get('client'))
         excluded = _exclude(app, conf.get('exclude'))
         logged = _status(conf.get('status'))
@@ -346,7 +379,7 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
                     return
                 entry = _entry(tx, client(tx), time, status, _bytes(tx, sent), steady_time() - started)
                 if line is None:
-                    write(f'{entry["method"]} {entry["path"]} {status}', *_fields(tx, entry))
+                    write(f'{entry["method"]} {entry["path"]} {status}', *fields(tx, entry))
                 else:
                     write(line(tx, entry))
 
@@ -399,29 +432,23 @@ def _client(option: str | Callable[[_Transaction], str | None] | None) -> Callab
 
 def _compile(format: str) -> Callable[[_Transaction, _Entry], str]:
     # The text as it is and the values of the directives, escaped, with "-" for a value that is missing
-    parts: list[str | _Item] = []
-    position = 0
-    texts: list[str] = []
-    for m in DIRECTIVE.finditer(format):
-        texts.append(format[position : m.start()])
-        parts.append(texts[-1])
-        position = m.end()
-        name, letter = m[1], m[2]
-        if letter == '%' and name is None:
-            parts.append('%')
-        elif (item := DIRECTIVES.get(letter) if name is None else _block(letter, name)) is not None:
-            parts.append(item)
-        else:
-            raise Pyjo.Exception.new(f'Unknown directive "{m[0]}" of the access log')
-    texts.append(format[position:])
-    parts.append(texts[-1])
-    if any('%' in text for text in texts):
-        raise Pyjo.Exception.new(f'Unknown directive of the access log in "{format}"')
+    parts = _parse(format)
 
     def line(tx: _Transaction, entry: _Entry) -> str:
         return ''.join(part if isinstance(part, str) else _value(part(tx, entry)) for part in parts)
 
     return line
+
+
+def _custom(format: Mapping[str, Any]) -> Callable[[_Transaction, _Entry], list[Pyjo.Log.Field]]:
+    # The fields of a line of JSON, of a format of LogFormat each
+    fields = {name: _field(spec) for name, spec in format.items()}
+
+    def custom(tx: _Transaction, entry: _Entry) -> list[Pyjo.Log.Field]:
+        values = {name: item(tx, entry) for name, item in fields.items()}
+        return [Pyjo.Log.Field(name, value, f'{name}={json.dumps(value)}') for name, value in values.items()]
+
+    return custom
 
 
 def _entry(
@@ -494,6 +521,33 @@ def _fields(tx: _Transaction, entry: dict[str, Any]) -> list[Pyjo.Log.Field]:
     return [Pyjo.Log.Field(name, value, f'{name}={json.dumps(value)}') for name, value in fields.items()]
 
 
+def _field(spec: Any) -> _Item:
+    # The value of a field of JSON: a directive alone with the type of its value, as a number or null, the text of a
+    # format with "-" for a value that is missing, a dict of fields, a function, or a constant
+    if isinstance(spec, Mapping):
+        fields = {name: _field(value) for name, value in cast(Mapping[str, Any], spec).items()}
+        return lambda tx, entry: {name: item(tx, entry) for name, item in fields.items()}
+    if callable(spec):
+        return cast(_Item, spec)
+    if not isinstance(spec, str):
+        return lambda tx, entry: spec
+    parts = _parse(spec)
+    items = [part for part in parts if not isinstance(part, str)]
+    if len(items) == 1 and not ''.join(part for part in parts if isinstance(part, str)):
+        return items[0]
+    if not items:
+        text = ''.join(part for part in parts if isinstance(part, str))
+        return lambda tx, entry: text
+
+    def item(tx: _Transaction, entry: _Entry) -> str:
+        return ''.join(
+            part if isinstance(part, str) else '-' if (value := part(tx, entry)) is None else str(value)
+            for part in parts
+        )
+
+    return item
+
+
 def _hex(m: re.Match[str]) -> str:
     # The bytes of a header, which are characters of Latin-1, and the UTF-8 of any other character
     char = m[0]
@@ -529,6 +583,29 @@ def _time(spec: str) -> _Item | None:
         return Pyjo.Date.new(epoch).strftime(spec)
 
     return item
+
+
+def _parse(format: str) -> list[str | _Item]:
+    # The text between the directives and the directives of a format of LogFormat
+    parts: list[str | _Item] = []
+    position = 0
+    texts: list[str] = []
+    for m in DIRECTIVE.finditer(format):
+        texts.append(format[position : m.start()])
+        parts.append(texts[-1])
+        position = m.end()
+        name, letter = m[1], m[2]
+        if letter == '%' and name is None:
+            parts.append('%')
+        elif (item := DIRECTIVES.get(letter) if name is None else _block(letter, name)) is not None:
+            parts.append(item)
+        else:
+            raise Pyjo.Exception.new(f'Unknown directive "{m[0]}" of the access log')
+    texts.append(format[position:])
+    parts.append(texts[-1])
+    if any('%' in text for text in texts):
+        raise Pyjo.Exception.new(f'Unknown directive of the access log in "{format}"')
+    return [part for part in parts if part != '']
 
 
 def _status(option: int | Collection[int] | None) -> Callable[[int], bool]:

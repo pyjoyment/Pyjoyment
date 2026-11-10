@@ -77,7 +77,7 @@ with subtest('Access log'):
     (example,) = re.findall(r'^```text\n(.*?)\n```$', section, re.M | re.S)
     like_ok(example, r'^\S+ - - \[\d\d/\w{3}/\d{4}:\d\d:\d\d:\d\d \+0000\] "GET / HTTP/1\.1" 200 \d+ "-" ".+"$', 'line')
     calls = re.findall(r"`(plugin\('AccessLog'.*?\))`", section)
-    is_ok(len(calls), 5, 'calls of the plugin')
+    is_ok(len(calls), 6, 'calls of the plugin')
     for call in calls:
         t = Pyjo.Test.Pyjo.new(app)
         t.app.log.level = 'fatal'
@@ -90,7 +90,8 @@ with subtest('Access log'):
             while not len(messages):
                 Pyjo.IOLoop.timer(0.01, lambda loop: None)
                 Pyjo.IOLoop.one_tick()
-        like_ok(messages[0], r'"GET /(?:missing)? HTTP/1\.1" (?:200|404) ', call)
+        # A line of text, or the message of the fields of JSON
+        like_ok(messages[0], r'"?GET /(?:missing)?(?: HTTP/1\.1")? (?:200|404) ', call)
     for option in ('format=', 'exclude=', 'status=', 'log='):
         like_ok(section, re.escape(option), f'option {option}')
 

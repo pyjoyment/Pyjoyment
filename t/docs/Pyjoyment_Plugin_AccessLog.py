@@ -124,6 +124,39 @@ with subtest('Formats'):
         'statuses of Apache',
     )
 
+    app = application()
+    app.plugin(
+        'AccessLog',
+        format={
+            'client': '%h',
+            'request': '%m %U%q',
+            'status': '%>s',
+            'bytes': '%B',
+            'ms': '%{ms}T',
+            'request_id': '%{X-Request-ID}i',
+            'http': {'user_agent': '%{User-Agent}i', 'referrer': '%{Referer}i'},
+            'service': 'myapp',
+        },
+    )
+    t = Pyjo.Test.Pyjo.new(app)
+    record = json.loads(logged(t, '/?q=1', {'User-Agent': 'curl/8.7.1'})[0])
+    is_deeply_ok(list(record)[:5], ['time', 'level', 'severity', 'message', 'pid'], 'fields of Pyjo.Log')
+    is_ok(record['message'], 'GET /?q=1 200', 'message of a dict')
+    ok(isinstance(record.pop('ms'), int), 'time of the response')
+    is_deeply_ok(
+        {name: record[name] for name in list(record)[5:]},
+        {
+            'client': '127.0.0.1',
+            'request': 'GET /?q=1',
+            'status': 200,
+            'bytes': 6,
+            'request_id': None,
+            'http': {'user_agent': 'curl/8.7.1', 'referrer': None},
+            'service': 'myapp',
+        },
+        'fields of a dict',
+    )
+
 with subtest('client'):
     app = application()
     app.plugin('AccessLog', client='X-Real-IP')
@@ -156,6 +189,12 @@ with subtest('format'):
     app.plugin('AccessLog', format='%h %t "%r" %>s %b %{ms}T')
     t = Pyjo.Test.Pyjo.new(app)
     like_ok(logged(t, '/')[0], r'" 200 6 \d+$', 'LogFormat')
+
+    app = application()
+    app.plugin('AccessLog', format={'client': '%h', 'status': '%>s', 'request_id': '%{X-Request-ID}i'})
+    t = Pyjo.Test.Pyjo.new(app)
+    record = json.loads(logged(t, '/', {'X-Request-ID': 'f00d'})[0])
+    is_deeply_ok([record['client'], record['status'], record['request_id']], ['127.0.0.1', 200, 'f00d'], 'dict')
 
     app = application()
     app.plugin('AccessLog', format=lambda tx, entry: f'{entry["method"]} {entry["path"]} {entry["status"]}')

@@ -80,6 +80,9 @@ Apache and nginx, which a container, Kubernetes and log analyzers take:
   `LogFormat` of Apache, as `%D` for the time of the response in microseconds,
   where gunicorn has `%(D)s`, and `%{ms}T` in milliseconds:
   `plugin('AccessLog', format='%h %t "%r" %>s %b %{ms}T "%{X-Request-ID}i"')`.
+  A dict of such formats is a line of JSON with fields of its own, a directive
+  alone of its type, as a number or `null`:
+  `plugin('AccessLog', format={'client': '%h', 'status': '%>s', 'request_id': '%{X-Request-ID}i'})`.
 - The client is the remote address, of `X-Forwarded-For` behind a reverse
   proxy with `-p`; a gateway that sets a header of its own, as Istio, takes
   `plugin('AccessLog', client='X-Envoy-External-Address')`.

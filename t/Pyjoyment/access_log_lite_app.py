@@ -295,6 +295,56 @@ with subtest('JSON'):
     t2.get_ok('/').status_is(200)
     is_ok(json.loads(lines()[0])['message'], 'GET / 200', 'default with PYJO_LOG_FORMAT')
 
+with subtest('Fields of JSON'):
+    lines(0)
+    format = {
+        'status': '%>s',
+        'size': '%b',
+        'zero': '%B',
+        'header': '%{X-Request-ID}i',
+        'text': '%m %{X-Request-ID}i "%{X-Other}i"',
+        'percent': '%%',
+        'nested': {'deeper': {'method': '%m'}},
+        'function': lambda tx, entry: entry['path'].upper(),
+        'constant': 42,
+        'none': None,
+        'pid': '%s',
+    }
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format=format))
+    t2.head_ok('/', {'X-Request-ID': 'a"b'}).status_is(200)
+    record = json.loads(lines()[0])
+    is_ok(record['message'], 'HEAD / 200', 'message')
+    is_ok(record['pid'], os.getpid(), 'fields of Pyjo.Log are not replaced')
+    record = {name: record[name] for name in list(record)[5:]}
+    is_deeply_ok(
+        record,
+        {
+            'status': 200,
+            'size': None,
+            'zero': 0,
+            'header': 'a"b',
+            'text': 'HEAD a"b "-"',
+            'percent': '%',
+            'nested': {'deeper': {'method': 'HEAD'}},
+            'function': '/',
+            'constant': 42,
+            'none': None,
+        },
+        'fields',
+    )
+
+    log = Pyjo.Log.new()
+    t2 = Pyjo.Test.Pyjo.new(application(log=log, format={'status': '%>s', 'agent': '%{User-Agent}i'}))
+    with log.capture() as messages:
+        t2.get_ok('/').status_is(200)
+    like_ok(messages[0], r'\[info\] GET / 200 status=200 agent="Pyjoyment \(Python\)"$', 'fields in a log of text')
+
+    throws_ok(
+        lambda: application(format={'nested': {'bad': '%Z'}}),
+        re.compile(r'^Unknown directive "%Z" of the access log'),
+        'unknown directive of a field',
+    )
+
 with subtest('Log'):
     log = Pyjo.Log.new()
     t2 = Pyjo.Test.Pyjo.new(application(log=log))
