@@ -1,8 +1,10 @@
 import Pyjo.App.Lambda
 import Pyjo.File
 import Pyjo.IOLoop
+import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjo.Transaction.HTTP
+import Pyjo.UserAgent
 import Pyjoyment
 
 from Pyjo.Test import *
@@ -80,6 +82,11 @@ def invalid(event, context):
 def slow(event, context):
     time.sleep(10)
     return {'statusCode': 200, 'body': 'slow'}
+
+
+def nap(event, context):
+    time.sleep(1)
+    return {'statusCode': 200, 'body': str(os.getpid())}
 
 
 def crash(event, context):
@@ -519,5 +526,39 @@ with subtest('Command'):
     with Pyjo.App.Lambda.new(command=command, task_root=ROOT, env={'PYTHONPATH': checkout}) as fcn:
         fcn.log.level = 'fatal'
         Pyjo.Test.Pyjo.new(fcn).get_ok('/').status_is(200).content_is('Hello Lambda!')
+
+with subtest('Graceful stop'):
+    # The runtime client waits for its next invocation in a request to the Runtime API, which the graceful stop of the
+    # event loop ends, with the process, once the invocation of the request in progress has been answered
+    with function('nap') as fcn:
+        app = Pyjoyment.new()
+        app.log.level = 'fatal'
+        app.plugin('Mount', {'/fn': fcn})
+        with Pyjo.Server.Daemon.new(app=app, listen=['http://127.0.0.1'], silent=True).start() as daemon:
+            url = f'http://127.0.0.1:{daemon.ports()[0]}/fn'
+            with Pyjo.UserAgent.new() as ua:
+                results = []
+
+                def first(tx):
+                    results.append(tx.res.text)
+                    # The graceful stop while the function answers the second request
+                    ua.get_p(url, {'Connection': 'close'}).then(lambda tx: results.append(tx.res.text))
+                    Pyjo.IOLoop.timer(0.3, lambda loop: loop.stop_gracefully())
+
+                ua.get_p(url, {'Connection': 'close'}).then(first)
+                timeout = Pyjo.IOLoop.timer(15, lambda loop: (results.append('timeout'), loop.stop()))
+                start = time.monotonic()
+                Pyjo.IOLoop.start()
+                Pyjo.IOLoop.remove(timeout)
+                is_ok(len(results), 2, 'request in progress answered')
+                ok('timeout' not in results, 'stopped')
+                ok(time.monotonic() - start < 10, 'without the timeout of the test')
+                is_ok(len(set(results)), 1, 'by the same process')
+        Pyjo.IOLoop.reset()
+
+        # The next request starts a new process
+        t = Pyjo.Test.Pyjo.new(fcn)
+        t.get_ok('/').status_is(200)
+        isnt_ok(t.tx.res.text, results[0], 'a new process after the stop')
 
 done_testing()
