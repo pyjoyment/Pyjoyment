@@ -23,6 +23,9 @@ Plugins
 The following plugins are included in the :mod:`Pyjoyment` distribution as
 examples.
 
+:mod:`Pyjoyment.Plugin.AccessLog`
+    Access log of the requests, in the combined format or in JSON.
+
 :mod:`Pyjoyment.Plugin.AllowedHosts`
     Validation of ``Host`` and ``Origin`` against DNS rebinding.
 

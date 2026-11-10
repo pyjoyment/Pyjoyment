@@ -365,6 +365,7 @@ This is the class hierarchy of the :mod:`Pyjoyment` distribution.
         - :mod:`Pyjoyment.Plugin.TOMLConfig`
         - :mod:`Pyjoyment.Plugin.YAMLConfig`
 
+    - :mod:`Pyjoyment.Plugin.AccessLog`
     - :mod:`Pyjoyment.Plugin.AllowedHosts`
     - :mod:`Pyjoyment.Plugin.DefaultHelpers`
     - :mod:`Pyjoyment.Plugin.EPLRenderer`

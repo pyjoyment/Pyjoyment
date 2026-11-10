@@ -1,4 +1,6 @@
 import Pyjo.File
+import Pyjo.IOLoop
+import Pyjo.Log
 import Pyjo.Test.Pyjo
 
 from Pyjo.Test import *
@@ -68,6 +70,30 @@ with subtest('Options of the servers'):
     stdout, status = run('app.py', 'generate', 'lambda-zip', '--help')
     like_ok(stdout, re.escape('-c, --compress'), '-c, --compress of lambda-zip')
     like_ok(stdout, re.escape('-e, --compress-encoding'), '-e, --compress-encoding of lambda-zip')
+
+with subtest('Access log'):
+    skill = Skills.read('deploy')
+    section = re.search(r'^## Access log\n(.*?)^## ', skill, re.M | re.S)[1]
+    (example,) = re.findall(r'^```text\n(.*?)\n```$', section, re.M | re.S)
+    like_ok(example, r'^\S+ - - \[\d\d/\w{3}/\d{4}:\d\d:\d\d:\d\d \+0000\] "GET / HTTP/1\.1" 200 \d+ "-" ".+"$', 'line')
+    calls = re.findall(r"`(plugin\('AccessLog'.*?\))`", section)
+    is_ok(len(calls), 6, 'calls of the plugin')
+    for call in calls:
+        t = Pyjo.Test.Pyjo.new(app)
+        t.app.log.level = 'fatal'
+        # The plugin of the call, whose lines go to a log of the test, not to the output of the test
+        log = Pyjo.Log.new()
+        code = call.replace('log=app.log', 'log=log') if 'log=app.log' in call else call[:-1] + ', log=log)'
+        eval(code, {'plugin': t.app.plugin, 'log': log})
+        with log.capture() as messages:
+            t.get_ok('/missing' if 'status=' in call else '/', {'X-Envoy-External-Address': '203.0.113.7'})
+            while not len(messages):
+                Pyjo.IOLoop.timer(0.01, lambda loop: None)
+                Pyjo.IOLoop.one_tick()
+        # A line of text, or the message of the fields of JSON
+        like_ok(messages[0], r'"?GET /(?:missing)?(?: HTTP/1\.1")? (?:200|404) ', call)
+    for option in ('format=', 'exclude=', 'status=', 'log='):
+        like_ok(section, re.escape(option), f'option {option}')
 
 with subtest('Precompressed static files'):
     skill = Skills.read('deploy')
