@@ -86,6 +86,7 @@ import Pyjo.Exception
 import Pyjo.IOLoop
 import Pyjo.IOLoop.ChildProcess
 import Pyjo.Message.Response
+import Pyjo.Server
 import Pyjo.Transaction
 
 import os
@@ -185,6 +186,19 @@ class Pyjo_App_CGI(Pyjo.App.object):
         script whose file name starts with ``nph-``, as web servers have it.
         """
 
+        self.public_source: bool = False
+        """::
+
+            boolean = app.public_source
+            app.public_source = True
+
+        The static files of the application that mounts this one, as the
+        ``public`` directory of :mod:`Pyjoyment.Static`, may have the scripts of
+        :attr:`document_root` or :attr:`script` on purpose, false by default,
+        with which :meth:`server` fails, as those static files are served
+        before the route of the mount, so their source instead of their output.
+        """
+
         self.script: str | None = None
         """::
 
@@ -262,6 +276,48 @@ class Pyjo_App_CGI(Pyjo.App.object):
             'static': self.static,
         }
         _Call.run(self, config, tx)
+
+    def server(self, server: Pyjo.Server.object) -> None:
+        """::
+
+            app.server(Pyjo.Server.new())
+
+        Fail before the server starts when the static files of the application
+        that mounts this one, as the ``public`` directory of
+        :mod:`Pyjoyment.Static`, have the scripts of :attr:`document_root` or
+        :attr:`script`, unless :attr:`public_source` is true.
+        """
+        _public(self, server, self.document_root, self.script, self.public_source)
+
+
+# The scripts of an application in the static files of the application that mounts it, as public of Pyjoyment.Static,
+# which serves them as files, with their source, before the route of the mount, as the document root of Laravel and
+# Symfony is public too, which the server is told of before it starts; the paths of FastCGI are the ones of its
+# application, so only those that are on the same file system are found
+def _public(app: Any, server: Any, root: Any, script: str | None, public: bool) -> None:
+    # The static files of an application of Pyjoyment, which Pyjo does not import
+    paths: list[str] = list(getattr(getattr(server.app, 'static', None), 'paths', None) or [])
+    if public or not paths:
+        return
+    dirs: list[str] = [os.fspath(root)] if root is not None else []
+    if script is not None:
+        dirs.append(os.path.dirname(os.path.join(dirs[0] if dirs else '', script)))
+    for dir in [os.path.realpath(d) for d in dirs]:
+        for path in [os.path.realpath(p) for p in paths]:
+            if _within(dir, path):
+                raise Pyjo.Exception.new(
+                    f'Scripts of {type(app).__module__} in {dir} are in the static files of {path}, which would serve '
+                    'their source: move them to another directory, as www, whose files static=True serves, '
+                    'or set public_source=True'
+                )
+
+
+# Whether a directory is in another one, which is not on another drive of Windows, where commonpath fails
+def _within(dir: str, top: str) -> bool:
+    try:
+        return os.path.commonpath([dir, top]) == top
+    except ValueError:
+        return False
 
 
 # A request to an application, whose response of CGI is written as it comes, which a subclass sends and reads

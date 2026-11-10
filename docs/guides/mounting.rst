@@ -234,6 +234,22 @@ without rules of rewriting:
 The paths are the ones that php-fpm sees, which may be in another container,
 so Pyjoyment does not look for the files.
 
+The static files of :mod:`Pyjoyment.Static`, as the directory ``public``
+next to the application, are served before the routes, so the scripts of a
+``document_root`` or a ``script`` in them would be served as files, with
+their source, as ``public/index.php`` of Laravel or Symfony with the
+configuration of its database. The server does not start then, for the
+paths that are on the file system of Pyjoyment, unless ``public_source``
+says that it is on purpose. The scripts go to another directory, as ``www``
+next to the application, whose files ``static`` serves, and ``public`` keeps
+the files of Pyjoyment.
+
+.. code-block:: python
+
+    # PHP of www next to the script, with its files
+    www = curfile().sibling('www').to_str()
+    plugin('Mount', {'/': Pyjo.App.FastCGI.new(url='fcgi://127.0.0.1:9000', document_root=www, static=True)})
+
 .. code-block:: python
 
     # Every path to the one entry of the application
@@ -269,8 +285,9 @@ answers a path, as for ``FastCGI``:
   ``script_extensions`` tells them from the other files, which are not run,
   and which ``static`` replies with.
 
-A program whose name starts with ``nph-`` writes the start line of its
-response, as ``nph`` tells of the others. The event loop reads the pipes of
+The programs are not in the static files of the application, as for
+``FastCGI``, unless ``public_source`` says that it is on purpose. A program
+whose name starts with ``nph-`` writes the start line of its response, as ``nph`` tells of the others. The event loop reads the pipes of
 the process, which it can on POSIX systems, not on Windows.
 
 .. code-block:: python

@@ -102,6 +102,12 @@ app.start()
   files; without them, every page view revalidates every file.
 - The `.gz` and `.br` variants of `CompressedManifestStaticFilesStorage` are
   served to the clients that take them, as the skill `deploy` says.
+- The scripts of CGI, FastCGI and PHP stay out of `app.static.paths`, as in
+  `www/` next to the script, not `public/`, the document root of Laravel and
+  Symfony: the static files would serve their source, so the server does not
+  start with a `document_root` or a `script` in them, unless
+  `public_source=True`. Their own static files come with `static=True`, as
+  `try_files` of nginx.
 
 ## Other applications
 
