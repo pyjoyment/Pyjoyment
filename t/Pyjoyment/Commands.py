@@ -504,6 +504,33 @@ with subtest('generate dockerfile'):
     like_ok(
         app.rel_file('Dockerfile').slurp().decode(), r'(?s)apt-get install.*\nUSER app\n', 'packages installed as root'
     )
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('-c', 'public', '-e', 'gzip', '--compress-encoding', 'br')
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(),
+        r"(?m)^    -exec sh -c 'brotli -k -f -q 11 \"\$@\" \\\n    && gzip -k -f -9 -n \"\$@\"' sh \{\} \+\n",
+        'tools of the encodings, which fail without them',
+    )
+    unlike_ok(app.rel_file('Dockerfile').slurp().decode(), r'command -v|zstd', 'nothing else')
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('-c', 'public', '-e', 'zstd')
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(),
+        r"(?m)^    -exec sh -c 'zstd -q -k -f -19 \"\$@\"' sh \{\} \+\n",
+        'without gzip',
+    )
+    throws_ok(
+        lambda: dockerfile.run('-c', 'public', '-e', 'deflate'),
+        re.compile(r'^Unknown encoding: deflate'),
+        'unknown encoding',
+    )
+    throws_ok(
+        lambda: dockerfile.run('-e', 'gzip'),
+        re.compile(r'^Option --compress-encoding needs --compress'),
+        'encodings without a path',
+    )
     throws_ok(
         lambda: dockerfile.run('-C', '*.css'),
         re.compile(r'^Option --compress-pattern needs --compress'),
@@ -867,6 +894,32 @@ with subtest('generate lambda-zip'):
         like_ok(output, r'\[compress\] public \(br, ', 'brotli of the machine first')
         with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
             is_ok(archive.read('public/app.css.br'), b'br', 'brotli variant')
+        with local(PYJO_EXE=None, PATH=os.pathsep.join([bin.to_str(), os.environ['PATH']])):
+            output, calls = generate('--compress', 'public', '-e', 'gzip', '--compress-encoding', 'br')
+        like_ok(output, r'\[compress\] public \(br, gzip\)', 'encodings of the option, in their order')
+        function = entries('dist/function.zip')
+        ok('public/app.css.br' in function and 'public/app.css.gz' in function, 'variants of the encodings')
+        ok('public/app.css.zst' not in function, 'no variant of another encoding')
+    with local(PYJO_EXE=None):
+        output, calls = generate('--compress', 'public', '-e', 'gzip')
+    like_ok(output, r'\[compress\] public \(gzip\)', 'gzip only')
+    unlike_ok(' '.join(entries('dist/function.zip')), r'\.(?:br|zst)(?: |$)', 'no variant of another encoding')
+    with local(PYJO_EXE=None, PATH=Pyjo.File.tempdir().to_str()):
+        throws_ok(
+            lambda: generate('--compress', 'public', '-e', 'br'),
+            re.compile(r'^No compressor of the encoding br: command "brotli" not found'),
+            'no compressor of an encoding of the option',
+        )
+    throws_ok(
+        lambda: lambda_zip.run('-c', 'public', '-e', 'deflate'),
+        re.compile(r'^Unknown encoding: deflate'),
+        'unknown encoding',
+    )
+    throws_ok(
+        lambda: lambda_zip.run('-e', 'gzip'),
+        re.compile(r'^Option --compress-encoding needs --compress'),
+        'encodings without a path',
+    )
     throws_ok(
         lambda: lambda_zip.run('-C', '*.css'),
         re.compile(r'^Option --compress-pattern needs --compress'),

@@ -13,29 +13,34 @@ Pyjoyment.Command.Author.generate.lambda_zip - Lambda ZIP generator command
       python -m MyApp generate lambda-zip --runtime python3.14
       python -m MyApp generate lambda-zip --function-only
       python -m MyApp generate lambda-zip --compress public
+      python -m MyApp generate lambda-zip --compress public --compress-encoding br --compress-encoding gzip
 
     Options:
-      -a, --arch <name>               Architecture of the function, "arm64" or
-                                      "x86_64", defaults to "x86_64"
-      -c, --compress <path>           Write the variants of gzip, and of brotli
-                                      and zstd if the machine has them, of the
-                                      static files of a directory in the
-                                      function, can be repeated
-      -C, --compress-pattern <glob>   Name of the files that --compress
-                                      compresses, can be repeated, defaults to
-                                      the formats of text
-          --function-only             Only the ZIP of the function, for layers of
-                                      Python and Pyjoyment that are published
-                                      already
-      -h, --help                      Show this summary of available options
-          --no-layer                  Put Python and Pyjoyment into the ZIP of
-                                      the function, without layers
-      -p, --python <version>          Version of Python, as "3.14" or "3.15t" for
-                                      the free-threaded build, defaults to the
-                                      version that runs the generator
-      -r, --runtime <name>            Runtime of the function, "provided.al2023"
-                                      or one of Python, as "python3.14", defaults
-                                      to "provided.al2023"
+      -a, --arch <name>                Architecture of the function, "arm64" or
+                                       "x86_64", defaults to "x86_64"
+      -c, --compress <path>            Write the variants of gzip, and of brotli
+                                       and zstd if the machine has them, of the
+                                       static files of a directory in the
+                                       function, can be repeated
+      -C, --compress-pattern <glob>    Name of the files that --compress
+                                       compresses, can be repeated, defaults to
+                                       the formats of text
+      -e, --compress-encoding <name>   Encoding of the variants that --compress
+                                       writes, "br", "zstd" or "gzip", can be
+                                       repeated, defaults to the ones that the
+                                       machine has
+          --function-only              Only the ZIP of the function, for layers
+                                       of Python and Pyjoyment that are published
+                                       already
+      -h, --help                       Show this summary of available options
+          --no-layer                   Put Python and Pyjoyment into the ZIP of
+                                       the function, without layers
+      -p, --python <version>           Version of Python, as "3.14" or "3.15t"
+                                       for the free-threaded build, defaults to
+                                       the version that runs the generator
+      -r, --runtime <name>             Runtime of the function, "provided.al2023"
+                                       or one of Python, as "python3.14",
+                                       defaults to "provided.al2023"
 
 :mod:`Pyjoyment.Command.Author.generate.lambda_zip` generates the ZIP files
 of an event function of AWS Lambda on a custom runtime, as
@@ -107,6 +112,10 @@ of ``generate dockerfile``, the formats of text, or the names of
 ``--compress-pattern``, and leaves out the files smaller than
 :attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.min_compress_size` of the
 renderer.
+With ``--compress-encoding``, it writes the variants of those encodings only,
+as ``br`` and ``gzip`` for a function behind CloudFront, which forwards no
+other encoding of ``Accept-Encoding`` to the origin, and fails when the
+machine has no compressor of one of them.
 
 With ``--function-only``, the generator writes ``function.zip`` alone, for
 the layers of Python and of Pyjoyment that are published already, as the
@@ -237,6 +246,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                 'a|arch=s': None,
                 'c|compress=s@': None,
                 'C|compress-pattern=s@': None,
+                'e|compress-encoding=s@': None,
                 'function-only': None,
                 'no-layer': None,
                 'p|python=s': None,
@@ -269,6 +279,18 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
         )
         if opts.compress_pattern and not compress:
             raise Pyjo.Exception.new('Option --compress-pattern needs --compress')
+        encodings: list[str] = opts.compress_encoding or []
+        if encodings and not compress:
+            raise Pyjo.Exception.new('Option --compress-encoding needs --compress')
+        if unknown := [e for e in encodings if e not in _TOOLS]:
+            raise Pyjo.Exception.new(f'Unknown encoding: {unknown[0]}')
+        # The compressors of the encodings of the option, which fail before the build without them, or all that the
+        # machine has
+        compressors = _compressors() if compress else []
+        if missing := [e for e in encodings if e not in [c[0] for c in compressors]]:
+            raise Pyjo.Exception.new(f'No compressor of the encoding {missing[0]}: {_TOOLS[missing[0]]} not found')
+        if encodings:
+            compressors = [c for c in compressors if c[0] in encodings]
 
         # The script of Pyjoyment.Lite or the package of the application, and the dependencies of the inline metadata of
         # PEP 723 of the script, if it has them and there is no pyproject.toml, as generate dockerfile has them
@@ -352,7 +374,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                             executables.add(name)
             # The variants of the static files, which Pyjoyment.Static serves
             if compress:
-                encodings = _compress(function, compress, patterns, self.app.renderer.min_compress_size)
+                encodings = _compress(function, compress, patterns, self.app.renderer.min_compress_size, compressors)
                 self._loud(f'  [compress] {", ".join(compress)} ({", ".join(encodings)})')
             if not managed:
                 executable = f'{prefix}/bin/{interpreter}' if layer else f'"$LAMBDA_TASK_ROOT/python/bin/{interpreter}"'
@@ -418,10 +440,22 @@ def _python(home: Pyjo.File.object, python: Pyjo.File.object, prefix: str) -> st
     return interpreter
 
 
+# The encoding, the extension of its variants and the function that writes the variant of a file
+type _Compressor = tuple[str, str, Callable[[str], Any]]
+
+# The compressors of the encodings, for the message of one that the machine does not have
+_TOOLS = {
+    'br': 'command "brotli"',
+    'zstd': 'module compression.zstd of Python 3.14 or command "zstd"',
+    'gzip': 'module gzip',
+}
+
+
 # The variants of the static files of the directories of the application, of the formats of the patterns and of at
-# least the size, with the compressors that the machine has, without a variant that is not smaller than its file
-def _compress(function: Pyjo.File.object, paths: list[str], patterns: list[str], size: int) -> list[str]:
-    compressors = _compressors()
+# least the size, with the compressors, without a variant that is not smaller than its file
+def _compress(
+    function: Pyjo.File.object, paths: list[str], patterns: list[str], size: int, compressors: list[_Compressor]
+) -> list[str]:
     for path in paths:
         parts = [p for p in re.split(r'[\\/]', path) if p not in ('', '.')]
         if os.path.isabs(path) or '..' in parts or not function.child(*parts).is_dir:
@@ -440,8 +474,8 @@ def _compress(function: Pyjo.File.object, paths: list[str], patterns: list[str],
 # The compressors of the encodings of Pyjoyment.Static, in its order: brotli of its command, zstd of the standard
 # library of Python 3.14 or of its command, and gzip of the standard library, without the time of the file, as gzip -n,
 # so that the same files give the same ZIP
-def _compressors() -> list[tuple[str, str, Callable[[str], Any]]]:
-    compressors: list[tuple[str, str, Callable[[str], Any]]] = []
+def _compressors() -> list[_Compressor]:
+    compressors: list[_Compressor] = []
     if brotli := shutil.which('brotli'):
         compressors.append(('br', '.br', lambda f: subprocess.run([brotli, '-k', '-f', '-q', '11', f], check=True)))
     # The module of Python 3.14, which pyright of Python 3.12 does not know, and which a build without libzstd lacks

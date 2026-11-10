@@ -67,6 +67,7 @@ with subtest('Options of the servers'):
         like_ok(stdout, re.escape(option), option)
     stdout, status = run('app.py', 'generate', 'lambda-zip', '--help')
     like_ok(stdout, re.escape('-c, --compress'), '-c, --compress of lambda-zip')
+    like_ok(stdout, re.escape('-e, --compress-encoding'), '-e, --compress-encoding of lambda-zip')
 
 with subtest('Precompressed static files'):
     skill = Skills.read('deploy')

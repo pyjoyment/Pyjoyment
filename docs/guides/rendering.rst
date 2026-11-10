@@ -599,6 +599,20 @@ browsers, there is no need to restart your application.
     $ pyjo-reload -x 'npx rollup -c -w' ./myapp.py
     $ pyjo-reload -x 'npx vite build --watch' ./myapp.py
 
+For production you just run the bundler once before deploying your
+application, with ``PYJO_MODE`` set accordingly.
+
+.. code-block:: console
+
+    $ PYJO_MODE=production npx webpack
+
+Everything else is up to your bundler of choice, so you need to consult its
+documentation for further information. And where you keep your asset
+sources, such as ``.vue`` and ``.jsx`` files, is not important, as long as
+your bundler can find them. Using a directory named ``assets`` or
+``frontend`` in your application root directory is a good best practice
+though.
+
 Static files are served with ``Last-Modified`` and ``ETag`` headers, so that
 browsers revalidate them, and with the ``Cache-Control`` header of
 :attr:`~Pyjoyment.Static.Pyjoyment_Static.cache_control` if you set one. The
@@ -678,19 +692,13 @@ machine that builds it.
 
     $ ./myapp.py generate lambda-zip --compress public
 
-For production you just run the bundler once before deploying your
-application, with ``PYJO_MODE`` set accordingly.
+With ``--compress-encoding``, both generators write the variants of the
+encodings that the clients get only, as ``br`` and ``gzip`` behind CloudFront,
+which forwards no other encoding of ``Accept-Encoding`` to the application.
 
 .. code-block:: console
 
-    $ PYJO_MODE=production npx webpack
-
-Everything else is up to your bundler of choice, so you need to consult its
-documentation for further information. And where you keep your asset
-sources, such as ``.vue`` and ``.jsx`` files, is not important, as long as
-your bundler can find them. Using a directory named ``assets`` or
-``frontend`` in your application root directory is a good best practice
-though.
+    $ ./myapp.py generate lambda-zip --compress public --compress-encoding br --compress-encoding gzip
 
 Content negotiation
 ~~~~~~~~~~~~~~~~~~~

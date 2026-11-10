@@ -99,6 +99,23 @@ with subtest('Synopsis'):
     generate(tmp, '--compress', 'public')
     ok('public/app.css.gz' in names(tmp.child('dist', 'function.zip')), 'variants')
 
+    # python -m MyApp generate lambda-zip --compress public --compress-encoding br --compress-encoding gzip
+    if os.name == 'nt':
+        skip('Windows runs no script of a shell as a command', 2)
+    else:
+        bin = Pyjo.File.tempdir()
+        bin.child('brotli').spew('#!/bin/sh\nfor f; do case $f in -*|11) ;; *) printf br >"$f.br" ;; esac; done\n')
+        os.chmod(bin.child('brotli'), 0o755)
+        path = os.environ['PATH']
+        os.environ['PATH'] = os.pathsep.join([bin.to_str(), path])
+        try:
+            generate(tmp, '--compress', 'public', '--compress-encoding', 'br', '--compress-encoding', 'gzip')
+        finally:
+            os.environ['PATH'] = path
+        function = names(tmp.child('dist', 'function.zip'))
+        ok('public/app.css.br' in function and 'public/app.css.gz' in function, 'encodings')
+        ok('public/app.css.zst' not in function, 'no other encoding')
+
     # ./myapp.py generate lambda-zip
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')
