@@ -161,11 +161,10 @@ import Pyjoyment.Command.Author.generate.dockerfile
 
 from Pyjo.Util import extract_usage, getopt
 
-import csv
-import email.parser
 import fnmatch
 import gzip
 import importlib
+import importlib.metadata
 import importlib.util
 import os
 import re
@@ -364,10 +363,11 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                 for name in layered:
                     if (distribution := distributions.get(_normalize(name))) is None:
                         raise Pyjo.Exception.new(f'{name} is not among the dependencies')
-                    _move(deps, site, distribution[2])
-                    # The version of the distribution, which a layer that is published already is to have
+                    # The version of the distribution, which a layer that is published already is to have, before
+                    # its metadata goes to the layer
                     if only:
-                        self._loud(f'  [layer] {distribution[0]} {distribution[1]} for Python {interpreter[6:]}')
+                        self._loud(f'  [layer] {distribution.name} {distribution.version} for Python {interpreter[6:]}')
+                    _move(deps, site, distribution)
             if deps.is_dir:
                 top = os.fspath(deps)
                 shutil.copytree(
@@ -516,27 +516,23 @@ def _compressors() -> list[_Compressor]:
     return compressors
 
 
-# The distributions of a directory by their normalized names, with their names, versions and directories of metadata
-def _distributions(dir: Pyjo.File.object) -> dict[str, tuple[str, str, str]]:
-    result: dict[str, tuple[str, str, str]] = {}
-    for name in sorted(os.listdir(dir)) if dir.is_dir else []:
-        if name.endswith('.dist-info') and (metadata := dir.child(name, 'METADATA')).is_file:
-            with open(metadata, encoding='utf-8') as file:
-                headers = email.parser.HeaderParser().parse(file)
-            result[_normalize(headers['Name'])] = (headers['Name'], headers['Version'], name)
-    return result
+# The distributions of a directory by their normalized names
+def _distributions(dir: Pyjo.File.object) -> dict[str, importlib.metadata.Distribution]:
+    if not dir.is_dir:
+        return {}
+    return {_normalize(d.name): d for d in importlib.metadata.distributions(path=[dir.to_str()])}
 
 
 # The files of a distribution, which its RECORD names, from a directory to another one, without its scripts, and the
 # directories that it leaves empty, so that a distribution of the same namespace, as Pyjo, stays where it is
-def _move(source: Pyjo.File.object, destination: Pyjo.File.object, metadata: str) -> None:
-    with open(source.child(metadata, 'RECORD'), newline='', encoding='utf-8') as file:
-        paths = [row[0].split('/') for row in csv.reader(file) if row]
-    for parts in paths:
-        if parts[0] in ('..', 'bin') or os.path.isabs(parts[0]) or not (file := source.child(*parts)).is_file:
+def _move(
+    source: Pyjo.File.object, destination: Pyjo.File.object, distribution: importlib.metadata.Distribution
+) -> None:
+    for path in distribution.files or []:
+        if path.is_absolute() or path.parts[0] in ('..', 'bin') or not (file := source.child(*path.parts)).is_file:
             continue
-        destination.child(*parts).dirname().make_path()
-        shutil.move(file.to_str(), destination.child(*parts).to_str())
+        destination.child(*path.parts).dirname().make_path()
+        shutil.move(file.to_str(), destination.child(*path.parts).to_str())
     for dir, _, _ in sorted(os.walk(source), reverse=True):
         if dir != os.fspath(source) and not os.listdir(dir):
             os.rmdir(dir)
