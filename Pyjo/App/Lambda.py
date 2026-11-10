@@ -39,7 +39,10 @@ starts its own. The process gets its invocations from the `Runtime API
 the loopback serves on the same event loop, so that a handler of Python runs
 with the runtime client of :mod:`Pyjo.Server.Lambda`, also one that runs an
 event loop of its own, and a function of another runtime with its own runtime
-client, without the event loop waiting for it.
+client, without the event loop waiting for it. The graceful stop of the event
+loop, as the one of ``TERM`` of a server, ends the process once it has
+answered the invocations of the requests in progress, as its request for the
+next invocation would keep the event loop running.
 
 The request is the event of the payload format of :attr:`payload`, as
 :mod:`Pyjo.Server.Lambda` takes it, and the path that a route embeds the
@@ -514,6 +517,7 @@ class _Invocation:
 class _Environment:
     def __init__(self, app: Pyjo_App_Lambda) -> None:
         self.app = app
+        self.closing = False
         self.current: _Invocation | None = None
         self.ended = False
         self.failed = False
@@ -528,6 +532,20 @@ class _Environment:
         self.daemon = Pyjo.Server.Daemon.new(
             app=api, listen=['http://127.0.0.1'], silent=True, inactivity_timeout=0
         ).start()
+
+        # The graceful stop of the event loop waits for the connections of the Runtime API too, as the one of the runtime
+        # client that waits for its next invocation, so the environment ends once it has no invocation, also when it
+        # starts while the event loop stops
+        ref = weakref.ref(self)
+        loop = self.daemon.ioloop
+        self.stopping = loop.is_stopping
+
+        def finish(loop: Any) -> None:
+            if (environment := ref()) is not None:
+                environment.stopping = True
+                environment.dispatch()
+
+        self.finished = loop.once('finish', finish)
 
         # The variables of Lambda, of the runtime client of Pyjo.Server.Lambda without a command, and of the attribute
         root: str = os.path.abspath(os.fspath(app.task_root)) if app.task_root is not None else os.getcwd()
@@ -552,7 +570,6 @@ class _Environment:
             env['PYTHONPATH'] = os.pathsep.join([checkout, *filter(None, [env.get('PYTHONPATH')])])
         env.update(app.env)
 
-        ref = weakref.ref(self)
         self.child = child = Pyjo.IOLoop.spawn(command, cwd=root, detached=True, env=env)
         for stream, log in ((child.stdout, app.log.info), (child.stderr, app.log.warn)):
             if stream is not None:
@@ -583,6 +600,8 @@ class _Environment:
 
     # The invocation for the runtime client that waits for it
     def dispatch(self) -> None:
+        if self.stopping and self.current is None and not self.queue:
+            return self._close_later()
         if self.current is not None or not self.queue or (tx := self.next) is None:
             return
         self.next = None
@@ -620,6 +639,7 @@ class _Environment:
             invocation.fail(message)
         queue, self.queue = list(self.queue), deque()
         if first:
+            self.daemon.ioloop.unsubscribe('finish', self.finished)
             self.child.kill(signal.SIGKILL)
             self.daemon.close()
         if failed:
@@ -648,6 +668,7 @@ class _Environment:
     def leave(self) -> None:
         self.ended = True
         self._stop()
+        self.daemon.ioloop.unsubscribe('finish', self.finished)
         self.daemon.close()
 
     def response(self, id: str, body: bytes) -> None:
@@ -683,6 +704,22 @@ class _Environment:
 
         tx.on('finish', finish)
         self.dispatch()
+
+    # The end of an environment without an invocation while the event loop stops, in the next cycle of the event loop,
+    # as the request of the Runtime API that has made it so is still answered
+    def _close_later(self) -> None:
+        if self.ended or self.closing:
+            return
+        self.closing = True
+        ref = weakref.ref(self)
+
+        def close(loop: Any) -> None:
+            if (environment := ref()) is not None:
+                environment.closing = False
+                if environment.current is None and not environment.queue:
+                    environment.close()
+
+        self.daemon.ioloop.timer(0, close)
 
     def _stop(self) -> None:
         if (timer := self.timer) is not None:
