@@ -54,8 +54,8 @@ With :attr:`~Pyjo_Log.json`, or the ``PYJO_LOG_FORMAT`` environment variable
 set to ``json``, which the option ``--log-format`` of the commands of
 :mod:`Pyjoyment.Commands` sets, every message is a line of JSON, with the
 fields that log collectors, as
-Cloud Logging, Datadog and Elastic, recognize: ``time`` in UTC, as of
-:rfc:`3339`, ``level``, ``severity`` with the names of Cloud Logging and
+Cloud Logging, Datadog and Elastic, recognize: ``time`` in UTC, or in the
+time zone of :attr:`~Pyjo_Log.tz`, as of :rfc:`3339`, ``level``, ``severity`` with the names of Cloud Logging and
 syslog, ``message``, ``pid``, and the fields of the message and its context,
 as :class:`Field` objects. A message of several lines, as a traceback, stays
 one line of JSON. ::
@@ -71,6 +71,28 @@ message has its level only, without the time and the process, for a log that
 adds its own time to each line, as the one of GitHub Actions. ::
 
     [info] Disk is 95% full
+
+Files of a period
+-----------------
+
+A :attr:`~Pyjo_Log.path` with the directives of :func:`time.strftime` is the
+pattern of the name of the file, which the log takes anew for each message,
+and opens the file of the new name when it changes, as at midnight for
+``%Y-%m-%d``. The time is the local one, of the ``TZ`` environment variable,
+or of the time zone of :attr:`~Pyjo_Log.tz`, and ``%z`` puts its offset into
+the name. ``%%``
+is a percent sign. Each process of the workers of a server takes the same
+name, and appends to the file of the period. The files of the periods that
+have passed stay, for a job or a lifecycle of the storage to remove them. ::
+
+    # A file of each day
+    log = Pyjo.Log.new(path='/var/log/myapp/%Y-%m-%d.log')
+
+    # A file of each hour, with the offset of the time zone
+    log = Pyjo.Log.new(path='/var/log/myapp/%Y-%m-%dT%H%z.log')
+
+    # A file of each day in UTC
+    log = Pyjo.Log.new(path='/var/log/myapp/%Y-%m-%d.log', tz='UTC')
 
 The logging module
 ------------------
@@ -103,12 +125,14 @@ import Pyjo.File
 
 import builtins
 import datetime
+import functools
 import json
 import logging
 import os
 import sys
 import time
 import weakref
+import zoneinfo
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from types import TracebackType
@@ -162,6 +186,7 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
         path: str | os.PathLike[str] | None = None,
         plain: bool | None = None,
         short: bool | None = None,
+        tz: str | datetime.tzinfo | None = None,
     ) -> None:
         """::
 
@@ -212,8 +237,12 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
             path = log.path
             log.path = '/var/log/pyjo.log'
 
-        Log file path used by :attr:`handle`.
+        Log file path used by :attr:`handle`, or the pattern of its name with
+        the directives of :func:`time.strftime`, see `Files of a period`_.
         """
+
+        self._tz = tz
+        self._default_format = False
 
         self._plain: bool | None = plain
         self._short: bool | None = short
@@ -223,6 +252,7 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
         self._format = format
         self._handle = handle
         self._finalizer: weakref.finalize[[], Any] | None = None
+        self._opened: str | None = None
         self._parent: Pyjo_Log | None = None
 
         self.on('message', _message)
@@ -318,6 +348,31 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
     def short(self, value: bool) -> None:
         self._short = value
 
+    # Not in Mojolicious: the time zone of the time of the messages and of the name of the file of path
+    @property
+    def tz(self) -> str | datetime.tzinfo | None:
+        """::
+
+            tz = log.tz
+            log.tz = 'UTC'
+            log.tz = 'Europe/Warsaw'
+
+        Time zone of the time of the messages of the default formats, and of
+        the name of the file of a pattern of :attr:`path`, see
+        `Files of a period`_, ``UTC``, a name of the IANA time zone database,
+        which :mod:`zoneinfo` takes from the system, or from the package
+        ``tzdata`` on Windows, or a :class:`datetime.tzinfo`, defaults to
+        the local time, and to UTC for `JSON`_.
+        """
+        return self._tz
+
+    @tz.setter
+    def tz(self, value: str | datetime.tzinfo | None) -> None:
+        self._tz = value
+        # The default format of the time zone, which a format of its own keeps
+        if self._default_format:
+            self._format = None
+
     @property
     def format(self) -> Format:
         """::
@@ -330,22 +385,26 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
             log.format = lambda time, level, *lines: '[2018-11-08 14:20:13.77168] [28320] [info] I ♥ Pyjoyment\\n'
         """
         if self._format is None:
+            # Not in Mojolicious: the time of the message in the time zone of tz
+            zone = _zone(self.tz)
             self._format = (
-                _json
+                functools.partial(_json, tz=zone)
                 if self.json
                 else _plain
                 if self.plain
                 else _short
                 if self.short
-                else _color
+                else functools.partial(_color, tz=zone)
                 if self.color
-                else _default
+                else functools.partial(_default, tz=zone)
             )
+            self._default_format = True
         return self._format
 
     @format.setter
     def format(self, value: Format) -> None:
         self._format = value
+        self._default_format = False
 
     @property
     def handle(self) -> IO[str] | None:
@@ -363,7 +422,9 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
             if path is None:
                 self._handle = sys.stderr
             else:
-                handle = self._handle = Pyjo.File.new(path).open('a', encoding='UTF-8')
+                # Not in Mojolicious: the name of the file of the period of a pattern
+                self._opened = name = self._name(path)
+                handle = self._handle = Pyjo.File.new(name).open('a', encoding='UTF-8')
 
                 # Not in Mojolicious: the file is closed with the object, as Perl closes it with the last reference
                 self._finalizer = weakref.finalize(self, handle.close)
@@ -372,6 +433,16 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
     @handle.setter
     def handle(self, value: IO[str] | None) -> None:
         self._handle = value
+
+    # Not in Mojolicious: the name of the file of a pattern of path, in the local time or of the time zone, and the path as
+    # it is
+    def _name(self, path: str | os.PathLike[str]) -> str:
+        path = os.fspath(path)
+        if '%' not in path:
+            return path
+        if (zone := _zone(self.tz)) is None:
+            return time.strftime(path)
+        return datetime.datetime.now(zone).strftime(path)
 
     def _release(self) -> None:
         # The file that the log opened for path, which it opens again when it is used again
@@ -387,6 +458,9 @@ class Pyjo_Log(Pyjo.EventEmitter.object):
 
         Append message to :attr:`handle`.
         """
+        # Not in Mojolicious: a file of the next period of a pattern of path
+        if self._finalizer is not None and (path := self.path) is not None and self._name(path) != self._opened:
+            self._release()
         if (handle := self.handle) is None:
             return
         fd = _fileno(handle)
@@ -679,13 +753,13 @@ class Handler(logging.Handler):
             self.handleError(record)
 
 
-def _color(time: float, level: str, *lines: Any) -> str:
-    msg = _default(time, level, *lines)
+def _color(time: float, level: str, *lines: Any, tz: datetime.tzinfo | None = None) -> str:
+    msg = _default(time, level, *lines, tz=tz)
     return f'\x1b[{COLORS[level]}m{msg}\x1b[0m' if level in COLORS else msg
 
 
-def _default(time_: float, level: str, *lines: Any) -> str:
-    t = time.localtime(time_)
+def _default(time_: float, level: str, *lines: Any, tz: datetime.tzinfo | None = None) -> str:
+    t = time.localtime(time_) if tz is None else datetime.datetime.fromtimestamp(time_, tz).timetuple()
     # The fraction of the seconds is the one of the time as a string
     fraction = str(time_).split('.')[1] if '.' in str(time_) else '0'
     seconds = float(f'{t.tm_sec}.{fraction}')
@@ -713,10 +787,10 @@ def _flock(fd: int | None, lock: bool) -> None:
 
 
 # The closest level of Pyjo.Log for a level of the logging module
-def _json(time_: float, level: str, *lines: Any) -> str:
-    timestamp = datetime.datetime.fromtimestamp(time_, datetime.UTC).isoformat(timespec='microseconds')
+def _json(time_: float, level: str, *lines: Any, tz: datetime.tzinfo | None = None) -> str:
+    timestamp = datetime.datetime.fromtimestamp(time_, tz or datetime.UTC).isoformat(timespec='microseconds')
     record: dict[str, Any] = {
-        'time': timestamp.removesuffix('+00:00') + 'Z',
+        'time': timestamp.removesuffix('+00:00') + 'Z' if timestamp.endswith('+00:00') else timestamp,
         'level': level,
         'severity': SEVERITY[level],
         'message': ' '.join(str(line) for line in lines if not isinstance(line, Field)),
@@ -760,6 +834,13 @@ def _plain(time: float, level: str, *lines: Any) -> str:
 def _short(time: float, level: str, *lines: Any) -> str:
     magic, short = f'<{MAGIC[level]}>', level[0]
     return f'{magic}[{os.getpid()}] [{short}] {" ".join(map(str, lines))}\n'
+
+
+def _zone(tz: str | datetime.tzinfo | None) -> datetime.tzinfo | None:
+    # The time zone of tz, of its name or itself
+    if tz is None or isinstance(tz, datetime.tzinfo):
+        return tz
+    return datetime.UTC if tz == 'UTC' else zoneinfo.ZoneInfo(tz)
 
 
 new = Pyjo_Log.new

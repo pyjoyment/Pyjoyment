@@ -6,10 +6,12 @@ from Pyjo.Test import *
 from Pyjo.Util import decode
 
 import contextlib
+import datetime
 import io
 import json
 import os
 import time
+import zoneinfo
 
 
 def eval_(cb):
@@ -36,6 +38,97 @@ with subtest('Logging to file'):
     like_ok(content, r'\[.*\] \[\d+\] \[error\] This too', 'right error message')
     unlike_ok(content, r'\[.*\] \[\d+\] \[debug\] Does not work', 'no debug message')
     unlike_ok(content, r'\[.*\] \[\d+\] \[debug\] And this too\n', 'right debug message')
+
+# Not in Mojolicious: the files of a period of a pattern of path
+with subtest('Files of a period'):
+    now = [time.struct_time((2026, 11, 10, 23, 59, 59, 1, 314, 0))]
+    strftime = time.strftime
+    time.strftime = lambda format, t=None: strftime(format, now[0] if t is None else t)
+    try:
+        log = Pyjo.Log.new(path=dir.child('%Y-%m-%d.log').to_str())
+        log.error('First day')
+        first = log.handle
+        log.error('First day again')
+        ok(log.handle is first, 'same file')
+        now[0] = time.struct_time((2026, 11, 11, 0, 0, 0, 2, 315, 0))
+        log.error('Second day')
+        ok(log.handle is not first, 'new file')
+        ok(first.closed, 'file of the first day closed')
+        log.close()
+        log.error('Second day after close')
+        log.close()
+        is_ok(decode('UTF-8', dir.child('2026-11-10.log').slurp()).count('First day'), 2, 'messages of the first day')
+        content = decode('UTF-8', dir.child('2026-11-11.log').slurp())
+        like_ok(
+            content, r'\[error\] Second day\r?\n.*\[error\] Second day after close\r?\n$', 'messages of the second day'
+        )
+        unlike_ok(content, r'First day', 'no messages of the first day')
+
+        log = Pyjo.Log.new(path=dir.child('100%%-%Y.log').to_str())
+        log.error('Percent')
+        log.close()
+        like_ok(decode('UTF-8', dir.child('100%-2026.log').slurp()), r'Percent', 'percent sign')
+    finally:
+        time.strftime = strftime
+
+    if not hasattr(time, 'tzset'):
+        skip('time.tzset is not on Windows', 1)
+    else:
+        tz = os.environ.get('TZ')
+        os.environ['TZ'] = 'UTC'
+        time.tzset()
+        try:
+            log = Pyjo.Log.new(path=dir.child('tz-%z.log').to_str())
+            log.error('UTC')
+            log.close()
+            like_ok(decode('UTF-8', dir.child('tz-+0000.log').slurp()), r'UTC', 'TZ of UTC')
+        finally:
+            if tz is None:
+                del os.environ['TZ']
+            else:
+                os.environ['TZ'] = tz
+            time.tzset()
+
+    log = Pyjo.Log.new(path=dir.child('utc-%z.log').to_str(), tz='UTC')
+    log.error('UTC of tz')
+    log.close()
+    like_ok(decode('UTF-8', dir.child('utc-+0000.log').slurp()), r'UTC of tz', 'tz of UTC')
+    log = Pyjo.Log.new(path=dir.child('offset-%z.log').to_str(), tz=datetime.timezone(datetime.timedelta(hours=2)))
+    log.error('Offset')
+    log.close()
+    like_ok(decode('UTF-8', dir.child('offset-+0200.log').slurp()), r'Offset', 'tz of tzinfo')
+    try:
+        zone = zoneinfo.ZoneInfo('Asia/Kolkata')
+    except zoneinfo.ZoneInfoNotFoundError:
+        skip('no time zone database, as on Windows without tzdata', 1)
+    else:
+        log = Pyjo.Log.new(path=dir.child('kolkata-%z.log').to_str(), tz='Asia/Kolkata')
+        log.error('Kolkata')
+        log.close()
+        like_ok(decode('UTF-8', dir.child('kolkata-+0530.log').slurp()), r'Kolkata', 'tz of a name')
+    throws_ok(
+        lambda: Pyjo.Log.new(path=dir.child('%Y.log').to_str(), tz='Nowhere/Nothing').error('x'),
+        zoneinfo.ZoneInfoNotFoundError,
+        'unknown time zone',
+    )
+
+# Not in Mojolicious: the time of the messages in a time zone
+with subtest('Time zone'):
+    log = Pyjo.Log.new(tz='UTC', color=False, json=False, plain=False, short=False)
+    like_ok(log.format(1760861742.12345, 'info', 'x'), r'^\[2025-10-19 08:15:42\.12345\] ', 'default format in UTC')
+    log.tz = datetime.timezone(datetime.timedelta(hours=2))
+    like_ok(log.format(1760861742.12345, 'info', 'x'), r'^\[2025-10-19 10:15:42\.12345\] ', 'format again')
+    log = Pyjo.Log.new(tz='UTC', color=True)
+    like_ok(log.format(1760861742.12345, 'info', 'x'), r'\[2025-10-19 08:15:42\.12345\] ', 'color in UTC')
+    log = Pyjo.Log.new(json=True)
+    is_ok(json.loads(log.format(1760861742.12345, 'info', 'x'))['time'], '2025-10-19T08:15:42.123450Z', 'JSON in UTC')
+    log.tz = datetime.timezone(datetime.timedelta(hours=-3, minutes=-30))
+    is_ok(json.loads(log.format(1760861742.12345, 'info', 'x'))['time'], '2025-10-19T04:45:42.123450-03:30', 'offset')
+    log.tz = 'UTC'
+    is_ok(json.loads(log.format(1760861742.12345, 'info', 'x'))['time'], '2025-10-19T08:15:42.123450Z', 'JSON of tz')
+    log = Pyjo.Log.new(format=lambda time, level, *lines: 'own\n')
+    log.tz = 'UTC'
+    is_ok(log.format(0, 'info', 'x'), 'own\n', 'format of its own kept')
 
 with subtest('Logging to STDERR'):
     log = Pyjo.Log.new(level='error', path=path_)
