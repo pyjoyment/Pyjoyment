@@ -2,6 +2,7 @@ from Pyjo.File import tempdir
 from Pyjo.Test import *
 
 import contextlib
+import datetime
 import io
 import json
 import logging
@@ -82,6 +83,26 @@ with subtest('JSON'):
         'severities',
     )
 
+with subtest('Files of a period'):
+    # A file of each day
+    log = Pyjo.Log.new(path=dir.child('%Y-%m-%d.log').to_str())
+    log.error('Of today')
+    log.close()
+    like_ok(dir.child(time.strftime('%Y-%m-%d.log')).slurp().decode(), r'\[error\] Of today\n$', 'file of the day')
+
+    # A file of each hour, with the offset of the time zone
+    log = Pyjo.Log.new(path=dir.child('%Y-%m-%dT%H%z.log').to_str())
+    log.error('Of this hour')
+    log.close()
+    like_ok(dir.child(time.strftime('%Y-%m-%dT%H%z.log')).slurp().decode(), r'Of this hour\n$', 'file of the hour')
+
+    # A file of each day in UTC
+    log = Pyjo.Log.new(path=dir.child('utc-%Y-%m-%d.log').to_str(), tz='UTC')
+    log.error('Of the day in UTC')
+    log.close()
+    name = datetime.datetime.now(datetime.UTC).strftime('utc-%Y-%m-%d.log')
+    like_ok(dir.child(name).slurp().decode(), r'Of the day in UTC\n$', 'file of the day in UTC')
+
 with subtest('The logging module'):
     log = Pyjo.Log.new(handle=None)
     logger = logging.getLogger('t.docs.Log')
@@ -154,6 +175,15 @@ with subtest('short'):
     is_ok(boolean, False, 'default')
     log.short = True
     like_ok(log.format(time.time(), 'info', 'Short'), r'^<5>\[\d+\] \[i\] Short\n$', 'short')
+
+with subtest('tz'):
+    log = Pyjo.Log.new()
+    tz = log.tz
+    is_ok(tz, None, 'default')
+    log.tz = 'UTC'
+    is_ok(log.tz, 'UTC', 'UTC')
+    log.tz = 'Europe/Warsaw'
+    is_ok(log.tz, 'Europe/Warsaw', 'name')
 
 with subtest('append'):
     log = Pyjo.Log.new(handle=io.StringIO())
