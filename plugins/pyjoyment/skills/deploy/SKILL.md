@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops and the Health plugin for probes, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
+description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops, the Health plugin for probes and the AccessLog plugin for the access log of the requests, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
 ---
 
 # Deployment
@@ -61,6 +61,34 @@ python app.py daemon -l 'https://*:443?cert=./server.crt&key=./server.key'
   away first; QUIT stops at once, and HUP restarts the workers of `prefork`.
 - `-c` limits the connections of a worker, `-c 1` serves one request at a
   time, for an application whose code blocks.
+
+## Access log
+
+The servers write no access log of their own: the log of the application has
+the requests only on the level `trace`. `plugin('AccessLog')` writes one line
+for each response, of the routes, the static files, the mounted applications
+and the `404` of the router, to the standard output, in the combined format of
+Apache and nginx, which a container, Kubernetes and log analyzers take:
+
+```text
+203.0.113.7 - - [06/Nov/2026:09:42:28 +0000] "GET / HTTP/1.1" 200 39676 "-" "Mozilla/5.0 ..."
+```
+
+- `PYJO_LOG_FORMAT=json` makes the lines JSON, with the fields of the log and
+  `httpRequest`, which Cloud Logging shows as a request; `format='json'` or
+  `format='common'` choose one, and `duration=True` adds the time of the
+  response at the end of a line, as `%(L)s` of gunicorn.
+- The client is the remote address, of `X-Forwarded-For` behind a reverse
+  proxy with `-p`; a gateway that sets a header of its own, as Istio, takes
+  `plugin('AccessLog', client='X-Envoy-External-Address')`.
+- The probes of the plugin Health are left out; `exclude=['/metrics']` replaces
+  them with paths, regular expressions or a function of the transaction.
+- `plugin('AccessLog', status=400)` logs the errors only, and
+  `plugin('AccessLog', log=app.log)` writes into the log of the application,
+  in its format, `log='/var/log/myapp/access.log'` into a file.
+- The status `499` is a request whose client closed the connection before the
+  response, `101` the handshake of a WebSocket, and the size of a chunked
+  response is the one of its body as the server wrote it.
 
 ## Containers, Kubernetes and AWS Lambda
 

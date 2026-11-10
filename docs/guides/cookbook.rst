@@ -640,6 +640,36 @@ for.
           myapp:
             condition: service_healthy
 
+Access log
+~~~~~~~~~~
+
+The log of the application has the messages of the application, and the
+requests only on the level ``trace``, which a log of ``production`` leaves
+out. :mod:`Pyjoyment.Plugin.AccessLog` writes the access log of a server of
+production, one line for each response, also of the static files and of the
+mounted applications, to the standard output, which a container collects, in
+the combined format of Apache and nginx, which log analyzers read.
+
+.. code-block:: python
+
+    plugin('AccessLog')
+
+.. code-block:: console
+
+    $ curl http://127.0.0.1:3000/
+    ...
+    127.0.0.1 - - [06/Nov/2026:09:42:28 +0000] "GET / HTTP/1.1" 200 12 "-" "curl/8.7.1"
+
+The probes of :mod:`Pyjoyment.Plugin.Health` are left out. Behind a reverse
+proxy, the client is the one of ``X-Forwarded-For`` with the option ``-p`` of
+the server, or of a header that the gateway sets, and a collector of logs, as
+the one of Cloud Logging, takes lines of JSON, which ``PYJO_LOG_FORMAT=json``
+makes the default, with the request in ``httpRequest``.
+
+.. code-block:: python
+
+    plugin('AccessLog', client='X-Envoy-External-Address', format='json')
+
 Hot deployment
 ~~~~~~~~~~~~~~
 

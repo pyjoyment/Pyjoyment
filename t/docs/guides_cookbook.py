@@ -13,7 +13,7 @@ import Pyjo.UserAgent
 import Pyjoyment
 
 from Pyjo.Test import *
-from Pyjo.Util import md5_sum, url_escape, warn
+from Pyjo.Util import md5_sum, steady_time, url_escape, warn
 
 import atexit
 import contextlib
@@ -217,6 +217,32 @@ with subtest('Health checks'):
         del os.environ['MYAPP_UPLOADS']
         if os.path.isdir(uploads):
             os.rmdir(uploads)
+
+with subtest('Access log'):
+
+    def logged(t, *args):
+        # The output of a request, once the server has written its response and the line after it
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            t.get_ok(*args)
+            deadline = steady_time() + 1
+            while '" ' not in stdout.getvalue() and steady_time() < deadline:
+                Pyjo.IOLoop.timer(0.01, lambda loop: None)
+                Pyjo.IOLoop.one_tick()
+        return stdout.getvalue()
+
+    with cookbook('health') as t:
+        t.app.plugin('AccessLog')
+        output = logged(t, '/', {'User-Agent': 'curl/8.7.1'})
+        like_ok(output, r'127\.0\.0\.1 - - \[.+ \+0000\] "GET / HTTP/1\.1" 200 12 "-" "curl/8\.7\.1"\n', 'line')
+        output = logged(t, '/livez')
+        unlike_ok(output, r'"GET /livez', 'no probes')
+
+    with cookbook('health') as t:
+        t.app.plugin('AccessLog', client='X-Envoy-External-Address', format='json')
+        output = logged(t, '/', {'X-Envoy-External-Address': '203.0.113.7'})
+        record = Pyjo.JSON.decode_json(output.splitlines()[0])
+        is_ok(record['client'], '203.0.113.7', 'client of the gateway')
+        is_ok(record['httpRequest']['remoteIp'], '203.0.113.7', 'request of Cloud Logging')
 
 with subtest('Hot deployment'):
     with cookbook('hot') as t:
