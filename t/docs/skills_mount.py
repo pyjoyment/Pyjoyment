@@ -80,6 +80,7 @@ with subtest('Static files'):
         timeout=60,
     )
     like_ok(p.stdout + p.stderr, r'(?m)^Cache-Control: public, max-age=60\r?$', 'other files')
-    is_ok(get('/favicon.ico'), 'Legacy at  for /favicon.ico', 'favicon of the mounted application')
+    tmp.child('public', 'favicon.ico').spew('favicon of the application')
+    is_ok(get('/favicon.ico'), 'favicon of the application', 'favicon of the paths before the one of Pyjoyment')
 
 done_testing()

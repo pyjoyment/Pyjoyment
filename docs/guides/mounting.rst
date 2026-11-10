@@ -161,15 +161,19 @@ Pyjoyment, as the output of ``collectstatic`` of Django, in the place of
 whitenoise. ``STATIC_URL`` of ``/static/`` maps onto the directory ``static``
 of a directory of :attr:`~Pyjoyment.Static.Pyjoyment_Static.paths`, so the
 path is the parent of ``STATIC_ROOT``, which can also have the files of ``/``,
-as ``robots.txt``, which whitenoise serves from ``WHITENOISE_ROOT``.
+as ``favicon.ico`` and ``robots.txt``, which whitenoise serves from
+``WHITENOISE_ROOT``.
 :attr:`~Pyjoyment.Static.Pyjoyment_Static.prefix` serves a ``STATIC_ROOT``
 of another name, but all the static files of Pyjoyment are then under it.
 
 Pyjoyment serves its own ``/favicon.ico`` and the images of ``/pyjo/``, which
 its exception and not found pages use, from
-:attr:`~Pyjoyment.Static.Pyjoyment_Static.extra`. The plugin leaves the
-``/favicon.ico`` of Pyjoyment out for an application mounted on ``/``, which
-serves its own, and ``app.static.extra = {}`` leaves out the images too.
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.extra`, after the files of
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.paths`, so a ``favicon.ico`` there
+is served in its place. An application that serves its ``/favicon.ico`` from
+a route, or has none, gets the requests of it without the one of Pyjoyment,
+which ``del app.static.extra['favicon.ico']`` removes, and
+``app.static.extra = {}`` leaves out the images too.
 
 The names of ``ManifestStaticFilesStorage`` of Django, as
 ``site.2fcb528ecde1.css``, or of a bundler, have a hash of their content and
@@ -185,7 +189,7 @@ revalidate the other files after a while.
     from pathlib import Path
     from Pyjoyment.Lite import *
 
-    # STATIC_ROOT = BASE_DIR / 'public' / 'static', for STATIC_URL = '/static/'
+    # STATIC_ROOT = BASE_DIR / 'public' / 'static', for STATIC_URL = '/static/', and favicon.ico and robots.txt in public
     BASE_DIR = Path(__file__).resolve().parent
     app.static.paths = [str(BASE_DIR / 'public')]
 
@@ -193,7 +197,7 @@ revalidate the other files after a while.
     app.static.immutable = re.compile(r'^static/.+\.[0-9a-f]{12}\.[^/.]+$')
     app.static.cache_control = 'public, max-age=60'
 
-    # The project of Django, with its own /favicon.ico
+    # The project of Django
     plugin('Mount', {'/': 'legacy:app'})
 
 ``CompressedManifestStaticFilesStorage`` of whitenoise writes the ``.gz`` and

@@ -90,10 +90,12 @@ app.start()
 - `Pyjoyment.Static` serves before the routes, so it can serve the static
   files of the mounted application, in the place of whitenoise: the parent of
   `STATIC_ROOT` in `app.static.paths`, so that `/static/` maps onto it, with
-  the files of `/`, as `robots.txt`, next to it.
-- `Mount` on `/` leaves out the `/favicon.ico` of Pyjoyment, so the mounted
-  application serves its own; the images of `/pyjo/` of the exception pages
-  stay, and `app.static.extra = {}` leaves them out too.
+  the files of `/`, as `favicon.ico` and `robots.txt`, next to it.
+- The `favicon.ico` of `app.static.paths` comes before the one of Pyjoyment in
+  `app.static.extra`, which the mounted application on `/` gets otherwise:
+  `del app.static.extra['favicon.ico']` for one that serves it from a route
+  or has none, and `app.static.extra = {}` without the images of `/pyjo/` of
+  the exception pages too.
 - `app.static.immutable`, a regular expression of the paths of hashed names,
   gives them `Cache-Control: public, max-age=31536000, immutable`, and
   `app.static.cache_control`, a string or a function of `(c, rel)`, the other

@@ -75,12 +75,11 @@ an application of another framework does not get, as its ``SCRIPT_NAME`` or
 the ones of PromQL do, with the rest of it for the application in its group
 ``path``.
 
-The static files of :mod:`Pyjoyment.Static` are served before the routes, so
-an application mounted on ``/`` gets the paths that they have. The plugin
-removes the bundled ``favicon.ico`` of
-:attr:`~Pyjoyment.Static.Pyjoyment_Static.extra` for it, so that the mounted
-application serves its own, and keeps the images of ``/pyjo/``, which the
-exception and not found pages of :mod:`Pyjoyment` use.
+The static files of :mod:`Pyjoyment.Static` are served before the routes, also
+the bundled ``favicon.ico`` of :attr:`~Pyjoyment.Static.Pyjoyment_Static.extra`,
+so an application mounted on ``/`` has its own ``favicon.ico`` in a directory
+of :attr:`~Pyjoyment.Static.Pyjoyment_Static.paths`, which comes first, or
+the bundled one is removed with ``del app.static.extra['favicon.ico']``.
 
 The code of this plugin is a good example for learning to build new plugins,
 you're welcome to fork it.
@@ -173,11 +172,6 @@ class Pyjoyment_Plugin_Mount(Pyjoyment.Plugin.object):
         if m := re.match(r'^(\*\.)?([^/]+)(/.*)?$', path):
             host = re.compile(rf'^(?:.*\.)?{re.escape(m[2])}$' if m[1] else rf'^{re.escape(m[2])}$', re.I)
             path = m[3]
-
-        # Unlike Mojolicious: an application mounted on / has a /favicon.ico of its own, or none, which the bundled one
-        # of Pyjoyment.Static, served before the routes, would hide, where Mojolicious keeps it
-        if path == '/' and host is None:
-            app.static.extra.pop('favicon.ico', None)
 
         route = app.routes.any(path)
         route.partial = True

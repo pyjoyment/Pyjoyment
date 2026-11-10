@@ -83,15 +83,16 @@ with subtest('Static files'):
     static.child('site.2fcb528ecde1.css').spew('body {}\n')
     static.child('site.css').spew('body {}\n')
     BASE_DIR.child('public', 'robots.txt').spew('User-agent: *\n')
+    BASE_DIR.child('public', 'favicon.ico').spew('favicon of the project')
 
-    # STATIC_ROOT = BASE_DIR / 'public' / 'static', for STATIC_URL = '/static/'
+    # STATIC_ROOT = BASE_DIR / 'public' / 'static', for STATIC_URL = '/static/', and favicon.ico and robots.txt in public
     app.static.paths = [str(BASE_DIR.child('public'))]
 
     # The hashed names of ManifestStaticFilesStorage never change, the other files are revalidated after a minute
     app.static.immutable = re.compile(r'^static/.+\.[0-9a-f]{12}\.[^/.]+$')
     app.static.cache_control = 'public, max-age=60'
 
-    # The project of Django, with its own /favicon.ico
+    # The project of Django
     app.plugin('Mount', {'/': 'legacy:app'})
 
     with Pyjo.Test.Pyjo.new(app) as t:
@@ -102,9 +103,16 @@ with subtest('Static files'):
         )
         t.get_ok('/static/site.css').status_is(200).header_is('Cache-Control', 'public, max-age=60')
         t.get_ok('/robots.txt').status_is(200).content_is('User-agent: *\n')
-        t.get_ok('/favicon.ico').status_is(200).content_is('Hello from WSGI at  for /favicon.ico!')
+        t.get_ok('/favicon.ico').status_is(200).content_type_is('image/x-icon').content_is('favicon of the project')
         t.get_ok('/pyjo/logo.png').status_is(200).content_type_is('image/png')
         t.get_ok('/foo').status_is(200).content_is('Hello from WSGI at  for /foo!')
+
+    # A favicon.ico of a route of the application, or none
+    BASE_DIR.child('public', 'favicon.ico').remove()
+    del app.static.extra['favicon.ico']
+    with Pyjo.Test.Pyjo.new(app) as t:
+        t.get_ok('/favicon.ico').status_is(200).content_is('Hello from WSGI at  for /favicon.ico!')
+        t.get_ok('/pyjo/logo.png').status_is(200).content_type_is('image/png')
 
     app.static.extra = {}
     with Pyjo.Test.Pyjo.new(app) as t:
