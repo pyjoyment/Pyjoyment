@@ -12,7 +12,7 @@ Pyjoyment.Command.Author.generate.lambda_zip - Lambda ZIP generator command
       python -m MyApp generate lambda-zip --no-layer
       python -m MyApp generate lambda-zip --runtime python3.14
       python -m MyApp generate lambda-zip --function-only
-      python -m MyApp generate lambda-zip --function-only --layer Pyjo-AWS
+      python -m MyApp generate lambda-zip --function-only --layer-package Pyjo-AWS
       python -m MyApp generate lambda-zip --compress public
       python -m MyApp generate lambda-zip --compress public --compress-encoding br --compress-encoding gzip
 
@@ -34,7 +34,7 @@ Pyjoyment.Command.Author.generate.lambda_zip - Lambda ZIP generator command
                                        of Python and Pyjoyment that are published
                                        already
       -h, --help                       Show this summary of available options
-      -l, --layer <name>               Distribution of the dependencies that the
+      -l, --layer-package <name>       Distribution of the dependencies that the
                                        layer of Pyjoyment has too, as "Pyjo-AWS",
                                        can be repeated
           --no-layer                   Put Python and Pyjoyment into the ZIP of
@@ -86,18 +86,18 @@ OpenTofu, changes only what has changed. They are written anew each time.
 
 The layer of Pyjoyment has the distribution Pyjoyment that the dependencies
 install, the files that its ``RECORD`` names, with the packages ``Pyjo`` and
-``Pyjoyment``, and the distributions of ``--layer``, as ``Pyjo-AWS``, with
-their bytecode, in ``python/lib/python3.X/site-packages``, which the Python of ``python.zip`` and
-the runtime client of the runtime of Python of Lambda of the same version both
-put in their path, the runtime client unless ``PYTHONPATH`` is set, so that one
-layer serves the functions of both, and a function can take a layer of
-Pyjoyment that is published already in its place. A wrapper of
-``AWS_LAMBDA_EXEC_WRAPPER`` runs in the place of that runtime client, so its
-function names the directory in ``PYTHONPATH``. Another distribution of the
-namespace ``Pyjo``, as ``Pyjo-MCP``, stays in the function, where the package
-``Pyjo`` of the layer finds it, as :func:`pkgutil.extend_path` keeps the
-namespace open, but a distribution that the layer has too is the one of the
-layer.
+``Pyjoyment``, and the distributions of ``--layer-package``, as ``Pyjo-AWS``,
+with their bytecode, in ``python/lib/python3.X/site-packages``, which the
+Python of ``python.zip`` and the runtime client of the runtime of Python of
+Lambda of the same version both put in their path, the runtime client unless
+``PYTHONPATH`` is set, so that one layer serves the functions of both, and a
+function can take a layer of Pyjoyment that is published already in its place.
+A wrapper of ``AWS_LAMBDA_EXEC_WRAPPER`` runs in the place of that runtime
+client, so its function names the directory in ``PYTHONPATH``. Another
+distribution of the namespace ``Pyjo``, as ``Pyjo-MCP``, stays in the
+function, where the package ``Pyjo`` of the layer finds it, as
+:func:`pkgutil.extend_path` keeps the namespace open, but a distribution that
+the layer has too is the one of the layer.
 
 With ``--runtime`` of a runtime of Python of Lambda, as ``python3.14``, the
 function runs on the Python of Lambda, of the version of the runtime, without
@@ -126,16 +126,17 @@ as ``br`` and ``gzip`` for a function behind CloudFront, which forwards no
 other encoding of ``Accept-Encoding`` to the origin, and fails when the
 machine has no compressor of one of them.
 
-With ``--function-only``, the generator writes ``function.zip`` alone, for
-the layers of Python and of Pyjoyment that are published already, as the
-public ones of `Pyjoyment-Lambda-Layers
+With ``--function-only``, the generator writes ``function.zip`` alone, for the
+layers of Python and of Pyjoyment that are published already, as the public
+ones of `Pyjoyment-Lambda-Layers
 <https://github.com/pyjoyment/Pyjoyment-Lambda-Layers>`_, which the same
 generator builds, so that the ``bootstrap`` finds the Python of the layer in
 ``/opt/python/bin``. The function leaves out Pyjoyment and the distributions
-of ``--layer``, as ``Pyjo-AWS``, which the public layer of Pyjoyment has, as
-with its own layer, and the generator tells their versions of its
-dependencies, which the layer of Pyjoyment is to have. On a runtime of Python, the function takes
-the layer of Pyjoyment alone, of the same version of Python.
+of ``--layer-package``, as ``Pyjo-AWS``, which the public layer of Pyjoyment
+has, as with its own layer, and the generator tells their versions of its
+dependencies, which the layer of Pyjoyment is to have. On a runtime of Python,
+the function takes the layer of Pyjoyment alone, of the same version of
+Python.
 
 This is a core command, that means it is always enabled and its code a good
 example for learning to build new commands, you're welcome to fork it.
@@ -256,7 +257,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                 'C|compress-pattern=s@': None,
                 'e|compress-encoding=s@': None,
                 'function-only': None,
-                'l|layer=s@': None,
+                'l|layer-package=s@': None,
                 'no-layer': None,
                 'p|python=s': None,
                 'r|runtime=s': None,
@@ -266,8 +267,8 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
             raise Pyjo.Exception.new(self.usage)
         if opts.function_only and opts.no_layer:
             raise Pyjo.Exception.new('Options --function-only and --no-layer exclude each other')
-        if opts.layer and opts.no_layer:
-            raise Pyjo.Exception.new('Options --layer and --no-layer exclude each other')
+        if opts.layer_package and opts.no_layer:
+            raise Pyjo.Exception.new('Options --layer-package and --no-layer exclude each other')
 
         arch: str = opts.arch or 'x86_64'
         if (machine := _MACHINES.get(arch)) is None:
@@ -359,7 +360,7 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
             if layer:
                 distributions = _distributions(deps)
                 site.make_path()
-                layered: list[str] = ['Pyjoyment', *(opts.layer or [])]
+                layered: list[str] = ['Pyjoyment', *(opts.layer_package or [])]
                 for name in layered:
                     if (distribution := distributions.get(_normalize(name))) is None:
                         raise Pyjo.Exception.new(f'{name} is not among the dependencies')

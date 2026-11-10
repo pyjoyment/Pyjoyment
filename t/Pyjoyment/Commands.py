@@ -805,7 +805,7 @@ with subtest('generate lambda-zip'):
 
     # Another distribution in the layer of Pyjoyment, by its name or its normalized one
     with local(PYJO_EXE=None):
-        output, calls = generate('--layer', 'pyjo_foo')
+        output, calls = generate('--layer-package', 'pyjo_foo')
     pyjoyment = entries('dist/pyjoyment.zip')
     site = f'python/lib/python{version}/site-packages'
     ok(f'{site}/Pyjo/__init__.py' in pyjoyment, 'Pyjo in the layer with another distribution')
@@ -821,7 +821,7 @@ with subtest('generate lambda-zip'):
     unlike_ok(' '.join(entries('dist/function.zip')), r'(?:^| )(?:Pyjo|pyjo)', 'only the function')
     with local(PYJO_EXE=None):
         throws_ok(
-            lambda: generate('--layer', 'Pyjo-Bar'),
+            lambda: generate('--layer-package', 'Pyjo-Bar'),
             re.compile(r'^Pyjo-Bar is not among the dependencies'),
             'unknown distribution',
         )
@@ -981,8 +981,8 @@ with subtest('generate lambda-zip'):
         'only the function and no layer',
     )
     throws_ok(
-        lambda: lambda_zip.run('--layer', 'Pyjo-AWS', '--no-layer'),
-        re.compile(r'^Options --layer and --no-layer exclude each other'),
+        lambda: lambda_zip.run('--layer-package', 'Pyjo-AWS', '--no-layer'),
+        re.compile(r'^Options --layer-package and --no-layer exclude each other'),
         'distribution of a layer and no layer',
     )
     throws_ok(

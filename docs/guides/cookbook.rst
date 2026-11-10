@@ -1059,17 +1059,17 @@ on the runtime ``python3.14``. With ``--function-only``, the generator writes
 ``function.zip`` alone, for them, and tells the version of Pyjoyment of the
 dependencies of the application, which the description of the layer of
 Pyjoyment says too. The layer of Pyjoyment has `Pyjo-AWS
-<https://github.com/pyjoyment/Pyjo-AWS>`_ too, which ``--layer Pyjo-AWS``
-leaves out of the function of an application that depends on it, as the
-layer gives it; another distribution of the namespace ``Pyjo``, as
-``Pyjo-MCP``, stays in the function.
+<https://github.com/pyjoyment/Pyjo-AWS>`_ too, which
+``--layer-package Pyjo-AWS`` leaves out of the function of an application
+that depends on it, as the layer gives it; another distribution of the
+namespace ``Pyjo``, as ``Pyjo-MCP``, stays in the function.
 
 .. code-block:: console
 
     $ ./myapp.py generate lambda-zip --arch arm64 --function-only
       [layer] Pyjoyment 0.1.0 for Python 3.14
       [write] /home/sri/myapp/dist/function.zip
-    $ ./myapp.py generate lambda-zip --arch arm64 --function-only --layer Pyjo-AWS
+    $ ./myapp.py generate lambda-zip --arch arm64 --function-only --layer-package Pyjo-AWS
       [layer] Pyjoyment 0.1.0 for Python 3.14
       [layer] Pyjo-AWS 0.1.0 for Python 3.14
       [write] /home/sri/myapp/dist/function.zip
