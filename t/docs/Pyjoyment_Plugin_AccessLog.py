@@ -76,12 +76,12 @@ with subtest('Synopsis'):
     is_ok(record['client'], '203.0.113.7', 'client')
     is_ok(record['status'], 404, 'error')
 
-    # A file, with the time of the response at the end of each line
+    # A file, in a format of LogFormat of Apache, with the time of the response in milliseconds
     path = tmp.child('access.log').spew('')
     app = application()
-    app.plugin('AccessLog', log=path.to_str(), duration=True)
+    app.plugin('AccessLog', log=path.to_str(), format='%h %t "%r" %>s %b %{ms}T')
     Pyjo.Test.Pyjo.new(app).get_ok('/')
-    like_ok(written(path)[0], r'" 200 6 "-" "Pyjoyment \(Python\)" \d+\.\d{3}$', 'file with the duration')
+    like_ok(written(path)[0], COMBINED.replace(' - - ', ' ') + r'"GET / HTTP/1\.1" 200 6 \d+$', 'file of LogFormat')
 
 with subtest('Description'):
     app = application()
@@ -111,6 +111,19 @@ with subtest('Formats'):
     )
     is_ok(record['message'], 'GET /?q=1 200', 'message')
 
+    app = application()
+    app.plugin('AccessLog', format='%h %t "%r" %>s %b %D "%{X-Request-ID}i"')
+    t = Pyjo.Test.Pyjo.new(app)
+    line = logged(t, '/', {'X-Request-ID': 'f00d'})[0]
+    like_ok(line, COMBINED.replace(' - - ', ' ') + r'"GET / HTTP/1\.1" 200 6 \d+ "f00d"$', 'LogFormat')
+
+    app = application()
+    throws_ok(
+        lambda: app.plugin('AccessLog', format='%h %400,501{User-Agent}i'),
+        re.compile(r'^Unknown directive of the access log'),
+        'statuses of Apache',
+    )
+
 with subtest('client'):
     app = application()
     app.plugin('AccessLog', client='X-Real-IP')
@@ -121,12 +134,6 @@ with subtest('client'):
     app.plugin('AccessLog', client=lambda tx: tx.req.headers.header('Fly-Client-IP'))
     t = Pyjo.Test.Pyjo.new(app)
     like_ok(logged(t, '/', {'Fly-Client-IP': '203.0.113.8'})[0], r'^203\.0\.113\.8 ', 'function')
-
-with subtest('duration'):
-    app = application()
-    app.plugin('AccessLog', duration=True)
-    t = Pyjo.Test.Pyjo.new(app)
-    like_ok(logged(t, '/')[0], r' \d+\.\d{3}$', 'duration')
 
 with subtest('exclude'):
     app = application()
@@ -144,6 +151,11 @@ with subtest('format'):
     app.plugin('AccessLog', format='json')
     t = Pyjo.Test.Pyjo.new(app)
     is_ok(json.loads(logged(t, '/')[0])['status'], 200, 'json')
+
+    app = application()
+    app.plugin('AccessLog', format='%h %t "%r" %>s %b %{ms}T')
+    t = Pyjo.Test.Pyjo.new(app)
+    like_ok(logged(t, '/')[0], r'" 200 6 \d+$', 'LogFormat')
 
     app = application()
     app.plugin('AccessLog', format=lambda tx, entry: f'{entry["method"]} {entry["path"]} {entry["status"]}')

@@ -12,8 +12,8 @@ Pyjoyment.Plugin.AccessLog - Access log plugin
     # Lines of JSON, with the client of a header of the gateway, and the errors only
     app.plugin('AccessLog', format='json', client='X-Envoy-External-Address', status=400)
 
-    # A file, with the time of the response at the end of each line
-    app.plugin('AccessLog', log='/var/log/myapp/access.log', duration=True)
+    # A file, in a format of LogFormat of Apache, with the time of the response in milliseconds
+    app.plugin('AccessLog', log='/var/log/myapp/access.log', format='%h %t "%r" %>s %b %{ms}T')
 
 :mod:`Pyjoyment.Plugin.AccessLog` writes the access log of the application,
 as a server of production writes it: one line for each response, with the
@@ -31,9 +31,9 @@ response, which has no ``Content-Length``, and of one whose client closed the
 connection before its end. A request whose client closed the connection before
 the application responded is logged with the status ``499``, as nginx logs it,
 and a WebSocket with the status ``101`` of its handshake, once the connection
-is upgraded. The time of a line of ``combined`` and ``common`` is the one of
-the request, in UTC, as of Apache, and the one of a line of JSON the one of
-the message of the log, after the response.
+is upgraded. The time of ``%t`` is the one of the request, in UTC, as of
+Apache, and the one of a line of JSON the one of the message of the log,
+after the response.
 
 A line is written with one write of its own and flushed, so that the lines of
 the workers of :mod:`Pyjo.Server.Prefork` and :mod:`Pyjo.Server.Prethread`
@@ -51,12 +51,14 @@ Formats
 
 ``combined``
     The combined log format of Apache and nginx, which log analyzers read,
-    the default. ::
+    the default, ``%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i"``.
+    ::
 
         203.0.113.7 - - [06/Nov/2026:09:42:28 +0000] "GET /?q=1 HTTP/1.1" 200 39676 "https://example.com/" "curl/8.7.1"
 
 ``common``
-    The common log format, without the referrer and the user agent. ::
+    The common log format, without the referrer and the user agent,
+    ``%h %l %u %t "%r" %>s %b``. ::
 
         203.0.113.7 - - [06/Nov/2026:09:42:28 +0000] "GET /?q=1 HTTP/1.1" 200 39676
 
@@ -70,11 +72,90 @@ Formats
 
         {"time":"2026-11-06T09:42:28.048120Z","level":"info","severity":"INFO","message":"GET /?q=1 200","pid":7,...}
 
-The size is ``-`` for a response without a body, and the other values of
-the request that are missing are ``-``, as of Apache, and ``null`` in JSON. A
-quote, a backslash and a character that is not printable ASCII, as of a
-header that a client made up to forge a line, are escaped as ``\\xhh`` of its
-bytes in UTF-8, as nginx escapes them.
+Another format is a string of the directives of ``LogFormat`` of Apache, as
+``Plack::Middleware::AccessLog`` takes it, and the text between them, which
+is written as it is. ::
+
+    app.plugin('AccessLog', format='%h %t "%r" %>s %b %D "%{X-Request-ID}i"')
+
+``%%``
+    A percent sign.
+
+``%a``, ``%h``
+    The client, see ``client``.
+
+``%b``
+    The bytes of the body, ``-`` for none.
+
+``%B``
+    The bytes of the body, ``0`` for none.
+
+``%{name}C``
+    A cookie of the request.
+
+``%D``
+    The time of the response in microseconds.
+
+``%H``
+    The protocol, as ``HTTP/1.1``.
+
+``%{name}i``
+    A header of the request.
+
+``%l``
+    ``-``, the remote logname of identd.
+
+``%m``
+    The method.
+
+``%{name}o``
+    A header of the response.
+
+``%p``
+    The port of the server.
+
+``%P``
+    The process.
+
+``%q``
+    The query, with ``?``, or nothing.
+
+``%r``
+    The first line of the request.
+
+``%s``, ``%>s``, ``%<s``
+    The status.
+
+``%t``
+    The time of the request, as ``[06/Nov/2026:09:42:28 +0000]``.
+
+``%{format}t``
+    The time of the request in the format of :meth:`Pyjo.Date.Pyjo_Date.strftime`,
+    in UTC, or ``sec``, ``msec``, ``usec``, ``msec_frac`` and ``usec_frac`` of
+    the epoch, and of the end of the response with the prefix ``end:``.
+
+``%T``
+    The time of the response in seconds.
+
+``%{unit}T``
+    The time of the response in ``s``, ``ms`` or ``us``.
+
+``%u``
+    The user of Basic authentication.
+
+``%U``
+    The path, without the query.
+
+``%v``, ``%V``
+    The host of the request.
+
+A directive that is not one of them, as one with the statuses of Apache,
+``%400,501{User-Agent}i``, raises an exception when the plugin is
+registered. The size is the one of the body that the server has written, with
+the framing of a chunked response, as nginx has it. A value that is missing
+is ``-``, as of Apache, and ``null`` in JSON. A quote, a backslash and a
+character that is not printable ASCII, as of a header that a client made up
+to forge a line, are escaped as ``\\xhh`` of its bytes, as nginx escapes them.
 
 Options
 -------
@@ -95,14 +176,6 @@ Options
     probe of the address of a pod, has the remote address, or a function of
     the transaction.
 
-``duration`` ::
-
-    app.plugin('AccessLog', duration=True)
-
-    Add the time of the response in seconds at the end of a line of
-    ``combined`` and ``common``, as the access log of gunicorn has it with
-    ``%(L)s``, defaults to false.
-
 ``exclude`` ::
 
     app.plugin('AccessLog', exclude=['/livez', '/readyz', re.compile(r'^/assets/')])
@@ -117,10 +190,11 @@ Options
 ``format`` ::
 
     app.plugin('AccessLog', format='json')
+    app.plugin('AccessLog', format='%h %t "%r" %>s %b %{ms}T')
     app.plugin('AccessLog', format=lambda tx, entry: f'{entry["method"]} {entry["path"]} {entry["status"]}')
 
-    The format of the lines, ``combined``, ``common`` or ``json``, see
-    `Formats`_, or a function of the transaction and of a dict with the
+    The format of the lines, ``combined``, ``common``, ``json`` or one of
+    ``LogFormat``, see `Formats`_, or a function of the transaction and of a dict with the
     values of the request, ``client``, ``time``, ``method``, ``path``,
     ``protocol``, ``status``, ``bytes``, ``referrer``, ``user_agent`` and
     ``duration``, which returns the line, defaults to ``json`` with
@@ -182,13 +256,22 @@ if TYPE_CHECKING:
     import Pyjoyment
 
 type _Transaction = 'Pyjo.Transaction.object'
-type _Format = str | Callable[[_Transaction, dict[str, Any]], str]
+type _Entry = dict[str, Any]
+type _Format = str | Callable[[_Transaction, _Entry], str]
+type _Item = Callable[[_Transaction, _Entry], Any]
 type _Exclude = Iterable[str | re.Pattern[str]] | Callable[[_Transaction], bool]
 
 # The status of a request whose client closed the connection before the response, as nginx logs it
 CLIENT_CLOSED = 499
 
-FORMATS = ('combined', 'common', 'json')
+# The formats of LogFormat of Apache by their names, as Plack::Middleware::AccessLog has them
+FORMATS = {
+    'combined': '%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i"',
+    'common': '%h %l %u %t "%r" %>s %b',
+}
+
+# A directive of LogFormat, with the modifier of the original or the final status, and its name in braces
+DIRECTIVE = re.compile(r'%[<>]?(?:\{([^}]*)\})?([a-zA-Z%])')
 
 
 class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
@@ -208,8 +291,11 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
         conf = conf or {}
         target: Pyjo.Log.object | str | os.PathLike[str] | None = conf.get('log')
         format: _Format | None = conf.get('format')
-        if isinstance(format, str) and format not in FORMATS:
-            raise Pyjo.Exception.new(f'Unknown format "{format}" of the access log, not one of {", ".join(FORMATS)}')
+        if isinstance(format, str) and format != 'json' and format not in FORMATS and '%' not in format:
+            names = ', '.join([*FORMATS, 'json'])
+            raise Pyjo.Exception.new(
+                f'Unknown format "{format}" of the access log, not one of {names} nor of LogFormat'
+            )
 
         # A log of its own writes the line as it is, or the JSON of Pyjo.Log
         if isinstance(target, Pyjo.Log.object):
@@ -231,8 +317,10 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
                 log.handle = sys.stdout
             message(*lines)
 
+        line: Callable[[_Transaction, _Entry], str] | None = (
+            None if format == 'json' else format if callable(format) else _compile(FORMATS.get(format, format))
+        )
         client = _client(conf.get('client'))
-        duration: bool = bool(conf.get('duration'))
         excluded = _exclude(app, conf.get('exclude'))
         logged = _status(conf.get('status'))
 
@@ -257,16 +345,29 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
                 if not logged(status):
                     return
                 entry = _entry(tx, client(tx), time, status, _bytes(tx, sent), steady_time() - started)
-                if callable(format):
-                    write(format(tx, entry))
-                elif format == 'json':
+                if line is None:
                     write(f'{entry["method"]} {entry["path"]} {status}', *_fields(tx, entry))
                 else:
-                    write(_line(entry, format == 'combined', duration))
+                    write(line(tx, entry))
 
             tx.on('finish', finish)
 
         app.hook('after_build_tx', after_build_tx)
+
+
+def _block(letter: str, name: str) -> _Item | None:
+    # A directive with a name in braces
+    if letter == 'C':
+        return lambda tx, entry: cookie.value if (cookie := tx.req.cookie(name)) is not None else None
+    if letter == 'i':
+        return lambda tx, entry: tx.req.headers.header(name)
+    if letter == 'o':
+        return lambda tx, entry: tx.res.headers.header(name)
+    if letter == 't':
+        return _time(name)
+    if letter == 'T' and (factor := UNITS.get(name)) is not None:
+        return lambda tx, entry: int(entry['duration'] * factor)
+    return None
 
 
 def _bytes(tx: _Transaction, sent: dict[str, Any]) -> int:
@@ -281,6 +382,12 @@ def _bytes(tx: _Transaction, sent: dict[str, Any]) -> int:
     return sent['offset'] if sent['body'] else 0
 
 
+def _clf(date: Pyjo.Date.object) -> str:
+    # The time of the common log format, in UTC, with the names of the months of HTTP, which no locale changes
+    time = date.to_datetime()
+    return f'[{time.day:02d}/{Pyjo.Date.MONTHS[time.month - 1]}/{time.year}:{time:%H:%M:%S} +0000]'
+
+
 def _client(option: str | Callable[[_Transaction], str | None] | None) -> Callable[[_Transaction], str | None]:
     if option is None:
         return lambda tx: tx.remote_address
@@ -288,6 +395,33 @@ def _client(option: str | Callable[[_Transaction], str | None] | None) -> Callab
         return option
     name = option
     return lambda tx: tx.req.headers.header(name) or tx.remote_address
+
+
+def _compile(format: str) -> Callable[[_Transaction, _Entry], str]:
+    # The text as it is and the values of the directives, escaped, with "-" for a value that is missing
+    parts: list[str | _Item] = []
+    position = 0
+    texts: list[str] = []
+    for m in DIRECTIVE.finditer(format):
+        texts.append(format[position : m.start()])
+        parts.append(texts[-1])
+        position = m.end()
+        name, letter = m[1], m[2]
+        if letter == '%' and name is None:
+            parts.append('%')
+        elif (item := DIRECTIVES.get(letter) if name is None else _block(letter, name)) is not None:
+            parts.append(item)
+        else:
+            raise Pyjo.Exception.new(f'Unknown directive "{m[0]}" of the access log')
+    texts.append(format[position:])
+    parts.append(texts[-1])
+    if any('%' in text for text in texts):
+        raise Pyjo.Exception.new(f'Unknown directive of the access log in "{format}"')
+
+    def line(tx: _Transaction, entry: _Entry) -> str:
+        return ''.join(part if isinstance(part, str) else _value(part(tx, entry)) for part in parts)
+
+    return line
 
 
 def _entry(
@@ -309,11 +443,9 @@ def _entry(
     }
 
 
-def _escape(value: Any) -> str:
+def _escape(value: str) -> str:
     # Apache and nginx escape what would end the field or the line, and what is not printable
-    if value is None or value == '':
-        return '-'
-    return re.sub(r'["\\]|[^\x20-\x7e]', _hex, str(value))
+    return re.sub(r'["\\]|[^\x20-\x7e]', _hex, value)
 
 
 def _exclude(app: 'Pyjoyment.object', option: _Exclude | None) -> Callable[[_Transaction], bool]:
@@ -368,22 +500,6 @@ def _hex(m: re.Match[str]) -> str:
     return ''.join(f'\\x{b:02X}' for b in char.encode('latin-1' if ord(char) < 256 else 'utf-8'))
 
 
-def _line(entry: dict[str, Any], combined: bool, duration: bool) -> str:
-    date: Pyjo.Date.object = entry['time']
-    time = date.to_datetime()
-    month = Pyjo.Date.MONTHS[time.month - 1]
-    request = _escape(f'{entry["method"]} {entry["path"]} {entry["protocol"]}')
-    line = (
-        f'{_escape(entry["client"])} - - [{time.day:02d}/{month}/{time.year}:{time:%H:%M:%S} +0000] '
-        f'"{request}" {entry["status"]} {entry["bytes"] or "-"}'
-    )
-    if combined:
-        line += f' "{_escape(entry["referrer"])}" "{_escape(entry["user_agent"])}"'
-    if duration:
-        line += f' {entry["duration"]:.3f}'
-    return line
-
-
 def _matches(path: str, patterns: Iterable[str | re.Pattern[str]]) -> bool:
     for pattern in patterns:
         if isinstance(pattern, re.Pattern):
@@ -392,6 +508,27 @@ def _matches(path: str, patterns: Iterable[str | re.Pattern[str]]) -> bool:
         elif path == pattern or path.startswith(f'{pattern.rstrip("/")}/'):
             return True
     return False
+
+
+def _time(spec: str) -> _Item | None:
+    # The time of the request, or of the end of the response, in the format of strftime or as the epoch
+    end = spec.startswith('end:')
+    spec = spec.removeprefix('begin:').removeprefix('end:')
+    epochs: dict[str, Callable[[float], Any]] = {
+        'sec': lambda epoch: int(epoch),
+        'msec': lambda epoch: int(epoch * 1000),
+        'usec': lambda epoch: int(epoch * 1_000_000),
+        'msec_frac': lambda epoch: f'{int(epoch * 1000) % 1000:03d}',
+        'usec_frac': lambda epoch: f'{int(epoch * 1_000_000) % 1_000_000:06d}',
+    }
+
+    def item(tx: _Transaction, entry: _Entry) -> Any:
+        epoch = float(entry['time'].epoch or 0) + (entry['duration'] if end else 0)
+        if (cb := epochs.get(spec)) is not None:
+            return cb(epoch)
+        return Pyjo.Date.new(epoch).strftime(spec)
+
+    return item
 
 
 def _status(option: int | Collection[int] | None) -> Callable[[int], bool]:
@@ -404,10 +541,46 @@ def _status(option: int | Collection[int] | None) -> Callable[[int], bool]:
     return lambda status: status in statuses
 
 
+def _user(tx: _Transaction) -> str | None:
+    # The user of Basic authentication, which the request has as the user information of its base URL
+    info = tx.req.url.base.userinfo
+    return info.split(':', 1)[0] if info else None
+
+
+def _value(value: Any) -> str:
+    return '-' if value is None else _escape(str(value))
+
+
 def _text(time: float, level: str, *lines: Any) -> str:
     # The line as it is, without the time and the level of a message of a log
     return f'{lines[0]}\n'
 
+
+# The directives of LogFormat of Apache without a name
+DIRECTIVES: dict[str, _Item] = {
+    'a': lambda tx, entry: entry['client'],
+    'b': lambda tx, entry: entry['bytes'] or None,
+    'B': lambda tx, entry: entry['bytes'],
+    'D': lambda tx, entry: int(entry['duration'] * 1_000_000),
+    'h': lambda tx, entry: entry['client'],
+    'H': lambda tx, entry: entry['protocol'],
+    'l': lambda tx, entry: None,
+    'm': lambda tx, entry: entry['method'],
+    'p': lambda tx, entry: tx.local_port,
+    'P': lambda tx, entry: os.getpid(),
+    'q': lambda tx, entry: f'?{query}' if (query := tx.req.url.query.to_str()) else '',
+    'r': lambda tx, entry: f'{entry["method"]} {entry["path"]} {entry["protocol"]}',
+    's': lambda tx, entry: entry['status'],
+    't': lambda tx, entry: _clf(entry['time']),
+    'T': lambda tx, entry: int(entry['duration']),
+    'u': lambda tx, entry: _user(tx),
+    'U': lambda tx, entry: tx.req.url.to_abs().path.to_str(),
+    'v': lambda tx, entry: tx.req.url.to_abs().host,
+    'V': lambda tx, entry: tx.req.url.to_abs().host,
+}
+
+# The units of the time of the response of %{unit}T
+UNITS = {'s': 1, 'ms': 1000, 'us': 1_000_000}
 
 new = Pyjoyment_Plugin_AccessLog.new
 object = Pyjoyment_Plugin_AccessLog

@@ -191,14 +191,40 @@ with subtest('Client'):
     like_ok(lines()[0], r'^client - - ', 'function')
 
 with subtest('Formats'):
-    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='common', duration=True))
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='common'))
     lines(0)
     t2.get_ok('/', {'Referer': 'https://example.com/'}).status_is(200)
-    like_ok(lines()[0], COMBINED + r'"GET / HTTP/1\.1" 200 6 \d+\.\d{3}$', 'common with the duration')
+    like_ok(lines()[0], COMBINED + r'"GET / HTTP/1\.1" 200 6$', 'common')
 
-    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), duration=True))
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='%h %l %u %t "%r" %>s %b'))
+    t2.get_ok('/', {'Referer': 'https://example.com/'}).status_is(200)
+    like_ok(lines()[0], COMBINED + r'"GET / HTTP/1\.1" 200 6$', 'common of LogFormat')
+
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='%%|%a|%b|%B|%m|%U|%q|%H|%s|%<s|%P|%l|%u'))
+    t2.get_ok('/?a=b').status_is(200)
+    is_deeply_ok(lines(), [f'%|127.0.0.1|6|6|GET|/|?a=b|HTTP/1.1|200|200|{os.getpid()}|-|-'], 'directives')
+    t2.head_ok('/').status_is(200)
+    is_deeply_ok(lines(), [f'%|127.0.0.1|-|0|HEAD|/||HTTP/1.1|200|200|{os.getpid()}|-|-'], 'directives without a body')
+
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='%u %v %V %p'))
+    t2.get_ok(f'http://sri:secr3t@localhost:{t2.ua.server.url().port}/').status_is(200)
+    is_deeply_ok(lines(), [f'sri localhost localhost {t2.ua.server.url().port}'], 'user, host and port')
+
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='"%{X-Request-ID}i" "%{Content-Type}o" "%{foo}C"'))
+    t2.get_ok('/', {'X-Request-ID': 'abc"1', 'Cookie': 'foo=bar'}).status_is(200)
+    is_deeply_ok(lines(), ['"abc\\x221" "text/html;charset=UTF-8" "bar"'], 'headers and cookie')
     t2.get_ok('/').status_is(200)
-    like_ok(lines()[0], r'" 200 6 "-" "Pyjoyment \(Python\)" \d+\.\d{3}$', 'combined with the duration')
+    is_deeply_ok(lines(), ['"-" "text/html;charset=UTF-8" "-"'], 'missing')
+
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='%D %T %{s}T %{ms}T %{us}T'))
+    t2.get_ok('/').status_is(200)
+    like_ok(lines()[0], r'^\d+ \d+ \d+ \d+ \d+$', 'time of the response')
+
+    format = '%{%Y-%m-%dT%H:%M:%SZ}t %{sec}t %{msec}t %{usec}t %{msec_frac}t %{usec_frac}t %{end:sec}t %{begin:%Y}t'
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format=format))
+    t2.get_ok('/').status_is(200)
+    line = lines()[0]
+    like_ok(line, r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ \d{10} \d{13} \d{16} \d{3} \d{6} \d{10} \d{4}$', 'time')
 
     def own(tx, entry):
         return f'{entry["method"]} {entry["path"]} {entry["status"]} {entry["bytes"]} {entry["time"].epoch > 0}'
@@ -209,8 +235,20 @@ with subtest('Formats'):
 
     throws_ok(
         lambda: application(format='apache'),
-        re.compile(r'^Unknown format "apache" of the access log, not one of combined, common, json'),
+        re.compile(r'^Unknown format "apache" of the access log, not one of combined, common, json nor of LogFormat'),
         'unknown format',
+    )
+    throws_ok(
+        lambda: application(format='%h %Z'), re.compile(r'^Unknown directive "%Z" of the access log'), 'directive'
+    )
+    throws_ok(
+        lambda: application(format='%{x}h'), re.compile(r'^Unknown directive "%\{x\}h" of the access log'), 'name'
+    )
+    throws_ok(lambda: application(format='%{fs}T'), re.compile(r'^Unknown directive "%\{fs\}T"'), 'unit')
+    throws_ok(
+        lambda: application(format='%h %400{User-Agent}i'),
+        re.compile(r'^Unknown directive of the access log in "%h %400\{User-Agent\}i"'),
+        'statuses of Apache',
     )
 
 with subtest('JSON'):

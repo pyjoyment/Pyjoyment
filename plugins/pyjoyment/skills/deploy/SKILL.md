@@ -76,8 +76,10 @@ Apache and nginx, which a container, Kubernetes and log analyzers take:
 
 - `PYJO_LOG_FORMAT=json` makes the lines JSON, with the fields of the log and
   `httpRequest`, which Cloud Logging shows as a request; `format='json'` or
-  `format='common'` choose one, and `duration=True` adds the time of the
-  response at the end of a line, as `%(L)s` of gunicorn.
+  `format='common'` choose one, and a format of its own has the directives of
+  `LogFormat` of Apache, as `%D` for the time of the response in microseconds,
+  where gunicorn has `%(D)s`, and `%{ms}T` in milliseconds:
+  `plugin('AccessLog', format='%h %t "%r" %>s %b %{ms}T "%{X-Request-ID}i"')`.
 - The client is the remote address, of `X-Forwarded-For` behind a reverse
   proxy with `-p`; a gateway that sets a header of its own, as Istio, takes
   `plugin('AccessLog', client='X-Envoy-External-Address')`.
