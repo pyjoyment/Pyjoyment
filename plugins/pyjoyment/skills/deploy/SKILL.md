@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops and the Health plugin for probes, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
+description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops and the Health plugin for probes, the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
 ---
 
 # Deployment
@@ -91,6 +91,37 @@ kubectl apply -k kubernetes/prod
   `--function-only` tells the version of Pyjoyment of the dependencies, which
   the layer of Pyjoyment is to have.
 
+## Precompressed static files
+
+Static files are served as they are; `renderer.compress` gzips only the
+content that the application generates. Compress the static files at the
+build, next to the originals, and `Pyjoyment.Static` serves a variant to the
+clients whose `Accept-Encoding` takes it, as nginx `gzip_static` would:
+
+```sh
+find public -type f -size +1k \( -name '*.css' -o -name '*.js' -o -name '*.svg' \) \
+  -exec gzip -k -f -9 -n {} + -exec brotli -k -f -q 11 {} + -exec zstd -q -k -f -19 {} +
+python app.py generate dockerfile --compress public   # gzip variants written in the image
+```
+
+- `app.static.encodings`, `{'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}` by
+  default, gives the extensions and the order of preference; `{}` turns it
+  off. The variant gets `Content-Encoding`, the `Content-Type` of the file, an
+  `ETag` of its own, and every response of the file `Vary: Accept-Encoding`.
+- Compress the formats of text: CSS, JavaScript (`.js`, `.mjs`), JSON, source
+  maps, SVG, HTML, plain text, CSV, XML, WebAssembly, TTF and OTF fonts.
+- Do not compress what is compressed already, whose variant is only larger:
+  PNG, JPEG, GIF, WebP and AVIF images, video, audio, WOFF and WOFF2 fonts,
+  PDF, and archives (`.zip`, `.gz`, `.br`, `.zst`). Skip files under about a
+  kilobyte, and remove a variant that is not smaller than its file.
+- The image of `generate dockerfile` has `gzip` only: `--compress` writes the
+  `.gz` variants there, of the formats of text or of `--compress-pattern`;
+  write `.br` and `.zst` before the build, as the image copies them.
+- A variant older than its file is ignored, so a build that changes a file
+  without compressing it again serves the file; keep the mtime of the file
+  (`gzip -k`, `brotli -k` and `zstd -k` copy it). A `Range` request gets the
+  file.
+
 ## WSGI, ASGI and FastCGI servers
 
 ```sh
@@ -123,3 +154,4 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
 - Pyjoyment.Plugin.Health: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_Health.html
 - Pyjo.Server.Prefork: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_Server_Prefork.html
 - generate dockerfile: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Command_Author_generate_dockerfile.html
+- Rendering, precompressed static files: https://pyjoyment.readthedocs.io/en/stable/guides/rendering.html#precompressed-static-files
