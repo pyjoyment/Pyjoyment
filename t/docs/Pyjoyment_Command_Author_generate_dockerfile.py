@@ -66,6 +66,12 @@ with subtest('Synopsis'):
     content = generate(tmp, '--graceful-timeout', '8')
     like_ok(content, r'(?m)^ENV PYJO_GRACEFUL_TIMEOUT=8$', 'graceful timeout')
 
+    # python -m MyApp generate dockerfile --compress public
+    tmp = Pyjo.File.tempdir()
+    tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    content = generate(tmp, '--compress', 'public')
+    like_ok(content, r'(?m)^RUN find public -type f -size \+859c \\$', 'variants')
+
     # ./myapp.py generate dockerfile
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')

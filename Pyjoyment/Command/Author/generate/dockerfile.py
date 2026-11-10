@@ -12,8 +12,15 @@ Pyjoyment.Command.Author.generate.dockerfile - Dockerfile generator command
       python -m MyApp generate dockerfile --graceful-timeout 8
       python -m MyApp generate dockerfile --healthcheck /
       python -m MyApp generate dockerfile --target lambda
+      python -m MyApp generate dockerfile --compress public
 
     Options:
+      -c, --compress <path>              Write the gzip variants of the static
+                                         files of a directory in the image, can
+                                         be repeated
+      -C, --compress-pattern <glob>      Name of the files that --compress
+                                         compresses, can be repeated, defaults to
+                                         the formats of text
       -G, --graceful-timeout <seconds>   Graceful timeout of the workers of the
                                          server, defaults to the one of the
                                          server
@@ -68,6 +75,19 @@ health of the container in ``docker ps``, and Docker Compose waits for it with
 ``depends_on`` and ``condition: service_healthy``. Kubernetes and Cloud Run
 ignore it and have probes of their own.
 
+With ``--compress``, the image has the ``gzip`` variants of the static files
+of a directory, as ``public``, which :mod:`Pyjoyment.Static` serves to the
+clients that take them, written by ``gzip -k -9 -n`` of the image with the
+mtime of each file. It compresses the formats of text, CSS, JavaScript, JSON,
+source maps, SVG, HTML, plain text, XML, WebAssembly and fonts in TrueType and
+OpenType, or the names of ``--compress-pattern``, as the formats of images,
+video, audio, the WOFF fonts, PDF and archives are compressed already, and
+leaves out the files smaller than
+:attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.min_compress_size` of the
+renderer. The variants of other encodings, as the ones of ``brotli`` and
+``zstd``, which the image does not have, are written before the build, next
+to their files, and the image copies them.
+
 With ``--target lambda``, the image is the one of an event function of AWS
 Lambda: its command runs the script of the application, or its package, which
 is the runtime of the function itself, as :mod:`Pyjoyment.Command.lambda`
@@ -105,6 +125,7 @@ from Pyjo.Util import extract_usage, getopt
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -150,6 +171,8 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
             opts := getopt(
                 arguments,
                 {
+                    'c|compress=s@': None,
+                    'C|compress-pattern=s@': None,
                     'G|graceful-timeout=i': None,
                     'H|healthcheck=s': None,
                     'p|port=i': None,
@@ -168,6 +191,13 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
             for option in ('graceful_timeout', 'healthcheck', 'port'):
                 if getattr(opts, option) is not None:
                     raise Pyjo.Exception.new(f'Option --{option.replace("_", "-")} is not for the target lambda')
+
+        # Not in Mojolicious: the gzip variants of the static files, for the formats of text, as Pyjoyment.Static serves
+        # them, and the files that the renderer would not compress either
+        compress: list[str] = opts.compress or []
+        patterns: list[str] = opts.compress_pattern or list(_PATTERNS)
+        if opts.compress_pattern and not compress:
+            raise Pyjo.Exception.new('Option --compress-pattern needs --compress')
 
         name = self.app.moniker
 
@@ -197,6 +227,9 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
         lock = 'uv.lock' if project else f'{script}.lock'
         values = {
+            'compress': ' '.join(shlex.quote(path) for path in compress),
+            'compress_names': ' -o '.join(f'-name {shlex.quote(pattern)}' for pattern in patterns),
+            'compress_size': self.app.renderer.min_compress_size - 1,
             'cmd': json.dumps(cmd if target == 'lambda' else [*cmd, 'prefork']),
             'graceful_timeout': opts.graceful_timeout,
             'healthcheck': healthcheck,
@@ -213,6 +246,25 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
 
         # Not in Mojolicious: .dockerignore, as the .venv of the host is not the one of the image
         self.render_to_rel_file('dockerignore', '.dockerignore')
+
+
+# Not in Mojolicious: the formats of text, which compress well, as the formats of images, video, audio, the WOFF
+# fonts, PDF and archives are compressed already
+_PATTERNS = (
+    '*.css',
+    '*.csv',
+    '*.html',
+    '*.js',
+    '*.json',
+    '*.map',
+    '*.mjs',
+    '*.otf',
+    '*.svg',
+    '*.ttf',
+    '*.txt',
+    '*.wasm',
+    '*.xml',
+)
 
 
 # Not in Mojolicious: whether the script has the inline metadata of PEP 723
@@ -257,6 +309,11 @@ WORKDIR /opt/<%= name %>
 COPY --from=builder /opt/<%= name %>/.venv .venv
 COPY . .
 ENV PATH="/opt/<%= name %>/.venv/bin:$PATH"
+% if compress:
+RUN find <%= compress %> -type f -size +<%= compress_size %>c \\
+    \( <%= compress_names %> \) \\
+    -exec gzip -k -f -9 -n {} +
+% end
 % if user:
 RUN useradd --system <%= user %>
 USER <%= user %>

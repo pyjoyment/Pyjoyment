@@ -464,6 +464,34 @@ with subtest('generate dockerfile'):
     with contextlib.redirect_stdout(io.StringIO()):
         dockerfile.run('-t', 'lambda', '-u', 'app')
     like_ok(app.rel_file('Dockerfile').slurp().decode(), r'(?m)^USER app\nCMD ', 'right user')
+    # Not in Mojolicious: the gzip variants of the static files
+    unlike_ok(app.rel_file('Dockerfile').slurp().decode(), r'gzip', 'no variants')
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('-c', 'public')
+    content = app.rel_file('Dockerfile').slurp().decode()
+    like_ok(
+        content,
+        r'(?m)^COPY \. \.\nENV PATH=.*\nRUN find public -type f -size \+859c \\\n'
+        + r"    \\\( -name '\*\.css' -o -name '\*\.csv' -o .* -o -name '\*\.xml' \\\) \\\n"
+        + r'    -exec gzip -k -f -9 -n \{\} \+\n',
+        'right variants',
+    )
+    like_ok(content, r"-name '\*\.js' -o -name '\*\.json'", 'JavaScript')
+    unlike_ok(content, r'png|woff|pdf', 'no formats that are compressed already')
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('--compress', 'public', '--compress', 'my static', '-C', '*.css', '--compress-pattern', '*.js')
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(),
+        r"(?m)^RUN find public 'my static' -type f -size \+859c \\\n    \\\( -name '\*\.css' -o -name '\*\.js' \\\) \\\n",
+        'right paths and patterns',
+    )
+    throws_ok(
+        lambda: dockerfile.run('-C', '*.css'),
+        re.compile(r'^Option --compress-pattern needs --compress'),
+        'patterns without a path',
+    )
     throws_ok(lambda: dockerfile.run('-t', 'kubernetes'), re.compile(r'^Unknown target: kubernetes'), 'unknown target')
     throws_ok(
         lambda: dockerfile.run('-t', 'lambda', '-p', '8080'),

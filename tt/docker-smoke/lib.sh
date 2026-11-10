@@ -86,19 +86,22 @@ build_dockerfile() {
 # the dependencies, the only change of the generated Dockerfile, which exposes
 # its port, serves the pages and stops gracefully on the TERM of docker stop
 #
-#   smoke_dockerfile [--user USER] [--expose PORT] [--port PORT] [--health PATH] PAGE...
+#   smoke_dockerfile [--user USER] [--expose PORT] [--port PORT] [--health PATH] [--gzip PATH] PAGE...
 #
 #   --expose PORT   the port of the image, of "generate dockerfile --port"
 #   --port PORT     the port of PORT of the container, as Knative sets it
 #   --health PATH   the path of the HEALTHCHECK of the image, which Docker
 #                   reports healthy
+#   --gzip PATH     a file whose gzip variant the image has, of
+#                   "generate dockerfile --compress"
 smoke_dockerfile() {
-  local user='' expose=3000 listen=3000 health=''
+  local user='' expose=3000 listen=3000 health='' gzip=''
   local -a env=()
   while [[ ${1:-} == --* ]]; do
     case $1 in
       --user) user=$2 ;;
       --health) health=$2 ;;
+      --gzip) gzip=$2 ;;
       --expose)
         expose=$2
         listen=$2
@@ -137,6 +140,17 @@ smoke_dockerfile() {
     grep -q 'Welcome to the Pyjoyment real-time web framework!' <<<"${body}" || fail "GET ${page}"
     ok "GET ${page}"
   done
+
+  if [[ -n ${gzip} ]]; then
+    local headers
+    headers=$(curl --silent --fail --header 'Accept-Encoding: gzip' --dump-header - --output /dev/null "${url}${gzip}") ||
+      fail "GET ${gzip} with gzip"
+    grep -qi '^Content-Encoding: gzip' <<<"${headers}" || fail "Content-Encoding of ${gzip}"
+    grep -qi '^Vary: Accept-Encoding' <<<"${headers}" || fail "Vary of ${gzip}"
+    body=$(curl --silent --fail --compressed "${url}${gzip}") || fail "GET ${gzip} decompressed"
+    [[ ${body} == "$(<"public${gzip}")" ]] || fail "body of ${gzip}"
+    ok "GET ${gzip} with gzip"
+  fi
 
   if [[ -n ${user} ]]; then
     local config
