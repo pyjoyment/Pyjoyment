@@ -213,6 +213,14 @@ with subtest('Path of a route'):
         t.get_ok('/prefixx').status_is(404)
         t.get_ok('/prefix.json').status_is(404)
 
+        # The page of 404 of the application, with the assets of the root, in both modes
+        for mode in ('development', 'production'):
+            t.app.mode = mode
+            t.get_ok('/prefixx').status_is(404).element_exists('link[href="/favicon.ico"]')
+            t.element_exists_not('[src^="/prefix"], [href^="/prefix"]', f'no asset under the path of the route, {mode}')
+            t.element_exists('[src^="/pyjo/"]', f'assets of the root, {mode}')
+        t.app.mode = 'development'
+
         # Escaped, as the bytes of the path
         t.get_ok('/prefix/a%20b/%E2%99%A5/%2F').status_is(200)
         is_ok(t.tx.res.json('/SCRIPT_NAME'), '/prefix', 'right script name')

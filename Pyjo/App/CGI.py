@@ -308,7 +308,7 @@ class _Response:
             c = tx
             tx = c.tx
             if not Pyjo.App._within(c):  # pyright: ignore[reportPrivateUsage]
-                return c.helpers.reply.not_found()
+                return Pyjo.App._not_found(c)  # pyright: ignore[reportPrivateUsage]
             c.render_later()
         cls(app, config, tx, c, *args).start()
 
