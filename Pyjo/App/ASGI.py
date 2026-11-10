@@ -208,7 +208,7 @@ class Pyjo_App_ASGI(Pyjo.App.object):
             c = tx
             tx = c.tx
             if not Pyjo.App._within(c):  # pyright: ignore[reportPrivateUsage]
-                return c.helpers.reply.not_found()
+                return Pyjo.App._not_found(c)  # pyright: ignore[reportPrivateUsage]
             c.render_later()
         call = _WebSocket(self, application, tx, c) if tx.is_websocket else _Call(self, application, tx, c)
 

@@ -118,10 +118,11 @@ plugin('Mount', {re.compile(r'/(?P<user>\w+)/blog(?P<path>/.*)?'): flask_app})
 
 - A mounted application on `/` before the other routes takes their requests
   too, as the first route that matches wins: mount it last.
-- `/php` matches `/php.css` too, as a route matches the beginning of a path,
-  where the mounted application gets `SCRIPT_NAME` or `root_path` up to the
-  slash; a regular expression of the whole path, with its group `path`, is
-  exact.
+- `/php` matches `/php.css` too, as a route matches the beginning of a path:
+  an application of Pyjoyment gets the rest of the path, while one of another
+  framework, whose `SCRIPT_NAME` or `root_path` ends at a slash, does not, and
+  the request is the 404 of the application that mounts it; a regular
+  expression of the whole path, with its group `path`, is exact.
 - `PYJO_REACTOR=Pyjo.Reactor.Poll` cannot run an ASGI application.
 - The `SCRIPT_NAME` of WSGI and the `root_path` of ASGI carry the prefix: an
   application that builds its URLs from them, as Flask with `url_for`, links

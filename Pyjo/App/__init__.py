@@ -362,6 +362,14 @@ def _within(c: Any) -> bool:  # pyright: ignore[reportUnusedFunction]
     return c is None or not (rest := c.stash().get('path')) or rest.startswith('/')
 
 
+# Not in Mojolicious: the page of 404 of a path that the application does not take, as /phpx of /php, of the application
+# that embeds it, without the rest of the path that the route has matched, with which url_for of the page would put its
+# links, as the ones of its assets, under the path of the route
+def _not_found(c: Any) -> Any:  # pyright: ignore[reportUnusedFunction]
+    c.stash().pop('path', None)
+    return c.helpers.reply.not_found()
+
+
 # The environment of CGI for the request, as an application of another framework gets it: the path that a route embeds
 # the application under is SCRIPT_NAME, and the rest of it is PATH_INFO, as unescaped bytes in the characters 0-255
 def _cgi(tx: Any, c: Any) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
