@@ -24,6 +24,16 @@ def _spew(*parts, content='pass\n'):
         file.write(content)
 
 
+# The files of a distribution, with its metadata and the RECORD of all of them
+def _distribution(target, name, version, files):
+    metadata = f'{name.replace("-", "_").lower()}-{version}.dist-info'
+    for file in files:
+        _spew(target, *file.split('/'))
+    _spew(target, metadata, 'METADATA', content=f'Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n\nAbout\n')
+    record = [*files, f'{metadata}/METADATA', f'{metadata}/RECORD']
+    _spew(target, metadata, 'RECORD', content=''.join(f'{file},,\n' for file in record))
+
+
 def _main(args):
     with open(os.environ['FAKE_UV_LOG'], 'a') as log:
         log.write(json.dumps(args) + '\n')
@@ -67,9 +77,9 @@ def _main(args):
         target = args[args.index('--target') + 1]
         _spew(target, 'foo', '__init__.py')
         if not os.environ.get('FAKE_UV_NO_PYJOYMENT'):
-            _spew(target, 'Pyjo', '__init__.py')
-            _spew(target, 'Pyjoyment', '__init__.py')
-            _spew(target, 'pyjoyment-0.0.2.dist-info', 'METADATA', content='Name: Pyjoyment\n')
+            _distribution(target, 'Pyjoyment', '0.0.2', ['Pyjo/__init__.py', 'Pyjoyment/__init__.py', 'bin/foo'])
+        # Another distribution of the namespace Pyjo
+        _distribution(target, 'Pyjo-Foo', '0.1.0', ['Pyjo/Foo/__init__.py'])
         _spew(target, 'bin', 'foo')
         _spew(target, '.lock')
     elif args[0] == 'run':
