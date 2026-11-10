@@ -599,6 +599,59 @@ browsers, there is no need to restart your application.
     $ pyjo-reload -x 'npx rollup -c -w' ./myapp.py
     $ pyjo-reload -x 'npx vite build --watch' ./myapp.py
 
+Precompressed static files
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Static files are served as they are, the
+:attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.compress` of the renderer only
+compresses content that is generated dynamically. Files that are built ahead
+of time, like the assets of a bundler, can be compressed ahead of time too,
+with the highest levels of compression, which would be too slow for every
+request. A variant next to the file, with the extension of its encoding in
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.encodings`, like ``app.css.br``,
+``app.css.zst`` and ``app.css.gz``, is served to the clients that accept its
+encoding, with a ``Content-Encoding`` header and the ``Content-Type`` of the
+original file.
+
+.. code-block:: console
+
+    $ find public -type f -size +1k \( -name '*.css' -o -name '*.js' -o -name '*.svg' \) \
+        -exec gzip -k -f -9 -n {} + -exec brotli -k -f -q 11 {} + -exec zstd -q -k -f -19 {} +
+
+Compress the formats of text, which shrink a lot: CSS, JavaScript, JSON,
+source maps, SVG, HTML, plain text, XML, WebAssembly, and fonts in TrueType
+and OpenType. Leave out the formats that are compressed already, as the PNG,
+JPEG, GIF, WebP and AVIF images, video, audio, the WOFF and WOFF2 fonts, PDF
+documents and archives, whose variants would only be larger, and files of
+less than about a kilobyte, which gain nothing. A variant that is not smaller
+than its file is better removed.
+
+Variants are preferred in the order of
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.encodings` and checked for every
+request, so there is nothing to restart when they change. A variant older
+than its file is ignored, so that a build that changes a file without
+compressing it again does not serve the old content, and a ``Range`` request
+always gets a part of the original file. Every response of a file with
+variants has a ``Vary: Accept-Encoding`` header, so that caches keep them
+apart, and each variant has an ``ETag`` of its own.
+
+.. code-block:: python
+
+    # Look for gzip variants only
+    app.static.encodings = {'gzip': '.gz'}
+
+    # Serve static files only as they are
+    app.static.encodings = {}
+
+The ``Dockerfile`` of
+:mod:`Pyjoyment.Command.Author.generate.dockerfile` writes the ``gzip``
+variants in the image with ``--compress``, for the formats of text or the
+patterns of ``--compress-pattern``.
+
+.. code-block:: console
+
+    $ ./myapp.py generate dockerfile --compress public
+
 For production you just run the bundler once before deploying your
 application, with ``PYJO_MODE`` set accordingly.
 

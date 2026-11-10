@@ -287,6 +287,40 @@ with subtest('Static assets'):
     with Pyjo.Test.Pyjo.new(app) as t:
         t.get_ok('/assets/myapp.ab1234cd5678ef.js').status_is(200).header_is('Cache-Control', 'no-cache')
 
+with subtest('Precompressed static files'):
+    app = Pyjoyment.new()
+    public = Pyjo.File.tempdir()
+    public.child('app.css').spew('body { color: red }\n')
+    public.child('app.css.br').spew('br')
+    public.child('app.css.zst').spew('zstd')
+    public.child('app.css.gz').spew('gzip')
+    app.static.paths = [public.to_str()]
+    with Pyjo.Test.Pyjo.new(app) as t:
+        t.ua.transactor.compressed = False
+        (
+            t.get_ok('/app.css', {'Accept-Encoding': 'gzip, br, zstd'})
+            .status_is(200)
+            .header_is('Content-Encoding', 'br')
+            .header_like('Content-Type', r'^text/css')
+            .header_is('Vary', 'Accept-Encoding')
+            .content_is('br')
+        )
+        t.get_ok('/app.css', {'Accept-Encoding': 'gzip, zstd'}).status_is(200).content_is('zstd')
+
+        # Look for gzip variants only
+        app.static.encodings = {'gzip': '.gz'}
+        t.get_ok('/app.css', {'Accept-Encoding': 'gzip, br, zstd'}).status_is(200).content_is('gzip')
+
+        # Serve static files only as they are
+        app.static.encodings = {}
+        (
+            t.get_ok('/app.css', {'Accept-Encoding': 'gzip, br, zstd'})
+            .status_is(200)
+            .header_exists_not('Content-Encoding')
+            .header_exists_not('Vary')
+            .content_is('body { color: red }\n')
+        )
+
 with subtest('Content negotiation'):
     app = Pyjoyment.new()
     templates = Pyjo.File.tempdir()
