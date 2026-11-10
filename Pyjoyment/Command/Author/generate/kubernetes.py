@@ -86,7 +86,9 @@ OrbStack takes from Docker.
 The overlay ``dev`` runs the application in the image of uv with Python, of
 the version that runs the generator, which installs the dependencies of the
 application when the pod starts, as the image of
-:mod:`Pyjoyment.Command.Author.generate.dockerfile` does when it is built, in
+:mod:`Pyjoyment.Command.Author.generate.dockerfile` does when it is built, the
+ones of ``pyproject.toml`` or of the inline metadata of PEP 723 of a script,
+without which the generator fails with the commands that add them, in
 an ``emptyDir``, with the dependency group ``dev`` of a project, which
 ``--no-dev`` leaves out, and runs it in the operating mode ``development``,
 without building an image, with the server of ``--server``: the command
@@ -206,12 +208,14 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         health = app.renderer.get_helper('health.path') is not None
         probes = {'livez': app.health.path('livez'), 'readyz': app.health.path('readyz')} if health else None
 
-        # The script of Pyjoyment.Lite or the package of the application, and the dependencies of the inline metadata
-        # of PEP 723 of the script, if it has them and there is no pyproject.toml, as generate dockerfile has them
+        # The script of Pyjoyment.Lite or the package of the application, and the dependencies of pyproject.toml, or of
+        # the inline metadata of PEP 723 of a script without it, as generate dockerfile has them
         exe = os.environ.get('PYJO_EXE')
         script = Pyjo.File.path(exe).to_rel(self.app.home).to_str().replace(os.sep, '/') if exe else None
         package = type(self.app).__module__
-        project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
+        project = self.rel_file('pyproject.toml').is_file
+        if not project and not (exe and _metadata(Pyjo.File.path(exe))):
+            raise Pyjo.Exception.new(_no_dependencies(script))
         lock = 'uv.lock' if project else f'{script}.lock'
         port = opts.port or 3000
 
@@ -282,6 +286,18 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
     def _write(self, file: Pyjo.File.object, data: str) -> None:
         file.spew(data)
         self._loud(f'  [write] {file}')
+
+
+# The error of an application without pyproject.toml, or of a script without it and without the inline
+# metadata of PEP 723, with the commands that add them, instead of a build that fails without its dependencies
+def _no_dependencies(script: str | None) -> str:
+    if script is None:
+        return 'No dependencies of the application: add a pyproject.toml with "generate pyproject"'
+    add = f'uv add --script {shlex.quote(script)} Pyjoyment'
+    return (
+        f'No dependencies of the script {script}: add its inline metadata with "{add}", '
+        'or a pyproject.toml with "generate pyproject"'
+    )
 
 
 # Whether the script has the inline metadata of PEP 723

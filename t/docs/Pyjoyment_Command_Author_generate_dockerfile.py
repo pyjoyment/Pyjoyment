@@ -99,6 +99,7 @@ with subtest('Synopsis'):
     # ./myapp.py generate dockerfile
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')
+    tmp.child('pyproject.toml').spew('[project]\nname = "myapp"\n')
     application.home = Pyjo.Home.new(tmp.to_str())
     os.environ['PYJO_EXE'] = tmp.child('myapp.py').to_str()
     try:
