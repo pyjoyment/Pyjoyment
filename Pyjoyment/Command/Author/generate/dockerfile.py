@@ -150,6 +150,32 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
     following new ones.
     """
 
+    # Not in Mojolicious: the formats of text, which compress well, as the formats of images, video, audio, the WOFF
+    # fonts, PDF and archives are compressed already
+    compress_patterns: tuple[str, ...] = (
+        '*.css',
+        '*.csv',
+        '*.html',
+        '*.js',
+        '*.json',
+        '*.map',
+        '*.mjs',
+        '*.otf',
+        '*.svg',
+        '*.ttf',
+        '*.txt',
+        '*.wasm',
+        '*.xml',
+    )
+    """::
+
+        patterns = dockerfile.compress_patterns
+        dockerfile.compress_patterns = ('*.css', '*.js')
+
+    Names of the files that ``--compress`` compresses without
+    ``--compress-pattern``, the formats of text, which compress well.
+    """
+
     description = 'Generate "Dockerfile"'
     """::
 
@@ -209,7 +235,7 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         # Not in Mojolicious: the variants of gzip, brotli and zstd of the static files, for the formats of text, as
         # Pyjoyment.Static serves them, and the files that the renderer would not compress either
         compress: list[str] = opts.compress or []
-        patterns: list[str] = opts.compress_pattern or list(_PATTERNS)
+        patterns: list[str] = opts.compress_pattern or list(self.compress_patterns)
         if opts.compress_pattern and not compress:
             raise Pyjo.Exception.new('Option --compress-pattern needs --compress')
 
@@ -261,25 +287,6 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
 
         # Not in Mojolicious: .dockerignore, as the .venv of the host is not the one of the image
         self.render_to_rel_file('dockerignore', '.dockerignore')
-
-
-# Not in Mojolicious: the formats of text, which compress well, as the formats of images, video, audio, the WOFF
-# fonts, PDF and archives are compressed already
-_PATTERNS = (
-    '*.css',
-    '*.csv',
-    '*.html',
-    '*.js',
-    '*.json',
-    '*.map',
-    '*.mjs',
-    '*.otf',
-    '*.svg',
-    '*.ttf',
-    '*.txt',
-    '*.wasm',
-    '*.xml',
-)
 
 
 # Not in Mojolicious: whether the script has the inline metadata of PEP 723

@@ -654,6 +654,16 @@ the packages of ``--apt-package`` install them.
     $ ./myapp.py generate dockerfile --compress public
     $ ./myapp.py generate dockerfile --apt-package brotli --apt-package zstd --compress public
 
+The ZIP of the function of
+:mod:`Pyjoyment.Command.Author.generate.lambda_zip` has them too with
+``--compress``: ``gzip`` of the standard library, ``zstd`` of the one of
+Python 3.14 or of the command ``zstd``, and ``brotli`` of its command, on the
+machine that builds it.
+
+.. code-block:: console
+
+    $ ./myapp.py generate lambda-zip --compress public
+
 For production you just run the bundler once before deploying your
 application, with ``PYJO_MODE`` set accordingly.
 

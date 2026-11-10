@@ -4,6 +4,7 @@ from Pyjo.Test import *
 
 import contextlib
 import gc
+import gzip
 import importlib
 import io
 import json
@@ -815,6 +816,69 @@ with subtest('generate lambda-zip'):
         ok('--frozen' in next(call for call in calls if call[0] == 'export'), 'locked')
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
         like_ok(archive.read('bootstrap').decode(), r"(?m)^exec /opt/python/bin/python\S+ 'my app\.py'$", 'script')
+    os.chdir(cwd)
+
+    # The variants of the static files, with gzip of the standard library and the compressors of the machine
+    dir = Pyjo.File.tempdir()
+    os.chdir(dir)
+    app.rel_file('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    public = app.rel_file('public').make_path()
+    css = 'body { color: #333 }\n' * 100
+    public.child('app.css').spew(css)
+    public.child('small.css').spew('body {}\n')
+    public.child('logo.png').spew(b'\x89PNG' * 500)
+    public.child('random.txt').spew(os.urandom(2000))
+    public.child('nested').make_path().child('data.json').spew('[' + '1, ' * 500 + '1]')
+    with local(PYJO_EXE=None):
+        output, calls = generate('--compress', 'public')
+    encodings = re.search(r'\[compress\] public \((.*)\)', output)[1].split(', ')
+    is_ok(encodings[-1], 'gzip', 'gzip of the standard library')
+    function = entries('dist/function.zip')
+    with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
+        is_ok(gzip.decompress(archive.read('public/app.css.gz')).decode(), css, 'gzip variant')
+        if 'zstd' in encodings:
+            ok('public/app.css.zst' in function, 'zstd variant')
+    ok('public/nested/data.json.gz' in function, 'variant in a subdirectory')
+    ok('public/app.css' in function, 'file')
+    ok('public/small.css.gz' not in function, 'no variant of a small file')
+    ok('public/logo.png.gz' not in function, 'no variant of an image')
+    ok('public/random.txt.gz' not in function, 'no variant that is not smaller')
+    crcs = {name: info.CRC for name, info in function.items() if name.startswith('public/')}
+    with local(PYJO_EXE=None):
+        generate('--compress', 'public')
+    is_deeply_ok(
+        {name: info.CRC for name, info in entries('dist/function.zip').items() if name.startswith('public/')},
+        crcs,
+        'same variants',
+    )
+    with local(PYJO_EXE=None):
+        generate('-c', './public/nested', '-C', '*.png', '--compress-pattern', '*.json')
+    function = entries('dist/function.zip')
+    ok('public/nested/data.json.gz' in function, 'variant of a pattern')
+    ok('public/app.css.gz' not in function and 'public/logo.png.gz' not in function, 'only the directory')
+    if os.name == 'nt':
+        skip('Windows runs no script of a shell as a command', 1)
+    else:
+        bin = Pyjo.File.tempdir()
+        bin.child('brotli').spew('#!/bin/sh\nfor f; do case $f in -*|11) ;; *) printf br >"$f.br" ;; esac; done\n')
+        os.chmod(bin.child('brotli'), 0o755)
+        with local(PYJO_EXE=None, PATH=os.pathsep.join([bin.to_str(), os.environ['PATH']])):
+            output, calls = generate('--compress', 'public')
+        like_ok(output, r'\[compress\] public \(br, ', 'brotli of the machine first')
+        with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
+            is_ok(archive.read('public/app.css.br'), b'br', 'brotli variant')
+    throws_ok(
+        lambda: lambda_zip.run('-C', '*.css'),
+        re.compile(r'^Option --compress-pattern needs --compress'),
+        'patterns without a path',
+    )
+    for path in ('static', '../public', dir.child('public').to_str()):
+        with local(PYJO_EXE=None):
+            throws_ok(
+                lambda path=path: generate('--compress', path),
+                re.compile(rf'^Directory not found in the application: {re.escape(path)}'),
+                'no directory',
+            )
 
     # Errors
     throws_ok(lambda: lambda_zip.run('-a', 'riscv64'), re.compile(r'^Unknown architecture: riscv64'), 'architecture')

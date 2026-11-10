@@ -123,6 +123,11 @@ with subtest('Description'):
 
 with subtest('Attributes'):
     dockerfile = Pyjoyment.Command.Author.generate.dockerfile.new()
+    patterns = dockerfile.compress_patterns
+    ok('*.css' in patterns and '*.js' in patterns, 'formats of text')
+    ok('*.png' not in patterns and '*.pdf' not in patterns, 'not the formats compressed already')
+    dockerfile.compress_patterns = ('*.css', '*.js')
+    is_ok(dockerfile.compress_patterns, ('*.css', '*.js'), 'patterns')
     is_ok(dockerfile.description, 'Generate "Dockerfile"', 'description')
     like_ok(dockerfile.usage, r'generate dockerfile', 'usage')
 

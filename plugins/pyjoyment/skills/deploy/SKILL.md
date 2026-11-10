@@ -103,6 +103,7 @@ find public -type f -size +1k \( -name '*.css' -o -name '*.js' -o -name '*.svg' 
   -exec gzip -k -f -9 -n {} + -exec brotli -k -f -q 11 {} + -exec zstd -q -k -f -19 {} +
 python app.py generate dockerfile --compress public   # gzip variants written in the image
 python app.py generate dockerfile -a brotli -a zstd -c public   # and brotli and zstd of the packages of Debian
+python app.py generate lambda-zip --compress public  # variants in function.zip, with the compressors of the machine
 ```
 
 - `app.static.encodings`, `{'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}` by
@@ -120,6 +121,9 @@ python app.py generate dockerfile -a brotli -a zstd -c public   # and brotli and
   when `--apt-package brotli --apt-package zstd` installs the tools, which the
   image of Python lacks; otherwise write them before the build, and the image
   copies them.
+- `generate lambda-zip --compress` writes them into `function.zip`: `.gz`
+  always, `.zst` with Python 3.14 or the command `zstd`, `.br` with the
+  command `brotli` of the machine that builds it.
 - A variant older than its file is ignored, so a build that changes a file
   without compressing it again serves the file; keep the mtime of the file
   (`gzip -k`, `brotli -k` and `zstd -k` copy it). A `Range` request gets the

@@ -92,6 +92,13 @@ with subtest('Synopsis'):
     pyjoyment = names(tmp.child('dist', 'pyjoyment.zip'))
     ok('python/lib/python3.14/site-packages/Pyjoyment/__init__.py' in pyjoyment, 'Pyjoyment of the runtime')
 
+    # python -m MyApp generate lambda-zip --compress public
+    tmp = Pyjo.File.tempdir()
+    tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    tmp.child('public').make_path().child('app.css').spew('body { color: #333 }\n' * 100)
+    generate(tmp, '--compress', 'public')
+    ok('public/app.css.gz' in names(tmp.child('dist', 'function.zip')), 'variants')
+
     # ./myapp.py generate lambda-zip
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')
