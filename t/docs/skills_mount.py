@@ -58,4 +58,28 @@ with subtest('CGI'):
     else:
         is_ok(get('/cgi-bin/hello.py/x'), 'CGI at /cgi-bin/hello.py for /x', 'program')
 
+with subtest('Static files'):
+    static = tmp.child('public', 'static').make_path()
+    static.child('site.2fcb528ecde1.css').spew('body {}\n')
+    static.child('site.css').spew('body {}\n')
+    p = subprocess.run(
+        [sys.executable, 'app.py', 'get', '-v', '/static/site.2fcb528ecde1.css'],
+        cwd=tmp.to_str(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    like_ok(p.stdout + p.stderr, r'(?m)^Cache-Control: public, max-age=31536000, immutable\r?$', 'hashed name')
+    p = subprocess.run(
+        [sys.executable, 'app.py', 'get', '-v', '/static/site.css'],
+        cwd=tmp.to_str(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    like_ok(p.stdout + p.stderr, r'(?m)^Cache-Control: public, max-age=60\r?$', 'other files')
+    is_ok(get('/favicon.ico'), 'Legacy at  for /favicon.ico', 'favicon of the mounted application')
+
 done_testing()

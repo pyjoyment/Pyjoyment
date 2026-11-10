@@ -1,6 +1,6 @@
 ---
 name: mount
-description: Mount other applications in a Pyjoyment application with the plugin Mount, as WSGI applications of Flask or Django, ASGI applications of Starlette or FastAPI, CGI programs, FastCGI applications as PHP on php-fpm, event functions of AWS Lambda, and other applications of Pyjoyment. Use to serve them next to the routes of Pyjoyment, and to migrate an application of another framework step by step.
+description: Mount other applications in a Pyjoyment application with the plugin Mount, as WSGI applications of Flask or Django, ASGI applications of Starlette or FastAPI, CGI programs, FastCGI applications as PHP on php-fpm, event functions of AWS Lambda, and other applications of Pyjoyment. Use to serve them and their static files next to the routes of Pyjoyment, and to migrate an application of another framework step by step.
 ---
 
 # Mounting applications
@@ -62,6 +62,12 @@ def new(c):
 plugin('Mount', {'/realtime': 'realtime:app'})
 plugin('Mount', {'/cgi-bin': Pyjo.App.CGI.new(document_root=curfile().sibling('cgi-bin').to_str())})
 
+# The static files of the old application, as the output of collectstatic of Django for STATIC_URL /static/, served
+# before the routes, with its hashed names cached for a year
+app.static.paths.append(curfile().sibling('public').to_str())
+app.static.immutable = r'^static/.+\.[0-9a-f]{12}\.[^/.]+$'
+app.static.cache_control = 'public, max-age=60'
+
 # Last, the old application, which gets every request that the routes before do not match
 plugin('Mount', {'/': 'legacy:app'})
 
@@ -78,6 +84,22 @@ app.start()
 - `Pyjo.App.CGI` needs pipes that the event loop watches, which Windows does
   not have, and an executable program, or `command=[...]` that runs it, as
   `command=['php-cgi'], script_extensions=['.php']`.
+
+## Static files of the mounted application
+
+- `Pyjoyment.Static` serves before the routes, so it can serve the static
+  files of the mounted application, in the place of whitenoise: the parent of
+  `STATIC_ROOT` in `app.static.paths`, so that `/static/` maps onto it, with
+  the files of `/`, as `robots.txt`, next to it.
+- `Mount` on `/` leaves out the `/favicon.ico` of Pyjoyment, so the mounted
+  application serves its own; the images of `/pyjo/` of the exception pages
+  stay, and `app.static.extra = {}` leaves them out too.
+- `app.static.immutable`, a regular expression of the paths of hashed names,
+  gives them `Cache-Control: public, max-age=31536000, immutable`, and
+  `app.static.cache_control`, a string or a function of `(c, rel)`, the other
+  files; without them, every page view revalidates every file.
+- The `.gz` and `.br` variants of `CompressedManifestStaticFilesStorage` are
+  served to the clients that take them, as the skill `deploy` says.
 
 ## Other applications
 
