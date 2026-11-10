@@ -89,7 +89,10 @@ kubectl apply -k kubernetes/prod
   taken by the ARN of a version, which the index of the latest release gives:
   `python -m Pyjo 'g("https://github.com/pyjoyment/Pyjoyment-Lambda-Layers/releases/latest/download/layers.json").json("/pyjoyment-python3_14/eu-central-1")'`.
   `--function-only` tells the version of Pyjoyment of the dependencies, which
-  the layer of Pyjoyment is to have.
+  the layer of Pyjoyment is to have. The public layer of Pyjoyment has
+  Pyjo-AWS too: `--layer Pyjo-AWS` leaves it out of the function, as the
+  layer of its own build does, while another distribution of the namespace
+  `Pyjo`, as Pyjo-MCP, stays in the function.
 
 ## Precompressed static files
 

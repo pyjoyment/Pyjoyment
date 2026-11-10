@@ -655,7 +655,7 @@ with subtest('generate lambda-zip'):
     bytecode = next(name for name in pyjoyment if name.startswith(f'{site}/Pyjoyment/__pycache__/__init__.'))
     with zipfile.ZipFile(app.rel_file('dist/pyjoyment.zip').to_str()) as archive:
         ok(f'/opt/{site}/Pyjoyment/__init__.py'.encode() in archive.read(bytecode), 'Pyjoyment compiled for the layer')
-    unlike_ok(' '.join(pyjoyment), r'foo', 'only Pyjoyment in the layer')
+    unlike_ok(' '.join(pyjoyment), r'foo|Foo|bin/', 'only Pyjoyment in the layer')
     function = entries('dist/function.zip')
     is_ok(function['bootstrap'].external_attr >> 16, 0o100755, 'executable bootstrap')
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
@@ -676,7 +676,13 @@ with subtest('generate lambda-zip'):
         ok(f'/opt/python/lib/python{version}/os.py'.encode() in archive.read(bytecode), 'compiled for the layer')
     ok('MyApp/__pycache__/__init__.cpython-0.pyc' not in function, 'not the bytecode of the machine')
     ok('foo/__init__.py' in function, 'dependency')
-    unlike_ok(' '.join(function), r'(?:^| )(?:\.git|\.env|\.lock|bin/|dist/|python/|Pyjo|pyjoyment)', 'nothing else')
+    ok('Pyjo/Foo/__init__.py' in function, 'another distribution of the namespace Pyjo')
+    ok('pyjo_foo-0.1.0.dist-info/RECORD' in function, 'metadata of the other distribution')
+    unlike_ok(
+        ' '.join(function),
+        r'(?:^| )(?:\.git|\.env|\.lock|bin/|dist/|python/|Pyjo/__init__|Pyjoyment|pyjoyment)',
+        'nothing else',
+    )
     zips = [app.rel_file(f'dist/{name}').slurp() for name in ('function.zip', 'python.zip', 'pyjoyment.zip')]
     crcs = {n: i.CRC for z in ('function', 'python', 'pyjoyment') for n, i in entries(f'dist/{z}.zip').items()}
     with local(PYJO_EXE=None):
@@ -785,7 +791,8 @@ with subtest('generate lambda-zip'):
     ok(not any(call[-1].startswith('cpython-') for call in calls), 'no Python of a layer')
     function = entries('dist/function.zip')
     ok('MyApp/__init__.py' in function, 'application')
-    unlike_ok(' '.join(function), r'(?:^| )(?:python/|Pyjo)', 'no Python and Pyjoyment')
+    unlike_ok(' '.join(function), r'(?:^| )(?:python/|Pyjo/__init__|Pyjoyment|pyjoyment)', 'no Python and Pyjoyment')
+    ok('Pyjo/Foo/__init__.py' in function, 'another distribution of the namespace Pyjo in the function')
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
         bootstrap = archive.read('bootstrap').decode()
     like_ok(bootstrap, r'(?m)^exec /opt/python/bin/python3\.14 -m ', 'Python of the layer')
@@ -795,6 +802,29 @@ with subtest('generate lambda-zip'):
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
         bootstrap = archive.read('bootstrap').decode()
     like_ok(bootstrap, r'(?m)^exec /opt/python/bin/python3\.15t -m ', 'free-threaded Python of the layer')
+
+    # Another distribution in the layer of Pyjoyment, by its name or its normalized one
+    with local(PYJO_EXE=None):
+        output, calls = generate('--layer', 'pyjo_foo')
+    pyjoyment = entries('dist/pyjoyment.zip')
+    site = f'python/lib/python{version}/site-packages'
+    ok(f'{site}/Pyjo/__init__.py' in pyjoyment, 'Pyjo in the layer with another distribution')
+    ok(f'{site}/Pyjo/Foo/__init__.py' in pyjoyment, 'other distribution in the layer')
+    ok(f'{site}/pyjo_foo-0.1.0.dist-info/RECORD' in pyjoyment, 'metadata of the other distribution in the layer')
+    function = entries('dist/function.zip')
+    ok('foo/__init__.py' in function, 'dependency in the function')
+    unlike_ok(' '.join(function), r'(?:^| )(?:Pyjo|pyjo)', 'no distribution of the layer in the function')
+    with local(PYJO_EXE=None):
+        output, calls = generate('--function-only', '-p', '3.14', '-l', 'Pyjo-Foo')
+    like_ok(output, r'\[layer\] Pyjoyment 0\.0\.2 for Python 3\.14\r?\n', 'version of Pyjoyment')
+    like_ok(output, r'\[layer\] Pyjo-Foo 0\.1\.0 for Python 3\.14\r?\n', 'version of the other distribution')
+    unlike_ok(' '.join(entries('dist/function.zip')), r'(?:^| )(?:Pyjo|pyjo)', 'only the function')
+    with local(PYJO_EXE=None):
+        throws_ok(
+            lambda: generate('--layer', 'Pyjo-Bar'),
+            re.compile(r'^Pyjo-Bar is not among the dependencies'),
+            'unknown distribution',
+        )
 
     # The runtime of Python of Lambda, without Python and the bootstrap, and the layers of an earlier build
     generate()
@@ -815,7 +845,11 @@ with subtest('generate lambda-zip'):
     )
     function = entries('dist/function.zip')
     ok('MyApp/__init__.py' in function, 'application')
-    unlike_ok(' '.join(function), r'(?:^| )(?:bootstrap|python/|Pyjo)', 'no bootstrap, Python and Pyjoyment')
+    unlike_ok(
+        ' '.join(function),
+        r'(?:^| )(?:bootstrap|python/|Pyjo/__init__|Pyjoyment|pyjoyment)',
+        'no bootstrap, Python and Pyjoyment',
+    )
     with local(PYJO_EXE=None):
         output, calls = generate('-r', 'python3.14', '-p', '3.14')
     ok(os.path.exists(app.rel_file('dist/pyjoyment.zip')), 'same version')
@@ -825,7 +859,11 @@ with subtest('generate lambda-zip'):
     ok(not os.path.exists(app.rel_file('dist/pyjoyment.zip')), 'layer of Pyjoyment of an earlier build removed')
     function = entries('dist/function.zip')
     ok('MyApp/__init__.py' in function, 'application on the runtime')
-    unlike_ok(' '.join(function), r'(?:^| )(?:bootstrap|python/|Pyjo)', 'only the application on the runtime')
+    unlike_ok(
+        ' '.join(function),
+        r'(?:^| )(?:bootstrap|python/|Pyjo/__init__|Pyjoyment|pyjoyment)',
+        'only the application on the runtime',
+    )
     os.chdir(cwd)
 
     # A Lite script with the inline metadata of PEP 723, and its lock
@@ -941,6 +979,11 @@ with subtest('generate lambda-zip'):
         lambda: lambda_zip.run('--function-only', '--no-layer'),
         re.compile(r'^Options --function-only and --no-layer exclude each other'),
         'only the function and no layer',
+    )
+    throws_ok(
+        lambda: lambda_zip.run('--layer', 'Pyjo-AWS', '--no-layer'),
+        re.compile(r'^Options --layer and --no-layer exclude each other'),
+        'distribution of a layer and no layer',
     )
     throws_ok(
         lambda: lambda_zip.run('-r', 'python3.14', '-p', '3.15'),
