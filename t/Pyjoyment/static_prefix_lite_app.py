@@ -28,6 +28,7 @@ I ♥ Unicode
 
 import Pyjo.Test.Pyjo
 
+from Pyjo.File import tempdir
 from Pyjo.Test import *
 from Pyjoyment.Lite import app, get
 
@@ -132,5 +133,34 @@ with subtest('File'):
         'https://somesite.com/file.css',
         'right absolute asset path?',
     )
+
+# Not in Mojolicious: the precompressed variants of a file
+with subtest('Precompressed variants'):
+    dir = tempdir()
+    dir.child('compressed.txt').spew('Hello Variants!')
+    dir.child('compressed.txt.gz').spew('gzip variant')
+    t.app.static.paths.insert(0, dir.to_str())
+    # The bodies of the variants as they are, without an Accept-Encoding of the user agent
+    t.ua.transactor.compressed = False
+
+    (
+        t.get_ok('/static/compressed.txt', {'Accept-Encoding': 'br, gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'gzip')
+        .header_is('Content-Type', 'text/plain;charset=UTF-8')
+        .header_is('Vary', 'Accept-Encoding')
+        .content_is('gzip variant')
+    )
+    (
+        t.get_ok('/static/compressed.txt')
+        .status_is(200)
+        .header_exists_not('Content-Encoding')
+        .header_is('Vary', 'Accept-Encoding')
+        .content_is('Hello Variants!')
+    )
+    t.get_ok('/compressed.txt', {'Accept-Encoding': 'gzip'}).status_is(404)
+
+    t.ua.transactor.compressed = True
+    t.app.static.paths.pop(0)
 
 done_testing()

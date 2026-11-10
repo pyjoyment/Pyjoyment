@@ -22,6 +22,12 @@ Pyjoyment.Static - Serve static files
 `RFC 7232 <https://tools.ietf.org/html/rfc7232>`_ and
 `RFC 7233 <https://tools.ietf.org/html/rfc7233>`_.
 
+A file of :attr:`paths` with a precompressed variant next to it, as
+``app.css.gz`` of ``gzip -k``, is served as the variant to the clients whose
+``Accept-Encoding`` takes its encoding, with the encodings and the extensions
+of :attr:`encodings`. A variant older than its file is ignored, and a
+``Range`` request gets the file.
+
 See also
 --------
 
@@ -43,6 +49,7 @@ from Pyjo.Util import encode, md5_sum, trim
 
 import os
 import re
+import stat
 
 from typing import TYPE_CHECKING, Any, cast
 
@@ -96,6 +103,24 @@ class Pyjoyment_Static(Pyjo.Base.object):
 
             # Add another class with static files in DATA section and higher precedence
             static.classes.insert(0, 'Pyjoyment.Plugin.MoreFun')
+        """
+
+        # Not in Mojolicious: the precompressed variants of the files
+        self.encodings = {'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}
+        """::
+
+            encodings = static.encodings
+            static.encodings = {'gzip': '.gz'}
+
+        Encodings of the precompressed variants of the files of :attr:`paths`
+        and the extensions of their files, in their order of preference,
+        defaults to ``{'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}``, as
+        ``brotli -k``, ``zstd -k`` and ``gzip -k`` write them. A request
+        whose ``Accept-Encoding`` takes an encoding gets the variant with its
+        ``Content-Encoding``, and the ``Content-Type`` of the file. ::
+
+            # Serve the files as they are only
+            static.encodings = {}
         """
 
         self.extra = dict(_EXTRA)
@@ -303,6 +328,12 @@ class Pyjoyment_Static(Pyjo.Base.object):
         if not (asset := self.file(rel)):
             return None
         c.app.types.content_type(c, file=rel)
+
+        # Not in Mojolicious: the precompressed variant of the file, with the Content-Type of the file, which
+        # serve_asset keeps
+        if asset.is_file and self.encodings:
+            asset = self._variant(c, cast(Pyjo.Asset.File.object, asset))
+
         return bool(self.serve_asset(c, asset))
 
     def serve_asset(self, c: 'Pyjoyment.Controller.object', asset: Pyjo.Asset.object) -> Any:
@@ -323,7 +354,12 @@ class Pyjoyment_Static(Pyjo.Base.object):
         res.headers.accept_ranges = 'bytes'
         # Whole seconds, as Perl gives the time of a file, and as an HTTP date has it
         mtime = int(asset.mtime)
-        if self.is_fresh(c, etag=md5_sum(str(mtime).encode()), last_modified=mtime):
+        etag = md5_sum(str(mtime).encode())
+        # Not in Mojolicious: a representation with a Content-Encoding, as a precompressed variant, has an ETag of its
+        # own, as the original and its variant can have the same mtime
+        if encoding := res.headers.content_encoding:
+            etag = f'{etag}-{encoding}'
+        if self.is_fresh(c, etag=etag, last_modified=mtime):
             res.code = 304
             return res
 
@@ -406,6 +442,61 @@ class Pyjoyment_Static(Pyjo.Base.object):
         asset = Pyjo.Asset.Memory.new()
         asset.add_chunk(data if isinstance(data, bytes) else encode('UTF-8', data))
         return asset
+
+    # Not in Mojolicious: the precompressed variant of a file that the request takes, or the file
+    def _variant(self, c: 'Pyjoyment.Controller.object', asset: Pyjo.Asset.File.object) -> Pyjo.Asset.File.object:
+        # Variants, without the ones older than the file, in whole seconds, as brotli copies the mtime with utime
+        path = asset.path
+        mtime = int(asset.mtime)
+        variants: list[tuple[str, str]] = []
+        for encoding, ext in self.encodings.items():
+            try:
+                st = os.stat(variant := f'{path}{ext}')
+            except OSError:
+                continue
+            if stat.S_ISREG(st.st_mode) and int(st.st_mtime) >= mtime and os.access(variant, os.R_OK):
+                variants.append((encoding, variant))
+        if not variants:
+            return asset
+
+        # A cache keeps the representations apart, also the one of the file
+        res_headers = c.res.headers
+        res_headers.append('Vary', 'Accept-Encoding')
+
+        # A range is of the file, as a client that resumes a download has the file in mind
+        req_headers = c.req.headers
+        if req_headers.range or not (accepted := _accept_encoding(req_headers.accept_encoding)):
+            return asset
+
+        # The highest quality, then the order of the encodings, unless the file is preferred
+        best: tuple[float, str, str] | None = None
+        for encoding, variant in variants:
+            q = accepted.get(encoding, accepted.get('*', 0.0))
+            if q > 0 and (best is None or q > best[0]):
+                best = (q, encoding, variant)
+        if best is None or best[0] < accepted.get('identity', 0.0):
+            return asset
+        res_headers.content_encoding = best[1]
+        asset.close()
+        return Pyjo.Asset.File.new(path=best[2])
+
+
+# Not in Mojolicious: the qualities of the encodings of Accept-Encoding, with x-gzip as gzip, as RFC 9110 has it, and
+# an invalid quality as 0
+def _accept_encoding(header: str | None) -> dict[str, float]:
+    accepted: dict[str, float] = {}
+    for part in (header or '').split(','):
+        name, *params = (trim(p) for p in part.split(';'))
+        if not name:
+            continue
+        q = 1.0
+        for param in params:
+            if re.match(r'^q\s*=', param, re.IGNORECASE):
+                m = re.match(r'^q\s*=\s*([01](?:\.\d{0,3})?)$', param, re.IGNORECASE)
+                q = min(float(m[1]), 1.0) if m else 0.0
+        name = name.lower()
+        accepted['gzip' if name == 'x-gzip' else name] = q
+    return accepted
 
 
 def _epoch(date: Any) -> float | None:

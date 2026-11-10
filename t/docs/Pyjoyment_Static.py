@@ -47,6 +47,17 @@ with subtest('classes'):
 
     is_deeply_ok(static.classes, ['Pyjoyment.Plugin.MoreFun', '__main__', 'Pyjoyment.Plugin.Fun'], 'classes')
 
+with subtest('encodings'):
+    static = Pyjoyment.Static.new()
+    encodings = static.encodings
+    is_deeply_ok(encodings, {'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}, 'default')
+    is_deeply_ok(list(encodings), ['br', 'zstd', 'gzip'], 'order of preference')
+    static.encodings = {'gzip': '.gz'}
+
+    # Serve the files as they are only
+    static.encodings = {}
+    is_deeply_ok(static.encodings, {}, 'off')
+
 with subtest('extra'):
     static = Pyjoyment.Static.new()
     extra = static.extra

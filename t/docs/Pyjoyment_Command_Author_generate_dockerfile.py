@@ -66,6 +66,19 @@ with subtest('Synopsis'):
     content = generate(tmp, '--graceful-timeout', '8')
     like_ok(content, r'(?m)^ENV PYJO_GRACEFUL_TIMEOUT=8$', 'graceful timeout')
 
+    # python -m MyApp generate dockerfile --compress public
+    tmp = Pyjo.File.tempdir()
+    tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    content = generate(tmp, '--compress', 'public')
+    like_ok(content, r'(?m)^RUN find public -type f -size \+859c \\$', 'variants')
+
+    # python -m MyApp generate dockerfile --apt-package brotli --apt-package zstd --compress public
+    tmp = Pyjo.File.tempdir()
+    tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    content = generate(tmp, '--apt-package', 'brotli', '--apt-package', 'zstd', '--compress', 'public')
+    like_ok(content, r'(?m)^    && apt-get install --yes --no-install-recommends brotli zstd \\$', 'packages')
+    like_ok(content, r'(?m)^    && if command -v brotli >/dev/null; then brotli ', 'brotli variants')
+
     # ./myapp.py generate dockerfile
     tmp = Pyjo.File.tempdir()
     tmp.child('myapp.py').spew('')
@@ -110,6 +123,11 @@ with subtest('Description'):
 
 with subtest('Attributes'):
     dockerfile = Pyjoyment.Command.Author.generate.dockerfile.new()
+    patterns = dockerfile.compress_patterns
+    ok('*.css' in patterns and '*.js' in patterns, 'formats of text')
+    ok('*.png' not in patterns and '*.pdf' not in patterns, 'not the formats compressed already')
+    dockerfile.compress_patterns = ('*.css', '*.js')
+    is_ok(dockerfile.compress_patterns, ('*.css', '*.js'), 'patterns')
     is_ok(dockerfile.description, 'Generate "Dockerfile"', 'description')
     like_ok(dockerfile.usage, r'generate dockerfile', 'usage')
 

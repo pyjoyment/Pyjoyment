@@ -18,6 +18,8 @@ from Pyjo.File import curfile, tempdir
 from Pyjo.Test import *
 from Pyjoyment.Lite import get, hook, options, post
 
+import os
+
 
 # Left out from Mojolicious: MOJO_REACTOR, as the tests run on the reactor of Pyjo.Reactor.detect()
 
@@ -532,5 +534,133 @@ with subtest('File'):
     c = t.app.build_controller()
     is_ok(c.url_for_file('/unknown.css').path, '/unknown.css', 'right file path')
     is_ok(c.url_for_file('/foo/bar.css').path, '/foo/bar.css', 'right file path')
+
+# Not in Mojolicious: the precompressed variants of a file
+with subtest('Precompressed variants'):
+    dir = tempdir()
+    for name, content in (
+        ('compressed.txt', 'Hello Variants!'),
+        ('compressed.txt.br', 'br variant'),
+        ('compressed.txt.zst', 'zstd variant'),
+        ('compressed.txt.gz', 'gzip variant'),
+        ('plain.txt', 'Hello Plain!'),
+        ('stale.txt', 'Hello Stale!'),
+        ('stale.txt.gz', 'stale variant'),
+    ):
+        file = dir.child(name).spew(content)
+        mtime = 1000000000 if name != 'stale.txt.gz' else 999999999
+        os.utime(file.to_str(), (mtime, mtime))
+    t.app.static.paths.insert(0, dir.to_str())
+    # The bodies of the variants as they are, without an Accept-Encoding of the user agent
+    t.ua.transactor.compressed = False
+
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'br, zstd, gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'br')
+        .header_is('Content-Type', 'text/plain;charset=UTF-8')
+        .header_is('Content-Length', '10')
+        .header_is('Vary', 'Accept-Encoding')
+        .content_is('br variant')
+    )
+    etag = t.tx.res.headers.etag
+    like_ok(etag, r'^"[0-9a-f]{32}-br"$', 'ETag of the variant')
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'gzip')
+        .header_is('Vary', 'Accept-Encoding')
+        .content_is('gzip variant')
+    )
+    t.get_ok('/compressed.txt', {'Accept-Encoding': 'x-gzip'}).status_is(200).content_is('gzip variant')
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'zstd, gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'zstd')
+        .content_is('zstd variant')
+    )
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'br;q=0.5, gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'gzip')
+        .content_is('gzip variant')
+    )
+    (
+        t.head_ok('/compressed.txt', {'Accept-Encoding': 'gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'gzip')
+        .header_is('Content-Length', '12')
+        .content_is('')
+    )
+    t.get_ok('/compressed.txt', {'Accept-Encoding': '*'}).status_is(200).content_is('br variant')
+    t.get_ok('/compressed.txt', {'Accept-Encoding': '*, br;q=0'}).status_is(200).content_is('zstd variant')
+    for accept in ('identity', 'br;q=0, zstd;q=0, gzip;q=0', 'deflate', 'gzip;q=0.5, identity', 'gzip;q=2'):
+        (
+            t.get_ok('/compressed.txt', {'Accept-Encoding': accept})
+            .status_is(200)
+            .header_exists_not('Content-Encoding')
+            .header_is('Vary', 'Accept-Encoding')
+            .content_is('Hello Variants!')
+        )
+    (
+        t.get_ok('/compressed.txt')
+        .status_is(200)
+        .header_exists_not('Content-Encoding')
+        .header_is('Vary', 'Accept-Encoding')
+        .content_is('Hello Variants!')
+    )
+    original = t.tx.res.headers.etag
+    isnt_ok(original, etag, 'ETag of the file')
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'br', 'If-None-Match': original})
+        .status_is(200)
+        .header_is('Content-Encoding', 'br')
+        .content_is('br variant')
+    )
+    t.get_ok('/compressed.txt', {'Accept-Encoding': 'br', 'If-None-Match': etag}).status_is(304).content_is('')
+    t.get_ok('/compressed.txt', {'If-None-Match': etag}).status_is(200).content_is('Hello Variants!')
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'gzip', 'Range': 'bytes=0-4'})
+        .status_is(206)
+        .header_exists_not('Content-Encoding')
+        .header_is('Vary', 'Accept-Encoding')
+        .content_is('Hello')
+    )
+    (
+        t.get_ok('/stale.txt', {'Accept-Encoding': 'gzip'})
+        .status_is(200)
+        .header_exists_not('Content-Encoding')
+        .header_exists_not('Vary')
+        .content_is('Hello Stale!')
+    )
+    (
+        t.get_ok('/plain.txt', {'Accept-Encoding': 'gzip'})
+        .status_is(200)
+        .header_exists_not('Content-Encoding')
+        .header_exists_not('Vary')
+        .content_is('Hello Plain!')
+    )
+    (
+        t.get_ok('/compressed.txt.gz', {'Accept-Encoding': 'gzip'})
+        .status_is(200)
+        .header_exists_not('Content-Encoding')
+        .header_is('Content-Type', 'application/x-gzip')
+        .content_is('gzip variant')
+    )
+
+    t.app.static.encodings = {}
+    (
+        t.get_ok('/compressed.txt', {'Accept-Encoding': 'br, zstd, gzip'})
+        .status_is(200)
+        .header_exists_not('Content-Encoding')
+        .header_exists_not('Vary')
+        .content_is('Hello Variants!')
+    )
+    t.app.static.encodings = {'gzip': '.gz'}
+    t.get_ok('/compressed.txt', {'Accept-Encoding': 'br, zstd, gzip'}).status_is(200).content_is('gzip variant')
+
+    t.app.static.encodings = {'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}
+    t.ua.transactor.compressed = True
+    t.app.static.paths.pop(0)
 
 done_testing()

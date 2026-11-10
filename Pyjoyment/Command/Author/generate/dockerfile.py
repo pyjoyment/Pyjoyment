@@ -12,8 +12,19 @@ Pyjoyment.Command.Author.generate.dockerfile - Dockerfile generator command
       python -m MyApp generate dockerfile --graceful-timeout 8
       python -m MyApp generate dockerfile --healthcheck /
       python -m MyApp generate dockerfile --target lambda
+      python -m MyApp generate dockerfile --compress public
+      python -m MyApp generate dockerfile --apt-package brotli --apt-package zstd --compress public
 
     Options:
+      -a, --apt-package <name>           Install a package of Debian in the
+                                         image, can be repeated
+      -c, --compress <path>              Write the variants of gzip, and of
+                                         brotli and zstd if the image has them,
+                                         of the static files of a directory in
+                                         the image, can be repeated
+      -C, --compress-pattern <glob>      Name of the files that --compress
+                                         compresses, can be repeated, defaults to
+                                         the formats of text
       -G, --graceful-timeout <seconds>   Graceful timeout of the workers of the
                                          server, defaults to the one of the
                                          server
@@ -68,6 +79,25 @@ health of the container in ``docker ps``, and Docker Compose waits for it with
 ``depends_on`` and ``condition: service_healthy``. Kubernetes and Cloud Run
 ignore it and have probes of their own.
 
+With ``--apt-package``, the image has packages of Debian, which ``apt-get``
+installs before the application is copied, so that the layer stays in the
+cache of the build while the application changes: the libraries that a
+dependency of the application loads, as ``libpq5``, or tools, as ``brotli``
+and ``zstd``.
+
+With ``--compress``, the image has the precompressed variants of the static
+files of a directory, as ``public``, which :mod:`Pyjoyment.Static` serves to
+the clients that take them: ``.gz`` of ``gzip -k -9 -n`` of the image, and
+``.br`` of ``brotli -k -q 11`` and ``.zst`` of ``zstd -k -19`` if the image has
+them, as ``--apt-package brotli --apt-package zstd`` installs them, each with
+the mtime of its file. It compresses the formats of text, CSS, JavaScript,
+JSON, source maps, SVG, HTML, plain text, XML, WebAssembly and fonts in
+TrueType and OpenType, or the names of ``--compress-pattern``, as the formats
+of images, video, audio, the WOFF fonts, PDF and archives are compressed
+already, and leaves out the files smaller than
+:attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.min_compress_size` of the
+renderer.
+
 With ``--target lambda``, the image is the one of an event function of AWS
 Lambda: its command runs the script of the application, or its package, which
 is the runtime of the function itself, as :mod:`Pyjoyment.Command.lambda`
@@ -105,6 +135,7 @@ from Pyjo.Util import extract_usage, getopt
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -117,6 +148,32 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
     :mod:`Pyjoyment.Command.Author.generate.dockerfile` inherits all
     attributes and methods from :mod:`Pyjoyment.Command` and implements the
     following new ones.
+    """
+
+    # Not in Mojolicious: the formats of text, which compress well, as the formats of images, video, audio, the WOFF
+    # fonts, PDF and archives are compressed already
+    compress_patterns: tuple[str, ...] = (
+        '*.css',
+        '*.csv',
+        '*.html',
+        '*.js',
+        '*.json',
+        '*.map',
+        '*.mjs',
+        '*.otf',
+        '*.svg',
+        '*.ttf',
+        '*.txt',
+        '*.wasm',
+        '*.xml',
+    )
+    """::
+
+        patterns = dockerfile.compress_patterns
+        dockerfile.compress_patterns = ('*.css', '*.js')
+
+    Names of the files that ``--compress`` compresses without
+    ``--compress-pattern``, the formats of text, which compress well.
     """
 
     description = 'Generate "Dockerfile"'
@@ -150,6 +207,9 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
             opts := getopt(
                 arguments,
                 {
+                    'a|apt-package=s@': None,
+                    'c|compress=s@': None,
+                    'C|compress-pattern=s@': None,
                     'G|graceful-timeout=i': None,
                     'H|healthcheck=s': None,
                     'p|port=i': None,
@@ -168,6 +228,16 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
             for option in ('graceful_timeout', 'healthcheck', 'port'):
                 if getattr(opts, option) is not None:
                     raise Pyjo.Exception.new(f'Option --{option.replace("_", "-")} is not for the target lambda')
+
+        # Not in Mojolicious: the packages of Debian, as the tools that write the variants of the static files
+        packages: list[str] = opts.apt_package or []
+
+        # Not in Mojolicious: the variants of gzip, brotli and zstd of the static files, for the formats of text, as
+        # Pyjoyment.Static serves them, and the files that the renderer would not compress either
+        compress: list[str] = opts.compress or []
+        patterns: list[str] = opts.compress_pattern or list(self.compress_patterns)
+        if opts.compress_pattern and not compress:
+            raise Pyjo.Exception.new('Option --compress-pattern needs --compress')
 
         name = self.app.moniker
 
@@ -197,6 +267,10 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
         lock = 'uv.lock' if project else f'{script}.lock'
         values = {
+            'apt_packages': ' '.join(shlex.quote(package) for package in packages),
+            'compress': ' '.join(shlex.quote(path) for path in compress),
+            'compress_names': ' -o '.join(f'-name {shlex.quote(pattern)}' for pattern in patterns),
+            'compress_size': self.app.renderer.min_compress_size - 1,
             'cmd': json.dumps(cmd if target == 'lambda' else [*cmd, 'prefork']),
             'graceful_timeout': opts.graceful_timeout,
             'healthcheck': healthcheck,
@@ -254,9 +328,21 @@ RUN uv sync --no-install-project<%= ' --locked' if lock else '' %>
 
 FROM python:<%= python %>-slim
 WORKDIR /opt/<%= name %>
+% if apt_packages:
+RUN apt-get update \\
+    && apt-get install --yes --no-install-recommends <%= apt_packages %> \\
+    && rm -rf /var/lib/apt/lists/*
+% end
 COPY --from=builder /opt/<%= name %>/.venv .venv
 COPY . .
 ENV PATH="/opt/<%= name %>/.venv/bin:$PATH"
+% if compress:
+RUN find <%= compress %> -type f -size +<%= compress_size %>c \\
+    \( <%= compress_names %> \) \\
+    -exec sh -c 'gzip -k -f -9 -n "$@" \\
+    && if command -v brotli >/dev/null; then brotli -k -f -q 11 "$@"; fi \\
+    && if command -v zstd >/dev/null; then zstd -q -k -f -19 "$@"; fi' sh {} +
+% end
 % if user:
 RUN useradd --system <%= user %>
 USER <%= user %>

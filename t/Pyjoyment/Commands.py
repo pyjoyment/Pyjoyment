@@ -4,6 +4,7 @@ from Pyjo.Test import *
 
 import contextlib
 import gc
+import gzip
 import importlib
 import io
 import json
@@ -464,6 +465,50 @@ with subtest('generate dockerfile'):
     with contextlib.redirect_stdout(io.StringIO()):
         dockerfile.run('-t', 'lambda', '-u', 'app')
     like_ok(app.rel_file('Dockerfile').slurp().decode(), r'(?m)^USER app\nCMD ', 'right user')
+    # Not in Mojolicious: the packages of Debian and the variants of gzip, brotli and zstd of the static files
+    unlike_ok(app.rel_file('Dockerfile').slurp().decode(), r'gzip', 'no variants')
+    unlike_ok(app.rel_file('Dockerfile').slurp().decode(), r'apt-get', 'no packages')
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('-c', 'public')
+    content = app.rel_file('Dockerfile').slurp().decode()
+    like_ok(
+        content,
+        r'(?m)^COPY \. \.\nENV PATH=.*\nRUN find public -type f -size \+859c \\\n'
+        + r"    \\\( -name '\*\.css' -o -name '\*\.csv' -o .* -o -name '\*\.xml' \\\) \\\n"
+        + r"    -exec sh -c 'gzip -k -f -9 -n \"\$@\" \\\n"
+        + r'    && if command -v brotli >/dev/null; then brotli -k -f -q 11 "\$@"; fi \\\n'
+        + r"    && if command -v zstd >/dev/null; then zstd -q -k -f -19 \"\$@\"; fi' sh \{\} \+\n",
+        'right variants',
+    )
+    like_ok(content, r"-name '\*\.js' -o -name '\*\.json'", 'JavaScript')
+    unlike_ok(content, r'png|woff|pdf', 'no formats that are compressed already')
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('--compress', 'public', '--compress', 'my static', '-C', '*.css', '--compress-pattern', '*.js')
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(),
+        r"(?m)^RUN find public 'my static' -type f -size \+859c \\\n    \\\( -name '\*\.css' -o -name '\*\.js' \\\) \\\n",
+        'right paths and patterns',
+    )
+    app.rel_file('Dockerfile').remove()
+    with contextlib.redirect_stdout(io.StringIO()):
+        dockerfile.run('-a', 'brotli', '--apt-package', 'zstd', '-u', 'app')
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(),
+        r'(?m)^FROM python:\S+\nWORKDIR /opt/\S+\nRUN apt-get update \\\n'
+        + r'    && apt-get install --yes --no-install-recommends brotli zstd \\\n'
+        + r'    && rm -rf /var/lib/apt/lists/\*\nCOPY --from=builder ',
+        'right packages',
+    )
+    like_ok(
+        app.rel_file('Dockerfile').slurp().decode(), r'(?s)apt-get install.*\nUSER app\n', 'packages installed as root'
+    )
+    throws_ok(
+        lambda: dockerfile.run('-C', '*.css'),
+        re.compile(r'^Option --compress-pattern needs --compress'),
+        'patterns without a path',
+    )
     throws_ok(lambda: dockerfile.run('-t', 'kubernetes'), re.compile(r'^Unknown target: kubernetes'), 'unknown target')
     throws_ok(
         lambda: dockerfile.run('-t', 'lambda', '-p', '8080'),
@@ -771,6 +816,69 @@ with subtest('generate lambda-zip'):
         ok('--frozen' in next(call for call in calls if call[0] == 'export'), 'locked')
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
         like_ok(archive.read('bootstrap').decode(), r"(?m)^exec /opt/python/bin/python\S+ 'my app\.py'$", 'script')
+    os.chdir(cwd)
+
+    # The variants of the static files, with gzip of the standard library and the compressors of the machine
+    dir = Pyjo.File.tempdir()
+    os.chdir(dir)
+    app.rel_file('pyproject.toml').spew('[project]\nname = "my_app"\n')
+    public = app.rel_file('public').make_path()
+    css = 'body { color: #333 }\n' * 100
+    public.child('app.css').spew(css)
+    public.child('small.css').spew('body {}\n')
+    public.child('logo.png').spew(b'\x89PNG' * 500)
+    public.child('random.txt').spew(os.urandom(2000))
+    public.child('nested').make_path().child('data.json').spew('[' + '1, ' * 500 + '1]')
+    with local(PYJO_EXE=None):
+        output, calls = generate('--compress', 'public')
+    encodings = re.search(r'\[compress\] public \((.*)\)', output)[1].split(', ')
+    is_ok(encodings[-1], 'gzip', 'gzip of the standard library')
+    function = entries('dist/function.zip')
+    with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
+        is_ok(gzip.decompress(archive.read('public/app.css.gz')).decode(), css, 'gzip variant')
+        if 'zstd' in encodings:
+            ok('public/app.css.zst' in function, 'zstd variant')
+    ok('public/nested/data.json.gz' in function, 'variant in a subdirectory')
+    ok('public/app.css' in function, 'file')
+    ok('public/small.css.gz' not in function, 'no variant of a small file')
+    ok('public/logo.png.gz' not in function, 'no variant of an image')
+    ok('public/random.txt.gz' not in function, 'no variant that is not smaller')
+    crcs = {name: info.CRC for name, info in function.items() if name.startswith('public/')}
+    with local(PYJO_EXE=None):
+        generate('--compress', 'public')
+    is_deeply_ok(
+        {name: info.CRC for name, info in entries('dist/function.zip').items() if name.startswith('public/')},
+        crcs,
+        'same variants',
+    )
+    with local(PYJO_EXE=None):
+        generate('-c', './public/nested', '-C', '*.png', '--compress-pattern', '*.json')
+    function = entries('dist/function.zip')
+    ok('public/nested/data.json.gz' in function, 'variant of a pattern')
+    ok('public/app.css.gz' not in function and 'public/logo.png.gz' not in function, 'only the directory')
+    if os.name == 'nt':
+        skip('Windows runs no script of a shell as a command', 1)
+    else:
+        bin = Pyjo.File.tempdir()
+        bin.child('brotli').spew('#!/bin/sh\nfor f; do case $f in -*|11) ;; *) printf br >"$f.br" ;; esac; done\n')
+        os.chmod(bin.child('brotli'), 0o755)
+        with local(PYJO_EXE=None, PATH=os.pathsep.join([bin.to_str(), os.environ['PATH']])):
+            output, calls = generate('--compress', 'public')
+        like_ok(output, r'\[compress\] public \(br, ', 'brotli of the machine first')
+        with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
+            is_ok(archive.read('public/app.css.br'), b'br', 'brotli variant')
+    throws_ok(
+        lambda: lambda_zip.run('-C', '*.css'),
+        re.compile(r'^Option --compress-pattern needs --compress'),
+        'patterns without a path',
+    )
+    for path in ('static', '../public', dir.child('public').to_str()):
+        with local(PYJO_EXE=None):
+            throws_ok(
+                lambda path=path: generate('--compress', path),
+                re.compile(rf'^Directory not found in the application: {re.escape(path)}'),
+                'no directory',
+            )
 
     # Errors
     throws_ok(lambda: lambda_zip.run('-a', 'riscv64'), re.compile(r'^Unknown architecture: riscv64'), 'architecture')

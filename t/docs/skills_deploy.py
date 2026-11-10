@@ -56,7 +56,64 @@ with subtest('Options of the servers'):
     for option in ('-w, --workers', '-l, --listen', '-p, --proxy', '-G, --graceful-timeout', '-S, --shutdown-delay'):
         like_ok(stdout, re.escape(option), option)
     stdout, status = run('app.py', 'generate', 'dockerfile', '--help')
-    for option in ('-p, --port', '-G, --graceful-timeout', '-t, --target', '-u, --user'):
+    for option in (
+        '-p, --port',
+        '-G, --graceful-timeout',
+        '-t, --target',
+        '-u, --user',
+        '-c, --compress',
+        '-a, --apt-package',
+    ):
         like_ok(stdout, re.escape(option), option)
+    stdout, status = run('app.py', 'generate', 'lambda-zip', '--help')
+    like_ok(stdout, re.escape('-c, --compress'), '-c, --compress of lambda-zip')
+
+with subtest('Precompressed static files'):
+    skill = Skills.read('deploy')
+    t = Pyjo.Test.Pyjo.new(app)
+    t.app.log.level = 'fatal'
+    is_ok(
+        re.search(r'`app\.static\.encodings`, `(\{[^`]+\})` by', skill)[1],
+        repr(t.app.static.encodings),
+        'default encodings',
+    )
+    tmp.child('Dockerfile').remove()
+    stdout, status = run('app.py', 'generate', 'dockerfile', '--compress', 'public')
+    is_ok(status, 0, 'generate dockerfile --compress')
+    dockerfile = tmp.child('Dockerfile').slurp().decode()
+    like_ok(dockerfile, r"RUN find public .*\n.*\n +-exec sh -c 'gzip -k -f -9 -n", 'gzip variants in the image')
+    like_ok(dockerfile, r'command -v brotli .* brotli -k -f -q 11', 'brotli variants if the image has it')
+    like_ok(dockerfile, r'command -v zstd .* zstd -q -k -f -19', 'zstd variants if the image has it')
+    for ext in ('css', 'js', 'mjs', 'json', 'map', 'svg', 'html', 'txt', 'csv', 'xml', 'wasm', 'ttf', 'otf'):
+        like_ok(dockerfile, rf"-name '\*\.{ext}'", f'{ext} compressed')
+    for ext in ('png', 'jpg', 'gif', 'webp', 'avif', 'mp4', 'woff', 'woff2', 'pdf', 'zip', 'gz'):
+        unlike_ok(dockerfile, rf"-name '\*\.{ext}'", f'{ext} not compressed')
+
+    # The commands of the skill on files of the formats that it compresses and leaves out
+    public = tmp.child('public').make_path()
+    public.child('app.css').spew('body { color: #333 }\n' * 100)
+    public.child('app.js').spew('alert(1);\n' * 10)
+    public.child('logo.png').spew(b'\x89PNG\r\n' * 300)
+    (command,) = (b for b in Skills.blocks('deploy', 'sh') if b.startswith('find '))
+    command = command.split('\n')[0].rstrip(' \\') + ' -exec gzip -k -f -9 -n {} +'
+    if os.name == 'nt':
+        # The find of Windows is not the one of POSIX
+        public.child('app.css.gz').spew('gzip')
+    else:
+        p = subprocess.run(['sh', '-c', command], cwd=tmp.to_str(), capture_output=True, text=True, timeout=60)
+        is_ok(p.returncode, 0, 'find of the skill')
+    ok(os.path.isfile(public.child('app.css.gz').to_str()), 'variant of a stylesheet')
+    ok(not os.path.exists(public.child('app.js.gz').to_str()), 'no variant of a small file')
+    ok(not os.path.exists(public.child('logo.png.gz').to_str()), 'no variant of an image')
+
+    t.app.static.paths = [public.to_str()]
+    t.ua.transactor.compressed = False
+    (
+        t.get_ok('/app.css', {'Accept-Encoding': 'br, zstd, gzip'})
+        .status_is(200)
+        .header_is('Content-Encoding', 'gzip')
+        .header_like('Content-Type', r'^text/css')
+        .header_is('Vary', 'Accept-Encoding')
+    )
 
 done_testing()

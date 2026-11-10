@@ -86,19 +86,23 @@ build_dockerfile() {
 # the dependencies, the only change of the generated Dockerfile, which exposes
 # its port, serves the pages and stops gracefully on the TERM of docker stop
 #
-#   smoke_dockerfile [--user USER] [--expose PORT] [--port PORT] [--health PATH] PAGE...
+#   smoke_dockerfile [--user USER] [--expose PORT] [--port PORT] [--health PATH] [--compressed PATH] PAGE...
 #
 #   --expose PORT   the port of the image, of "generate dockerfile --port"
 #   --port PORT     the port of PORT of the container, as Knative sets it
 #   --health PATH   the path of the HEALTHCHECK of the image, which Docker
 #                   reports healthy
+#   --compressed PATH
+#                   a file whose variants of brotli, zstd and gzip the image
+#                   has, of "generate dockerfile --compress"
 smoke_dockerfile() {
-  local user='' expose=3000 listen=3000 health=''
+  local user='' expose=3000 listen=3000 health='' compressed=''
   local -a env=()
   while [[ ${1:-} == --* ]]; do
     case $1 in
       --user) user=$2 ;;
       --health) health=$2 ;;
+      --compressed) compressed=$2 ;;
       --expose)
         expose=$2
         listen=$2
@@ -137,6 +141,21 @@ smoke_dockerfile() {
     grep -q 'Welcome to the Pyjoyment real-time web framework!' <<<"${body}" || fail "GET ${page}"
     ok "GET ${page}"
   done
+
+  if [[ -n ${compressed} ]]; then
+    local encoding headers
+    for encoding in br zstd gzip; do
+      headers=$(curl --silent --fail --header "Accept-Encoding: ${encoding}" --dump-header - --output /dev/null \
+        "${url}${compressed}") || fail "GET ${compressed} with ${encoding}"
+      grep -qi "^Content-Encoding: ${encoding}" <<<"${headers}" || fail "Content-Encoding ${encoding} of ${compressed}"
+      grep -qi '^Vary: Accept-Encoding' <<<"${headers}" || fail "Vary of ${compressed}"
+      ok "GET ${compressed} with ${encoding}"
+    done
+    body=$(curl --silent --fail --header 'Accept-Encoding: gzip' "${url}${compressed}" | gzip -d) ||
+      fail "GET ${compressed} decompressed"
+    [[ ${body} == "$(<"public${compressed}")" ]] || fail "body of ${compressed}"
+    ok "GET ${compressed} decompressed"
+  fi
 
   if [[ -n ${user} ]]; then
     local config
