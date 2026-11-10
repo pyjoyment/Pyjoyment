@@ -70,7 +70,8 @@ not use. The dependencies are the ones of ``pyproject.toml``, which
 ``uv.lock`` if there is one, or the ones of the inline metadata of PEP 723 of
 a :mod:`Pyjoyment.Lite` script that has it and no ``pyproject.toml``, locked
 with its ``.lock`` file if there is one, with the wheels of Amazon Linux 2023,
-``manylinux_2_34``. The application is the files of the current directory,
+``manylinux_2_34``. Without either, the generator fails with the commands that
+add them, before it runs uv. The application is the files of the current directory,
 without hidden ones, ``__pycache__`` and ``dist``, and a file of it that starts
 with ``#!``, as the wrapper of ``AWS_LAMBDA_EXEC_WRAPPER``, is executable.
 
@@ -304,12 +305,14 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
         if encodings:
             compressors = [c for c in compressors if c[0] in encodings]
 
-        # The script of Pyjoyment.Lite or the package of the application, and the dependencies of the inline metadata of
-        # PEP 723 of the script, if it has them and there is no pyproject.toml, as generate dockerfile has them
+        # The script of Pyjoyment.Lite or the package of the application, and the dependencies of pyproject.toml, or of
+        # the inline metadata of PEP 723 of a script without it, as generate dockerfile has them
         exe = os.environ.get('PYJO_EXE')
         script = Pyjo.File.path(exe).to_rel(self.app.home).to_str() if exe else None
         cmd = [script] if script else ['-m', type(self.app).__module__]
-        project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
+        project = self.rel_file('pyproject.toml').is_file
+        if not project and not (exe and _metadata(Pyjo.File.path(exe))):
+            raise Pyjo.Exception.new(_no_dependencies(script))
 
         # The Python of the machine that compiles the bytecode and gives the tags of the wheels, of the same version,
         # with the GIL unless the version is the free-threaded one, which uv does not take otherwise
@@ -542,6 +545,18 @@ def _move(
 # The name of a distribution as PEP 503 normalizes it
 def _normalize(name: str) -> str:
     return re.sub(r'[-_.]+', '-', name).lower()
+
+
+# The error of an application without pyproject.toml, or of a script without it and without the inline
+# metadata of PEP 723, with the commands that add them, instead of a build that fails without its dependencies
+def _no_dependencies(script: str | None) -> str:
+    if script is None:
+        return 'No dependencies of the application: add a pyproject.toml with "generate pyproject"'
+    add = f'uv add --script {shlex.quote(script)} Pyjoyment'
+    return (
+        f'No dependencies of the script {script}: add its inline metadata with "{add}", '
+        'or a pyproject.toml with "generate pyproject"'
+    )
 
 
 # Whether the script has the inline metadata of PEP 723

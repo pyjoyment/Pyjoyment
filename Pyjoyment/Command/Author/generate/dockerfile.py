@@ -55,8 +55,9 @@ with uv into ``.venv``: the ones of ``pyproject.toml``, which
 :mod:`Pyjoyment.Command.Author.generate.pyproject` generates, locked with
 ``uv.lock`` if there is one, or the ones of the inline metadata of PEP 723 of
 a :mod:`Pyjoyment.Lite` script that has it and no ``pyproject.toml``, locked
-with its ``.lock`` file if there is one. The second one has Python, ``.venv``
-and the application only, and its command runs the pre-forking server without
+with its ``.lock`` file if there is one. Without either, the generator fails
+with the commands that add them. The second one has Python, ``.venv`` and the
+application only, and its command runs the pre-forking server without
 uv, so that the signals of ``docker stop`` go straight to the server, which
 stops gracefully on ``TERM``. The images of Python and of uv are those of the
 versions that run the generator.
@@ -282,12 +283,14 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
         )
 
         # Unlike Mojolicious: the script of Pyjoyment.Lite or the package of the application, which python runs, where
-        # Mojo runs the script, and the dependencies of the inline metadata of PEP 723 of the script, if it has them and
-        # there is no pyproject.toml
+        # Mojo runs the script, and the dependencies of pyproject.toml, or of the inline metadata of PEP 723 of a script
+        # without it
         exe = os.environ.get('PYJO_EXE')
         script = Pyjo.File.path(exe).to_rel(self.app.home).to_str() if exe else None
         cmd = ['python', script] if script else ['python', '-m', type(self.app).__module__]
-        project = self.rel_file('pyproject.toml').is_file or not exe or not _metadata(Pyjo.File.path(exe))
+        project = self.rel_file('pyproject.toml').is_file
+        if not project and not (exe and _metadata(Pyjo.File.path(exe))):
+            raise Pyjo.Exception.new(_no_dependencies(script))
         lock = 'uv.lock' if project else f'{script}.lock'
         values = {
             'apt_packages': ' '.join(shlex.quote(package) for package in packages),
@@ -319,6 +322,18 @@ _COMPRESSORS = {
     'zstd': 'zstd -q -k -f -19 "$@"',
     'gzip': 'gzip -k -f -9 -n "$@"',
 }
+
+
+# Not in Mojolicious: the error of an application without pyproject.toml, or of a script without it and without
+# the inline metadata of PEP 723, with the commands that add them, instead of a build that fails without them
+def _no_dependencies(script: str | None) -> str:
+    if script is None:
+        return 'No dependencies of the application: add a pyproject.toml with "generate pyproject"'
+    add = f'uv add --script {shlex.quote(script)} Pyjoyment'
+    return (
+        f'No dependencies of the script {script}: add its inline metadata with "{add}", '
+        'or a pyproject.toml with "generate pyproject"'
+    )
 
 
 # Not in Mojolicious: whether the script has the inline metadata of PEP 723

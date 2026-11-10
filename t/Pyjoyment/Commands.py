@@ -397,6 +397,8 @@ with subtest('generate dockerfile'):
     like_ok(dockerfile.usage, r'dockerfile', 'has usage information')
     dir = Pyjo.File.tempdir()
     os.chdir(dir)
+    # Not in Mojolicious: the dependencies of the application
+    app.rel_file('pyproject.toml').spew('[project]\nname = "my_app"\n')
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
         dockerfile.run()
@@ -555,6 +557,31 @@ with subtest('generate dockerfile'):
     like_ok(buffer.getvalue(), r'Unknown option: unknown', 'right output')
     os.chdir(cwd)
 
+    # Not in Mojolicious: no pyproject.toml, of an application, and of a script without the inline metadata of PEP 723
+    dir = Pyjo.File.tempdir()
+    os.chdir(dir)
+    home = dockerfile.app.home
+    dockerfile.app.home = Pyjo.File.path().to_abs()
+    with local(PYJO_EXE=None):
+        throws_ok(
+            lambda: dockerfile.run(),
+            re.compile(r'^No dependencies of the application: add a pyproject\.toml with "generate pyproject"$'),
+            'no dependencies of the application',
+        )
+    app.rel_file('my app.py').spew('pass\n')
+    with local(PYJO_EXE=app.rel_file('my app.py').to_abs().to_str()):
+        throws_ok(
+            lambda: dockerfile.run(),
+            re.compile(
+                r'^No dependencies of the script my app\.py: add its inline metadata with '
+                r'"uv add --script \'my app\.py\' Pyjoyment", or a pyproject\.toml with "generate pyproject"$'
+            ),
+            'no dependencies of the script',
+        )
+    ok(not os.path.exists(app.rel_file('Dockerfile').to_str()), 'no Dockerfile')
+    dockerfile.app.home = home
+    os.chdir(cwd)
+
 # Not in Mojolicious: generate kubernetes
 with subtest('generate kubernetes'):
     kubernetes = Pyjoyment.Command.Author.generate.kubernetes.new()
@@ -562,6 +589,7 @@ with subtest('generate kubernetes'):
     like_ok(kubernetes.usage, r'kubernetes', 'has usage information')
     dir = Pyjo.File.tempdir()
     os.chdir(dir)
+    app.rel_file('pyproject.toml').spew('[project]\nname = "my_app"\n')
     app.rel_file('app.txt').spew('Hello\n')
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
@@ -585,6 +613,31 @@ with subtest('generate kubernetes'):
             lambda: kubernetes.run('--unknown'), re.compile(r'Usage: APPLICATION generate kubernetes'), 'unknown option'
         )
     like_ok(buffer.getvalue(), r'Unknown option: unknown', 'right output')
+    os.chdir(cwd)
+
+    # No pyproject.toml, of an application, and of a script without the inline metadata of PEP 723
+    dir = Pyjo.File.tempdir()
+    os.chdir(dir)
+    home = kubernetes.app.home
+    kubernetes.app.home = Pyjo.File.path().to_abs()
+    with local(PYJO_EXE=None):
+        throws_ok(
+            lambda: kubernetes.run(),
+            re.compile(r'^No dependencies of the application: add a pyproject\.toml with "generate pyproject"$'),
+            'no dependencies of the application',
+        )
+    app.rel_file('my app.py').spew('pass\n')
+    with local(PYJO_EXE=app.rel_file('my app.py').to_abs().to_str()):
+        throws_ok(
+            lambda: kubernetes.run(),
+            re.compile(
+                r'^No dependencies of the script my app\.py: add its inline metadata with '
+                r'"uv add --script \'my app\.py\' Pyjoyment", or a pyproject\.toml with "generate pyproject"$'
+            ),
+            'no dependencies of the script',
+        )
+    ok(not os.path.exists(app.rel_file('kubernetes').to_str()), 'no manifests')
+    kubernetes.app.home = home
     os.chdir(cwd)
 
 # Not in Mojolicious: generate lambda-zip, with the uv of t/lib/FakeUV.py
@@ -881,6 +934,31 @@ with subtest('generate lambda-zip'):
         ok('--frozen' in next(call for call in calls if call[0] == 'export'), 'locked')
     with zipfile.ZipFile(app.rel_file('dist/function.zip').to_str()) as archive:
         like_ok(archive.read('bootstrap').decode(), r"(?m)^exec /opt/python/bin/python\S+ 'my app\.py'$", 'script')
+    os.chdir(cwd)
+
+    # No pyproject.toml, of an application, and of a script without the inline metadata of PEP 723
+    dir = Pyjo.File.tempdir()
+    os.chdir(dir)
+    home = lambda_zip.app.home
+    lambda_zip.app.home = Pyjo.File.path().to_abs()
+    with local(PYJO_EXE=None):
+        throws_ok(
+            lambda: generate(),
+            re.compile(r'^No dependencies of the application: add a pyproject\.toml with "generate pyproject"$'),
+            'no dependencies of the application',
+        )
+    app.rel_file('my app.py').spew('pass\n')
+    with local(PYJO_EXE=app.rel_file('my app.py').to_abs().to_str()):
+        throws_ok(
+            lambda: generate(),
+            re.compile(
+                r'^No dependencies of the script my app\.py: add its inline metadata with '
+                r'"uv add --script \'my app\.py\' Pyjoyment", or a pyproject\.toml with "generate pyproject"$'
+            ),
+            'no dependencies of the script',
+        )
+    is_ok(FakeUV.calls(uv.child('log')), [], 'no uv')
+    lambda_zip.app.home = home
     os.chdir(cwd)
 
     # The variants of the static files, with gzip of the standard library and the compressors of the machine
