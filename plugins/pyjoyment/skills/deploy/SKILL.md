@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops and the Health plugin for probes, the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
+description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops and the Health plugin for probes, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
 ---
 
 # Deployment
@@ -124,6 +124,12 @@ python app.py generate lambda-zip --compress public  # variants in function.zip,
 - `generate lambda-zip --compress` writes them into `function.zip`: `.gz`
   always, `.zst` with Python 3.14 or the command `zstd`, `.br` with the
   command `brotli` of the machine that builds it.
+- `app.static.immutable`, a regular expression of the paths of names with a
+  hash of their content, as `r'^assets/.+\.[0-9a-f]{8,}\.[^/]+$'`, serves
+  them with `Cache-Control: public, max-age=31536000, immutable`, and
+  `app.static.cache_control`, a string or a function of `(c, rel)`, the other
+  files, as `'public, max-age=60'`; without them, browsers revalidate every
+  file at every page view.
 - A variant older than its file is ignored, so a build that changes a file
   without compressing it again serves the file; keep the mtime of the file
   (`gzip -k`, `brotli -k` and `zstd -k` copy it). A `Range` request gets the

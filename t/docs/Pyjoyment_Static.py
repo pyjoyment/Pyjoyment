@@ -6,6 +6,7 @@ from Pyjo.File import tempdir
 from Pyjo.Test import *
 
 import os
+import re
 
 
 with subtest('Synopsis'):
@@ -32,6 +33,19 @@ with subtest('asset_dir'):
     dir = static.asset_dir
     is_ok(dir, 'assets', 'default')
     static.asset_dir = 'assets'
+
+with subtest('cache_control'):
+    static = Pyjoyment.Static.new()
+    cache_control = static.cache_control
+    is_ok(cache_control, None, 'default')
+    static.cache_control = 'public, max-age=60'
+    static.cache_control = lambda c, rel: 'no-cache' if rel.endswith('.html') else 'public, max-age=60'
+    is_ok(static.cache_control(None, 'index.html'), 'no-cache', 'function')
+    is_ok(static.cache_control(None, 'app.css'), 'public, max-age=60', 'function')
+
+    # Revalidate every file after a minute
+    static.cache_control = 'public, max-age=60'
+    is_ok(static.cache_control, 'public, max-age=60', 'string')
 
 with subtest('classes'):
     static = Pyjoyment.Static.new()
@@ -69,6 +83,18 @@ with subtest('extra'):
     static = Pyjoyment.Static.new()
     del static.extra['favicon.ico']
     ok('favicon.ico' not in static.extra, 'removed')
+
+with subtest('immutable'):
+    static = Pyjoyment.Static.new()
+    immutable = static.immutable
+    is_ok(immutable, None, 'default')
+    static.immutable = r'\.[0-9a-f]{12}\.[^/.]+$'
+    ok(re.search(static.immutable, 'site.2fcb528ecde1.css'), 'hashed name')
+
+    # The names of ManifestStaticFilesStorage of Django
+    static.immutable = re.compile(r'\.[0-9a-f]{12}\.[^/.]+$')
+    ok(static.immutable.search('admin/css/base.5af66c1b1797.css'), 'hashed name of Django')
+    ok(not static.immutable.search('admin/css/base.css'), 'name without a hash')
 
 with subtest('paths'):
     static = Pyjoyment.Static.new()

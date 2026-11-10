@@ -19,6 +19,7 @@ from Pyjo.Test import *
 from Pyjoyment.Lite import get, hook, options, post
 
 import os
+import re
 
 
 # Left out from Mojolicious: MOJO_REACTOR, as the tests run on the reactor of Pyjo.Reactor.detect()
@@ -662,5 +663,61 @@ with subtest('Precompressed variants'):
     t.app.static.encodings = {'br': '.br', 'zstd': '.zst', 'gzip': '.gz'}
     t.ua.transactor.compressed = True
     t.app.static.paths.pop(0)
+
+# Not in Mojolicious: the Cache-Control of the files
+with subtest('Cache-Control'):
+    t.get_ok('/hello.txt').status_is(200).header_exists_not('Cache-Control')
+
+    t.app.static.cache_control = 'public, max-age=60'
+    t.get_ok('/hello.txt').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    etag = t.tx.res.headers.etag
+    (t.get_ok('/hello.txt', {'If-None-Match': etag}).status_is(304).header_is('Cache-Control', 'public, max-age=60'))
+    t.get_ok('/hello3.txt').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    t.get_ok('/static.txt').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    t.get_ok('/favicon.ico').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    t.get_ok('/asset').status_is(200).header_exists_not('Cache-Control')
+    t.get_ok('/file').status_is(200).header_exists_not('Cache-Control')
+
+    rels = []
+
+    def cache_control(c, rel):
+        rels.append(rel)
+        return None if rel == 'hello2.txt' else f'private, max-age={len(rel)}'
+
+    t.app.static.cache_control = cache_control
+    t.get_ok('/hello.txt').status_is(200).header_is('Cache-Control', 'private, max-age=9')
+    t.get_ok('/hello2.txt').status_is(200).header_exists_not('Cache-Control')
+    t.get_ok('/assets/foo/bar/baz.123.js').status_is(200).header_is('Cache-Control', 'private, max-age=25')
+    is_deeply_ok(rels, ['hello.txt', 'hello2.txt', 'assets/foo/bar/baz.123.js'], 'paths of the files')
+
+    t.app.static.cache_control = 'public, max-age=60'
+    t.app.static.immutable = r'^assets/.*\.[0-9a-f]{6,}\.'
+    t.app.mode = 'production'
+    (
+        t.get_ok('/assets/foo.ab1234cd5678ef.css')
+        .status_is(200)
+        .header_is('Cache-Control', 'public, max-age=31536000, immutable')
+    )
+    t.get_ok('/assets/foo/bar/baz.123.js').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    t.get_ok('/hello.txt').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    t.app.static.immutable = re.compile(r'\.txt$')
+    t.get_ok('/hello.txt').status_is(200).header_is('Cache-Control', 'public, max-age=31536000, immutable')
+
+    # The assets of the development mode are not cached
+    t.app.mode = 'development'
+    t.app.static.immutable = r'^assets/'
+    t.get_ok('/assets/foo.ab1234cd5678ef.css').status_is(200).header_is('Cache-Control', 'no-cache')
+
+    # A Cache-Control of the action
+    t.app.static.immutable = None
+
+    @get('/no_store.txt')
+    def no_store(c):
+        c.res.headers.cache_control = 'no-store'
+        c.reply.static('hello2.txt')
+
+    t.get_ok('/no_store.txt').status_is(200).header_is('Cache-Control', 'no-store')
+
+    t.app.static.cache_control = None
 
 done_testing()

@@ -116,4 +116,20 @@ with subtest('Precompressed static files'):
         .header_is('Vary', 'Accept-Encoding')
     )
 
+with subtest('Cache-Control'):
+    skill = Skills.read('deploy')
+    immutable = re.search(r"`app\.static\.immutable`.*?`r'(.+?)'`", skill, re.S)[1]
+    cache_control = re.search(r"`app\.static\.cache_control`.*?`'(.+?)'`", skill, re.S)[1]
+    t = Pyjo.Test.Pyjo.new(app)
+    t.app.log.level = 'fatal'
+    t.app.mode = 'production'
+    public = Pyjo.File.tempdir()
+    public.child('assets').make_path().child('app.ab1234cd.js').spew('alert(1);\n')
+    public.child('robots.txt').spew('User-agent: *\n')
+    t.app.static.paths = [public.to_str()]
+    t.app.static.immutable = immutable
+    t.app.static.cache_control = cache_control
+    t.get_ok('/assets/app.ab1234cd.js').status_is(200).header_is('Cache-Control', 'public, max-age=31536000, immutable')
+    t.get_ok('/robots.txt').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+
 done_testing()

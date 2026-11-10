@@ -599,6 +599,20 @@ browsers, there is no need to restart your application.
     $ pyjo-reload -x 'npx rollup -c -w' ./myapp.py
     $ pyjo-reload -x 'npx vite build --watch' ./myapp.py
 
+Static files are served with ``Last-Modified`` and ``ETag`` headers, so that
+browsers revalidate them, and with the ``Cache-Control`` header of
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.cache_control` if you set one. The
+files whose paths match
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.immutable`, like the assets with a
+checksum in their names, which never change, are cached by browsers for a year
+without revalidation, except in ``development`` mode.
+
+.. code-block:: python
+
+    # Revalidate static files after a minute, and never the assets with checksums
+    app.static.cache_control = 'public, max-age=60'
+    app.static.immutable = r'^assets/.+\.[0-9a-f]{8,}\.[^/]+$'
+
 Precompressed static files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 

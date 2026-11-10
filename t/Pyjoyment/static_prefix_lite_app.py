@@ -163,4 +163,24 @@ with subtest('Precompressed variants'):
     t.ua.transactor.compressed = True
     t.app.static.paths.pop(0)
 
+# Not in Mojolicious: the Cache-Control of the files, with their paths without the prefix
+with subtest('Cache-Control'):
+    rels = []
+
+    def cache_control(c, rel):
+        rels.append(rel)
+        return 'public, max-age=60'
+
+    t.app.static.cache_control = cache_control
+    t.app.static.immutable = r'^static_utf8\.txt$'
+    (
+        t.get_ok('/static/static_utf8.txt')
+        .status_is(200)
+        .header_is('Cache-Control', 'public, max-age=31536000, immutable')
+    )
+    t.get_ok('/static/hello.txt').status_is(200).header_is('Cache-Control', 'public, max-age=60')
+    is_deeply_ok(rels, ['hello.txt'], 'path without the prefix')
+    t.app.static.cache_control = None
+    t.app.static.immutable = None
+
 done_testing()

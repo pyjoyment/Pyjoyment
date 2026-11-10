@@ -75,6 +75,12 @@ an application of another framework does not get, as its ``SCRIPT_NAME`` or
 the ones of PromQL do, with the rest of it for the application in its group
 ``path``.
 
+The static files of :mod:`Pyjoyment.Static` are served before the routes, also
+the bundled ``favicon.ico`` of :attr:`~Pyjoyment.Static.Pyjoyment_Static.extra`,
+so an application mounted on ``/`` has its own ``favicon.ico`` in a directory
+of :attr:`~Pyjoyment.Static.Pyjoyment_Static.paths`, which comes first, or
+the bundled one is removed with ``del app.static.extra['favicon.ico']``.
+
 The code of this plugin is a good example for learning to build new plugins,
 you're welcome to fork it.
 
