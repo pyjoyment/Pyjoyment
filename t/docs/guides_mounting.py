@@ -3,6 +3,7 @@ import Pyjo.App.CGI
 import Pyjo.App.FastCGI
 import Pyjo.App.Lambda
 import Pyjo.File
+import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjoyment
 
@@ -136,6 +137,21 @@ with subtest('FastCGI'):
     like_ok(str(mounts['/app'].url), r'\?script=/srv/app/public/index\.php$', 'one script')
     like_ok(str(mounts['/php'].url), r'^fcgi\+unix://.*\?document_root=/var/www/php$', 'directory')
     like_ok(str(mounts['/blog'].url), r'document_root=/var/www/wordpress&script=index\.php&static=1$', 'WordPress')
+
+    # PHP of www next to the script, with its files, where public, whose static files serve their source, fails
+    project = Pyjo.File.tempdir()
+    for directory in ('www', 'public'):
+        app = Pyjoyment.new()
+        app.log.level = 'fatal'
+        app.static.paths = [project.child('public').make_path().to_str()]
+        www = project.child(directory).make_path().to_str()
+        app.plugin('Mount', {'/': Pyjo.App.FastCGI.new(url='fcgi://127.0.0.1:9000', document_root=www, static=True)})
+        daemon = Pyjo.Server.Daemon.new(app=app, listen=['http://127.0.0.1'], silent=True)
+        if directory == 'www':
+            with daemon.start():
+                ok(daemon.ports(), 'scripts out of the static files')
+        else:
+            throws_ok(daemon.start, re.compile(r'would serve their source'), 'scripts in the static files')
 
 
 with subtest('CGI'):

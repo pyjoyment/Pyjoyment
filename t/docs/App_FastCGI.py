@@ -1,9 +1,13 @@
+import Pyjo.File
 import Pyjo.IOLoop
+import Pyjo.Server
 import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjoyment
 
 from Pyjo.Test import *
+
+import re
 
 
 # The FastCGI server of Pyjo, which answers the requests of the examples
@@ -77,6 +81,13 @@ with subtest('max_connections'):
     app.max_connections = 4
     is_ok(app.max_connections, 4, 'connections kept')
 
+with subtest('public_source'):
+    app = Pyjo.App.FastCGI.new()
+    boolean = app.public_source
+    is_ok(boolean, None, 'not on purpose')
+    app.public_source = True
+    is_ok(app.public_source, True, 'on purpose')
+
 with subtest('script'):
     app = Pyjo.App.FastCGI.new()
     script = app.script
@@ -112,6 +123,17 @@ with subtest('static'):
     is_ok(boolean, None, 'of the query or false')
     app.static = True
     is_ok(app.static, True, 'static files')
+
+with subtest('server'):
+    app = Pyjo.App.FastCGI.new(url='fcgi://127.0.0.1:9000?document_root=%2Fvar%2Fwww')
+    is_ok(app.server(Pyjo.Server.new()), None, 'no static files')
+    public = Pyjo.File.tempdir()
+    mounting = Pyjoyment.new()
+    mounting.static.paths = [public.to_str()]
+    app.document_root = public.to_str()
+    throws_ok(lambda: app.server(Pyjo.Server.new(app=mounting)), re.compile(r'would serve their source'), 'in them')
+    app.public_source = True
+    is_ok(app.server(Pyjo.Server.new(app=mounting)), None, 'on purpose')
 
 with subtest('url'):
     app = Pyjo.App.FastCGI.new()

@@ -2,6 +2,7 @@ import Pyjo.App.CGI
 import Pyjo.File
 import Pyjo.IOLoop
 import Pyjo.Promise
+import Pyjo.Server.Daemon
 import Pyjo.Test.Pyjo
 import Pyjo.Transaction.HTTP
 import Pyjoyment
@@ -426,6 +427,39 @@ with subtest('Errors'):
         re.compile(r'^No CGI application'),
         'no application',
     )
+
+with subtest('Scripts in the static files'):
+    # The static files of the application that mounts it are served before the route of the mount, with the source of
+    # the scripts
+    project = Pyjo.File.tempdir()
+    public = project.child('public').make_path()
+
+    def start(cgi):
+        app = Pyjoyment.new()
+        app.log.level = 'fatal'
+        app.static.paths = [public.to_str()]
+        app.plugin('Mount', {'/': cgi})
+        return Pyjo.Server.Daemon.new(app=app, listen=['http://127.0.0.1'], silent=True).start()
+
+    error = re.compile(
+        r'^Scripts of Pyjo\.App\.CGI in \S+ are in the static files of \S+public, which would serve their'
+    )
+    throws_ok(lambda: start(Pyjo.App.CGI.new(document_root=public.to_str())), error, 'document root')
+    cgi = Pyjo.App.CGI.new(document_root=public.child('cgi-bin').make_path().to_str())
+    throws_ok(lambda: start(cgi), error, 'directory in the static files')
+    throws_ok(lambda: start(Pyjo.App.CGI.new(script=public.child('hello.cgi').to_str())), error, 'one script')
+    www = project.child('www').make_path().to_str()
+    throws_ok(
+        lambda: start(Pyjo.App.CGI.new(document_root=www, script='../public/hello.cgi')), error, 'relative script'
+    )
+
+    # Another directory, and the static files on purpose
+    for cgi in (
+        Pyjo.App.CGI.new(document_root=www),
+        Pyjo.App.CGI.new(document_root=public.to_str(), public_source=True),
+    ):
+        with start(cgi) as server:
+            ok(server.ports(), 'started')
 
 with subtest('Connection of the client closed'):
     pid_file = tmp.child('big.pid').to_str()

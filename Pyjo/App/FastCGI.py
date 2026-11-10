@@ -85,6 +85,7 @@ import Pyjo.App
 import Pyjo.App.CGI
 import Pyjo.Exception
 import Pyjo.IOLoop
+import Pyjo.Server
 import Pyjo.URL
 
 from Pyjo.Server.FastCGI import (
@@ -206,6 +207,20 @@ class Pyjo_App_FastCGI(Pyjo.App.object):
         of them leave no worker to the other clients of the pool.
         """
 
+        self.public_source: bool | None = None
+        """::
+
+            boolean = app.public_source
+            app.public_source = True
+
+        The static files of the application that mounts this one, as the
+        ``public`` directory of :mod:`Pyjoyment.Static`, may have the scripts of
+        :attr:`document_root` or :attr:`script` on purpose, the parameter
+        ``public_source`` of the query of :attr:`url`, false by default, with
+        which :meth:`server` fails, as those static files are served before
+        the route of the mount, so their source instead of their output.
+        """
+
         self.script: str | None = None
         """::
 
@@ -276,8 +291,9 @@ class Pyjo_App_FastCGI(Pyjo.App.object):
         or the path of a UNIX domain socket of ``fcgi+unix://``, escaped as the
         listen locations of :mod:`Pyjo.Server.Daemon` are. Its query can give
         :attr:`connect_timeout`, :attr:`document_root`,
-        :attr:`inactivity_timeout`, :attr:`max_connections`, :attr:`script`,
-        :attr:`script_extensions`, :attr:`sendfile` and :attr:`static`, as the
+        :attr:`inactivity_timeout`, :attr:`max_connections`,
+        :attr:`public_source`, :attr:`script`, :attr:`script_extensions`,
+        :attr:`sendfile` and :attr:`static`, as the
         listen locations give their options, which the attributes take the
         place of. ::
 
@@ -332,6 +348,25 @@ class Pyjo_App_FastCGI(Pyjo.App.object):
             'static': self.static if self.static is not None else _flag(query.get('static')),
         }
         _Call.run(self, config, tx, options)
+
+    def server(self, server: Pyjo.Server.object) -> None:
+        """::
+
+            app.server(Pyjo.Server.new())
+
+        Fail before the server starts when the static files of the application
+        that mounts this one, as the ``public`` directory of
+        :mod:`Pyjoyment.Static`, have the scripts of :attr:`document_root` or
+        :attr:`script` on the same file system, unless :attr:`public_source`
+        is true.
+        """
+        if (url := self.url) is None:
+            return
+        query = _location(url)[1]
+        root = self.document_root if self.document_root is not None else query.get('document_root')
+        script = self.script if self.script is not None else query.get('script')
+        public = self.public_source if self.public_source is not None else _flag(query.get('public_source'))
+        Pyjo.App.CGI._public(self, server, root, script, public)  # pyright: ignore[reportPrivateUsage]
 
 
 # A request to the application, in records of FastCGI on a connection to it
@@ -573,7 +608,15 @@ def _extensions(value: list[str] | None, query: list[str] | None) -> list[str]:
 # The options of the connection to the location of the application, and the parameters of its query
 def _location(url: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     url = Pyjo.URL.new(str(url))
-    names = ('connect_timeout', 'document_root', 'inactivity_timeout', 'max_connections', 'script', 'static')
+    names = (
+        'connect_timeout',
+        'document_root',
+        'inactivity_timeout',
+        'max_connections',
+        'public_source',
+        'script',
+        'static',
+    )
     query: dict[str, Any] = {name: value for name in names if (value := url.query.param(name)) is not None}
     for name in ('script_extensions', 'sendfile'):
         if values := url.query.every_param(name):

@@ -1,10 +1,12 @@
 import Pyjo.File
+import Pyjo.Server
 import Pyjo.Test.Pyjo
 import Pyjoyment
 
 from Pyjo.Test import *
 
 import os
+import re
 import sys
 
 
@@ -84,6 +86,13 @@ with subtest('nph'):
     app.nph = True
     is_ok(app.nph, True, 'non-parsed headers')
 
+with subtest('public_source'):
+    app = Pyjo.App.CGI.new()
+    boolean = app.public_source
+    is_ok(boolean, False, 'not on purpose')
+    app.public_source = True
+    is_ok(app.public_source, True, 'on purpose')
+
 with subtest('script'):
     app = Pyjo.App.CGI.new()
     script = app.script
@@ -119,5 +128,16 @@ with subtest('static'):
     is_ok(boolean, False, 'no static files')
     app.static = True
     is_ok(app.static, True, 'static files')
+
+with subtest('server'):
+    app = Pyjo.App.CGI.new(document_root='/usr/lib/cgi-bin')
+    is_ok(app.server(Pyjo.Server.new()), None, 'no static files')
+    public = Pyjo.File.tempdir()
+    mounting = Pyjoyment.new()
+    mounting.static.paths = [public.to_str()]
+    app.document_root = public.to_str()
+    throws_ok(lambda: app.server(Pyjo.Server.new(app=mounting)), re.compile(r'would serve their source'), 'in them')
+    app.public_source = True
+    is_ok(app.server(Pyjo.Server.new(app=mounting)), None, 'on purpose')
 
 done_testing()

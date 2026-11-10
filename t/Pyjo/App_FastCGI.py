@@ -355,6 +355,37 @@ with subtest('Static files'):
         t.get_ok('/blog/style.css').status_is(200).content_is('from the application')
     Pyjo.IOLoop.remove(id)
 
+with subtest('Scripts in the static files'):
+    # The static files of the application that mounts it are served before the route of the mount, with the source of
+    # the scripts, when they are on the same file system
+    project = Pyjo.File.tempdir()
+    public = project.child('public').make_path()
+
+    def start(fcgi):
+        app = Pyjoyment.new()
+        app.log.level = 'fatal'
+        app.static.paths = [public.to_str()]
+        app.plugin('Mount', {'/': fcgi})
+        return Pyjo.Server.Daemon.new(app=app, listen=['http://127.0.0.1'], silent=True).start()
+
+    error = re.compile(r'^Scripts of Pyjo\.App\.FastCGI in \S+ are in the static files of \S+public, which would serve')
+    location = 'fcgi://127.0.0.1:9000'
+    throws_ok(lambda: start(f'{location}?document_root={url_escape(public.to_str())}'), error, 'document root')
+    script = url_escape(public.child('index.php').to_str())
+    throws_ok(lambda: start(f'{location}?script={script}'), error, 'one script')
+    throws_ok(lambda: start(Pyjo.App.FastCGI.new(url=location, document_root=public.to_str())), error, 'attribute')
+
+    # Another directory, one of the file system of the application, and the static files on purpose
+    www = url_escape(project.child('www').make_path().to_str())
+    for fcgi in (
+        f'{location}?document_root={www}',
+        f'{location}?document_root=%2Fvar%2Fwww&script=index.php',
+        f'{location}?document_root={url_escape(public.to_str())}&public_source=1',
+        Pyjo.App.FastCGI.new(url=location, document_root=public.to_str(), public_source=True),
+    ):
+        with start(fcgi) as server:
+            ok(server.ports(), 'started')
+
 with subtest('X-Sendfile'):
     tmp = Pyjo.File.tempdir()
     root = tmp.child('www').make_path()
