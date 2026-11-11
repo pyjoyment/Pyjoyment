@@ -15,7 +15,8 @@ Pyjoyment.Command.prethread - Pre-thread command
 
     Options:
       -a, --accepts <number>               Number of connections for workers to
-                                           accept, defaults to 10000
+                                           accept, less up to half at random,
+                                           defaults to 10000
       -b, --backlog <size>                 Listen backlog size, defaults to
                                            SOMAXCONN
       -c, --clients <number>               Maximum number of concurrent
