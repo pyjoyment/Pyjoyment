@@ -276,6 +276,9 @@ low as ``1``).
     $ ./myapp.py prefork -m production -w 10 -c 1
     Web application available at http://127.0.0.1:3000
 
+:doc:`gunicorn` translates the options of gunicorn into the ones of the
+pre-forking web server, and :doc:`django` serves a project of Django with it.
+
 During startup your application is preloaded in the manager process, which
 does not run an event loop, so you can use
 :meth:`Pyjo.IOLoop.Pyjo_IOLoop.next_tick` to run code whenever a new worker

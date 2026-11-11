@@ -195,10 +195,13 @@ lint:
         - pyright
       paths:
         - benchmarks/**
+        - docs/guides/django/**
         - examples/aws/s3.py
         - examples/mount/hello_mangum.py
         - examples/mount/mount_mcp.py
         - examples/pyjo/resolv_dns.py
+        - examples/servers/django_asgi.py
+        - examples/servers/django_wsgi.py
         - examples/servers/hello_world_uvicorn.py
         - examples/servers/hello_world_werkzeug.py
         - examples/servers/server_asgi_on_request.py

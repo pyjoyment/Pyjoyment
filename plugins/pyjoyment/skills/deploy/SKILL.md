@@ -60,7 +60,12 @@ python app.py daemon -l 'https://*:443?cert=./server.crt&key=./server.key'
   keeps serving with a failing `/readyz` before, so that a load balancer moves
   away first; QUIT stops at once, and HUP restarts the workers of `prefork`.
 - `-c` limits the connections of a worker, `-c 1` serves one request at a
-  time, for an application whose code blocks.
+  time, for an application whose code blocks, and with `-r 1` closes the
+  connection after it, as the sync workers of gunicorn, whose other options
+  the skill `django` translates.
+- `-a` (`PYJO_ACCEPTS`, 10000) replaces a worker after as many connections,
+  less up to half at random, so that the workers do not restart at once: it
+  is the `--max-requests` of gunicorn with its jitter built in.
 
 ## Access log
 
@@ -214,5 +219,6 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
 - Cookbook, deployment: https://pyjoyment.readthedocs.io/en/stable/guides/cookbook.html
 - Pyjoyment.Plugin.Health: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_Health.html
 - Pyjo.Server.Prefork: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_Server_Prefork.html
+- From gunicorn: https://pyjoyment.readthedocs.io/en/stable/guides/gunicorn.html
 - generate dockerfile: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Command_Author_generate_dockerfile.html
 - Rendering, precompressed static files: https://pyjoyment.readthedocs.io/en/stable/guides/rendering.html#precompressed-static-files

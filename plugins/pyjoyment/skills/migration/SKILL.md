@@ -82,7 +82,7 @@ python app.py get '/users/23?full=1' # a request without a server
 | `TestClient`, `app.test_client()`, `django.test.Client`       | `Pyjo.Test.Pyjo`                                                                                                                              |
 | `flask run`, `uvicorn app:app`, `manage.py runserver`         | `python app.py daemon`, `prefork` with workers                                                                                                |
 | a WSGI or ASGI server                                         | `application = app.start()`, `PYJO_ASGI=1 uvicorn app:application`                                                                            |
-| the ORM of Django, SQLAlchemy                                 | none: a library of asyncio awaited in `async def`, or a blocking one in workers of `prefork`                                                  |
+| the ORM of Django, SQLAlchemy                                 | none: a library of asyncio awaited in `async def`, or a blocking one in workers of `prefork`; a project that keeps Django: the skill `django` |
 | `hashlib`, `hmac`, `base64`, `secrets.compare_digest`         | `sha256_sum`, `hmac_sha256_sum` and `hmac_sha256_bytes`, `b64_encode`, `b64url_encode` for URLs, `secure_compare` of `Pyjo.Util`, which chain |
 | `pathlib.Path(f).read_bytes()`, `tempfile.TemporaryDirectory` | `Pyjo.File.path(f).slurp()`, `with Pyjo.File.tempdir() as tmp:`                                                                               |
 

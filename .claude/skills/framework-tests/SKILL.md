@@ -110,7 +110,12 @@ port 0 instead, which `ports()` gives.
   server of the MCP SDK of the example `mount_mcp.py`, which the client of the
   SDK calls, on the daemon and without sessions on the workers of prefork, and
   the example `aws/s3.py` with aiobotocore, the asynchronous AWS SDK, against
-  a mock of S3 on the daemon in the same event loop, and compares the schemas
+  a mock of S3 on the daemon in the same event loop, and the project of Django
+  of `docs/guides/django`, the examples of Django and the code of the skill
+  `django`, in processes of their own, as the settings of Django are set once
+  in a process and the reactor is chosen before Pyjoyment is imported, on
+  WSGI with `Pyjo.Reactor.Poll`, where they pass, and with asyncio, where the
+  database fails as the guide says, and on ASGI, and compares the schemas
   of the type hints of `Pyjo.JSON.Schema` with the ones of pydantic, which the
   MCP SDK gives its tools, and what `Pyjo.INI` loads of the files of AWS with what
   botocore reads of them. The servers, the frameworks, aiobotocore, with

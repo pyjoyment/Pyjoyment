@@ -21,21 +21,22 @@ free_port = ServerStart.port
 
 
 class Server:
-    def __init__(self, dir, command, port=None):
+    def __init__(self, dir, command, port=None, env=None):
         # The command is a list of the program and its arguments, which name the port as {port}, a free one unless it
-        # is given
+        # is given, and env adds variables to its environment, or removes the ones that it gives as None
         self.port = port or free_port()
         args = [arg.format(port=self.port) for arg in command]
         # The warnings of the servers and their libraries are not ours, so they are neither errors nor shown there, as
         # in CI
-        env = {k: v for k, v in os.environ.items() if k not in ('PYTHONDEVMODE', 'PYTHONWARNINGS')} | {
+        environ = {k: v for k, v in os.environ.items() if k not in ('PYTHONDEVMODE', 'PYTHONWARNINGS')} | {
             'PYTHONPATH': os.pathsep.join([dir, ROOT])
         }
+        environ = {k: v for k, v in (environ | (env or {})).items() if v is not None}
         self.log = open(os.path.join(dir, 'server.log'), 'w+')
         self.process = subprocess.Popen(
             args,
             cwd=dir,
-            env=env,
+            env=environ,
             stdout=self.log,
             stderr=subprocess.STDOUT,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0,
