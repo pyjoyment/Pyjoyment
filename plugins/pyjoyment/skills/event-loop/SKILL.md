@@ -167,7 +167,10 @@ with (
 ## Mistakes
 
 - Code that blocks in a callback, as `time.sleep` or a blocking request, stops
-  every connection of the loop.
+  every connection of the loop. A blocking request in a callback raises
+  `Blocking request in a running event loop` on the default reactor, unless
+  `Pyjo.IOLoop.blocking(cb, *args)` calls it, which also lets a library that
+  refuses a running loop of asyncio, as Django, run.
 - An event loop that nothing stops runs for ever: a script stops it, or a
   promise that `wait()` waits for settles.
 - A stream that nothing closes keeps its socket open; the end of a `with` block
