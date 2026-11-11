@@ -207,6 +207,18 @@ On `Werkzeug <https://werkzeug.palletsprojects.com/>`_, a WSGI server:
     .. include:: ../examples/servers/hello_world_werkzeug.py
        :code: python
 
+A project of `Django <https://www.djangoproject.com/>`_ in one file, as a
+WSGI application on the server of Pyjoyment, whose views request the API of
+GitHub with ``Pyjo.UserAgent``, as :doc:`guides/django` describes it:
+
+    .. include:: ../examples/servers/django_wsgi.py
+       :code: python
+
+The same as an ASGI application, whose views await the requests:
+
+    .. include:: ../examples/servers/django_asgi.py
+       :code: python
+
 
 Deployment
 ----------

@@ -79,13 +79,14 @@ Issues = "https://github.com/pyjoyment/Pyjoyment/issues"
 Changelog = "https://github.com/pyjoyment/Pyjoyment/releases"
 
 # Not dependencies of the package: the ASGI, WSGI and CGI servers that the tests in t/servers run Pyjo.Server.ASGI,
-# Pyjo.Server.WSGI, Pyjo.Server.CGI and the examples on, a client of WebSocket for them, and the frameworks, Flask,
-# Starlette and the MCP SDK, whose applications Pyjoyment.Plugin.Mount mounts, aiobotocore, the asynchronous AWS SDK of
-# the example aws/s3.py, and pydantic, whose schemas the tests compare with the ones of Pyjo.JSON.Schema
+# Pyjo.Server.WSGI, Pyjo.Server.CGI and the examples on, a client of WebSocket for them, and the frameworks, Django,
+# Flask, Starlette and the MCP SDK, whose applications Pyjoyment.Plugin.Mount mounts, aiobotocore, the asynchronous
+# AWS SDK of the example aws/s3.py, and pydantic, whose schemas the tests compare with the ones of Pyjo.JSON.Schema
 [dependency-groups]
 servers = [
   "aiobotocore>=3.10.0",
   "daphne>=4.2.3",
+  "django>=6.1.3",
   "flask>=3.1.3",
   "granian>=2.8.7",
   "gunicorn>=26.2.0; sys_platform != 'win32'",

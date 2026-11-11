@@ -43,10 +43,12 @@ uv run --with uvicorn python examples/servers/hello_world_uvicorn.py
 ```
 
 The frameworks that the scripts of `mount/` mount, as Flask, Starlette and the
-MCP SDK, are in the dependency group `servers` of the project:
+MCP SDK, and Django of the scripts of `servers/`, are in the dependency group
+`servers` of the project:
 
 ```sh
 uv run --group servers python examples/mount/mount_mcp.py daemon
+uv run --group servers python examples/servers/django_wsgi.py prefork -c 1 -r 1
 ```
 
 The application of `aws/` serves a bucket with aiobotocore, the asynchronous AWS

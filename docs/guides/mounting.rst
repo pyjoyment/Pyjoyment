@@ -48,6 +48,10 @@ for each worker.
 
     $ python myapp.py prefork -w 8 -c 1
 
+:doc:`django` serves a project of Django this way, on :mod:`Pyjo.Reactor.Poll`,
+which its database needs, and :doc:`gunicorn` translates the options of
+gunicorn.
+
 ASGI
 ~~~~
 

@@ -108,6 +108,14 @@ Guides
     Running the applications of other frameworks, of Python, PHP, CGI and AWS
     Lambda, next to the routes of a :mod:`Pyjoyment` application.
 
+:doc:`django`
+    Serving a project of Django with the servers of :mod:`Pyjoyment`, in the
+    place of gunicorn or uvicorn.
+
+:doc:`gunicorn`
+    The options, the worker model and the habits of a deployment of gunicorn
+    in the pre-forking server.
+
 :doc:`rendering`
     Generating content with the :mod:`Pyjoyment` renderer.
 
@@ -135,6 +143,8 @@ Guides
     growing
     routing
     mounting
+    django
+    gunicorn
     rendering
     testing
     cookbook

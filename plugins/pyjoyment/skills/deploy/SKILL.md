@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, reverse proxies and TLS, graceful stops, the Health plugin for probes and the AccessLog plugin for the access log of the requests, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
+description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, the options of gunicorn translated into prefork, reverse proxies and TLS, graceful stops, the Health plugin for probes and the AccessLog plugin for the access log of the requests, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
 ---
 
 # Deployment
@@ -60,7 +60,43 @@ python app.py daemon -l 'https://*:443?cert=./server.crt&key=./server.key'
   keeps serving with a failing `/readyz` before, so that a load balancer moves
   away first; QUIT stops at once, and HUP restarts the workers of `prefork`.
 - `-c` limits the connections of a worker, `-c 1` serves one request at a
-  time, for an application whose code blocks.
+  time, for an application whose code blocks, and with `-r 1` closes the
+  connection after it, as the sync workers of gunicorn.
+- `-a` (`PYJO_ACCEPTS`, 10000) replaces a worker after as many connections,
+  less up to half at random, so that the workers do not restart at once: it
+  is the `--max-requests` of gunicorn with its jitter built in.
+
+## From gunicorn
+
+An application on gunicorn, of Pyjoyment through `PYJO_WSGI=1` or of
+another framework that a script mounts, moves to `prefork` with the same
+worker model:
+
+| gunicorn                                        | `prefork`                                                        |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `--bind 0.0.0.0:8080`                           | `-l 'http://*:8080'`, `PYJO_LISTEN`, or `PORT`                   |
+| `--workers 8`                                   | `-w 8`, `PYJO_WORKERS`                                           |
+| sync workers                                    | `-c 1 -r 1`: one connection at a time, closed after its response |
+| `--workers 1 --threads 8`                       | `prethread -w 8 -c 1 -r 1`                                       |
+| `--timeout 30`                                  | `-H 30`: stopped gracefully, killed after `-G`                   |
+| `--graceful-timeout`                            | `-G` (25)                                                        |
+| `--keep-alive`                                  | `-k`                                                             |
+| `--max-requests 1000 --max-requests-jitter 100` | `-a 1400`: less up to half at random, 1050 on average            |
+| `--forwarded-allow-ips`                         | `-p` with the networks of the proxies                            |
+| `--access-logfile -`                            | `plugin('AccessLog')`                                            |
+| `--reload`                                      | `pyjo-reload`                                                    |
+| `GUNICORN_CMD_ARGS`                             | `PYJO_` and the name of each option                              |
+
+- `-c 1` without `-r 1` keeps an idle connection of a client or a proxy on
+  the worker for the keep-alive timeout, while the others wait in the
+  backlog.
+- A shell in the `CMD` of a container runs the server with `exec`, so that it
+  gets `TERM`.
+- `-S` (`PYJO_SHUTDOWN_DELAY`) and `-G` go into `terminationGracePeriodSeconds`
+  of Kubernetes, 30 by default: `-S 5 -G 20` with the default.
+- The liveness probe of an application with `-c 1` is on `tcpSocket`, as an
+  HTTP probe waits behind busy workers and restarts the pod; `/readyz` is the
+  readiness probe.
 
 ## Access log
 
@@ -214,5 +250,6 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
 - Cookbook, deployment: https://pyjoyment.readthedocs.io/en/stable/guides/cookbook.html
 - Pyjoyment.Plugin.Health: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_Health.html
 - Pyjo.Server.Prefork: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_Server_Prefork.html
+- From gunicorn: https://pyjoyment.readthedocs.io/en/stable/guides/gunicorn.html
 - generate dockerfile: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Command_Author_generate_dockerfile.html
 - Rendering, precompressed static files: https://pyjoyment.readthedocs.io/en/stable/guides/rendering.html#precompressed-static-files
