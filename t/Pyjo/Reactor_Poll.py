@@ -463,4 +463,11 @@ with subtest('next_tick from a signal handler'):
     ok(ticks, 'callbacks of the signal handler')
     reactor.reset()
 
+# Not in Mojolicious: blocking code, which the reactor without asyncio calls as it is
+with subtest('Blocking code'):
+    reactor = Pyjo.Reactor.Poll.new()
+    is_deeply_ok(reactor.blocking(lambda a, b=None: (a, b), 1, b=2), (1, 2), 'arguments and result')
+    isa_ok(eval_(lambda: reactor.blocking(lambda: 1 / 0)), ZeroDivisionError, 'exception')
+    is_deeply_ok(Pyjo.Reactor.new().blocking(lambda: 'base'), 'base', 'base class')
+
 done_testing()

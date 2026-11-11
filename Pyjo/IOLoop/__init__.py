@@ -289,6 +289,24 @@ class Pyjo_IOLoop(Pyjo.EventEmitter.object):
 
         return id
 
+    # Not in Mojolicious: Perl has no event loop that its libraries could find running
+    def blocking[**P, R](self, cb: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+        """::
+
+            result = Pyjo.IOLoop.blocking(cb, *args, **kwargs)
+            result = loop.blocking(cb, *args, **kwargs)
+
+        Call blocking code and return what it returns, with
+        :meth:`Pyjo.Reactor.Pyjo_Reactor.blocking` of the reactor, so that a
+        library that refuses to block in a running event loop of
+        :mod:`asyncio`, as Django, runs. :mod:`Pyjo.App.WSGI` calls its
+        application with it. ::
+
+            # A query of Django in a check of the plugin Health
+            plugin('Health', checks={'db': lambda c: Pyjo.IOLoop.blocking(Note.objects.exists)})
+        """
+        return self.reactor.blocking(cb, *args, **kwargs)
+
     # Unlike Mojolicious: the callback comes before the options, which are keyword arguments, or is the keyword
     # argument cb
     @overload
@@ -997,6 +1015,7 @@ def _shortcut[**P, R](method: Callable[Concatenate[Pyjo_IOLoop, P], R]) -> Calla
 
 
 acceptor = _shortcut(Pyjo_IOLoop.acceptor)
+blocking = _shortcut(Pyjo_IOLoop.blocking)
 client = _shortcut(Pyjo_IOLoop.client)
 client_p = _shortcut(Pyjo_IOLoop.client_p)
 datagram = _shortcut(Pyjo_IOLoop.datagram)

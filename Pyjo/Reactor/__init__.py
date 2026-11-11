@@ -233,6 +233,21 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
         """
         return _Awaitable(promise)
 
+    # Not in Mojolicious: Perl has no event loop that its libraries could find running
+    def blocking[**P, R](self, cb: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+        """::
+
+            result = reactor.blocking(cb, *args, **kwargs)
+
+        Call blocking code and return what it returns, as an application of
+        ``WSGI`` or a query of a database, which holds the event loop until it
+        returns. The base class calls it as it is, and a reactor of an event
+        loop calls it while its loop is not running for the libraries that
+        ask, so that a library that refuses to block in a running event loop,
+        as Django or a blocking request of :mod:`Pyjo.UserAgent`, runs.
+        """
+        return cb(*args, **kwargs)
+
     # Not in Mojolicious: how a coroutine runs as a promise, as Mojo's async sub
     def run_coroutine(
         self, coro: Coroutine[Any, Any, Any], resolve: Callable[[Any], Anything], reject: Callable[[Any], Anything]

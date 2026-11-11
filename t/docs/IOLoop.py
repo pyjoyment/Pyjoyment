@@ -131,6 +131,29 @@ with subtest('acceptor'):
     is_ok(Pyjo.IOLoop.acceptor(id), None, 'not of the singleton')
     loop.reset()
 
+with subtest('blocking'):
+    import Pyjo.Test.Pyjo
+    import Pyjoyment
+
+    import asyncio
+
+    # A model of Django, whose query refuses a running loop of asyncio, as the ORM of Django does
+    class Note:
+        class objects:
+            @staticmethod
+            def exists():
+                with contextlib.suppress(RuntimeError):
+                    asyncio.get_running_loop()
+                    raise AssertionError('You cannot call this from an async context')
+                return True
+
+    app = Pyjoyment.new()
+    app.log.level = 'fatal'
+    plugin = app.plugin
+    plugin('Health', checks={'db': lambda c: Pyjo.IOLoop.blocking(Note.objects.exists)})
+    Pyjo.Test.Pyjo.new(app).get_ok('/readyz').status_is(200).content_is('ok')
+    is_ok(Pyjo.IOLoop.blocking(lambda a, b: a + b, 1, b=2), 3, 'result')
+
 with subtest('client and server'):
     loop = Pyjo.IOLoop.new()
     got = []

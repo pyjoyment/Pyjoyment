@@ -4,6 +4,7 @@ import Pyjo.Reactor.Asyncio
 from Pyjo.Loader import load_class
 from Pyjo.Test import *
 
+import asyncio
 import os
 import socket
 import time
@@ -466,5 +467,34 @@ err = eval_(lambda: base.timer(0, lambda reactor: None))
 like_ok(str(err), r'Method "timer" not implemented by subclass', 'right error')
 err = eval_(lambda: base.watch(0, True, True))
 like_ok(str(err), r'Method "watch" not implemented by subclass', 'right error')
+
+# Not in Mojolicious: blocking code, which sees no running loop of asyncio while it runs, and the loop is running again
+# after it, also after an exception
+with subtest('Blocking code'):
+    reactor = Pyjo.Reactor.Asyncio.new()
+    results = []
+
+    def running():
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return None
+
+    def blocking_cb(reactor):
+        results.append(running() is reactor.loop)
+        results.append(reactor.blocking(lambda a, b=None: (running(), a, b), 1, b=2))
+        results.append(running() is reactor.loop)
+        results.append(eval_(lambda: reactor.blocking(lambda: 1 / 0)))
+        results.append(running() is reactor.loop)
+        reactor.stop()
+
+    reactor.timer(0, blocking_cb)
+    reactor.start()
+    is_ok(results[0], True, 'loop running before')
+    is_deeply_ok(results[1], (None, 1, 2), 'no running loop, arguments and result')
+    is_ok(results[2], True, 'loop running again')
+    isa_ok(results[3], ZeroDivisionError, 'exception')
+    is_ok(results[4], True, 'loop running again after an exception')
+    is_deeply_ok(reactor.blocking(lambda: running()), None, 'without a running loop')
 
 done_testing()
