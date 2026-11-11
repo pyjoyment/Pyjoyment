@@ -32,11 +32,14 @@ def application():
 
 
 def logged(t, *args, **kwargs):
-    # The lines that a request writes to the standard output, once the server has written its response
+    # The lines that a request writes to the standard output, once the transaction of the server has finished, after
+    # the plugin, which subscribes to the event finish first, so that a request that writes nothing does not wait
+    finished = []
+    t.app.hook('after_build_tx', lambda tx, app: tx.on('finish', lambda tx: finished.append(tx)))
     with contextlib.redirect_stdout(io.StringIO()) as stdout:
         t.get_ok(*args, **kwargs)
         deadline = steady_time() + 5
-        while '" ' not in stdout.getvalue() and steady_time() < deadline:
+        while not finished and steady_time() < deadline:
             Pyjo.IOLoop.timer(0.01, lambda loop: None)
             Pyjo.IOLoop.one_tick()
     return [line for line in stdout.getvalue().splitlines() if not re.match(r'\s*(?:not )?ok ', line)]
