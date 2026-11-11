@@ -5,9 +5,12 @@ The options of gunicorn in the pre-forking server.
 
 This document translates the options, the worker model and the habits of a
 deployment of gunicorn into the ones of :mod:`Pyjoyment.Command.prefork`,
-the command of :mod:`Pyjo.Server.Prefork`, for an application of
-:mod:`Pyjoyment` or one of another framework that it mounts, as a project of
-Django, which :doc:`django` serves.
+the command of :mod:`Pyjo.Server.Prefork`: for an application of
+:mod:`Pyjoyment` that gunicorn has served through ``WSGI``, as
+``PYJO_WSGI=1 gunicorn app:application``, which runs on its own server
+instead, and for a ``WSGI`` application of another framework, as Flask, that
+a script of :mod:`Pyjoyment.Lite` mounts, as :doc:`mounting` describes it,
+and :doc:`django` for a project of Django.
 
 Options
 -------
@@ -118,7 +121,7 @@ a container runs it with ``exec``, which makes it PID 1:
 
 .. code-block:: dockerfile
 
-    CMD ["sh", "-c", "exec python -m config.server prefork -w ${WORKERS:-4} -c 1 -r 1"]
+    CMD ["sh", "-c", "exec python app.py prefork -w ${WORKERS:-4} -c 1 -r 1"]
 
 Kubernetes kills a container ``terminationGracePeriodSeconds`` after
 ``TERM``, 30 seconds by default, so the shutdown delay and the graceful

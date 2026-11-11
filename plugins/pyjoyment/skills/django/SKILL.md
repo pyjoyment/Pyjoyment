@@ -1,6 +1,6 @@
 ---
 name: django
-description: Serve an existing Django project, or another WSGI or ASGI application of Python, with the servers of Pyjoyment in the place of gunicorn, uWSGI or uvicorn, as its application mounted on / of a script of Pyjoyment.Lite. Use for config/server.py, the reactor of Poll that the ORM of Django needs on WSGI, ASGI with async views, the options of gunicorn in prefork, the static files of collectstatic, the probes with a check of the database, the access log, and Pyjo.UserAgent in the views in the place of requests or httpx.
+description: Serve an existing Django project, or another WSGI or ASGI application of Python, with the servers of Pyjoyment in the place of gunicorn, uWSGI or uvicorn, as its application mounted on / of a script of Pyjoyment.Lite. Use for config/server.py, the reactor of Poll that the ORM of Django needs on WSGI, ASGI with async views, the static files of collectstatic, the probes with a check of the database, the access log, and Pyjo.UserAgent in the views in the place of requests or httpx.
 ---
 
 # Django on the servers of Pyjoyment
@@ -99,34 +99,11 @@ async def release_async(request):
 A blocking request holds its worker, so a request to the application itself
 needs another worker that is free.
 
-## From gunicorn
+## Static files, probes and access log
 
-| gunicorn                                        | `prefork`                                                        |
-| ----------------------------------------------- | ---------------------------------------------------------------- |
-| `--bind 0.0.0.0:8080`                           | `-l 'http://*:8080'`, `PYJO_LISTEN`, or `PORT`                   |
-| `--workers 8`                                   | `-w 8`, `PYJO_WORKERS`                                           |
-| sync workers                                    | `-c 1 -r 1`: one connection at a time, closed after its response |
-| `--workers 1 --threads 8`                       | `prethread -w 8 -c 1 -r 1`                                       |
-| `--timeout 30`                                  | `-H 30`: stopped gracefully, killed after `-G`                   |
-| `--graceful-timeout`                            | `-G` (25)                                                        |
-| `--keep-alive`                                  | `-k`                                                             |
-| `--max-requests 1000 --max-requests-jitter 100` | `-a 1400`: less up to half at random, 1050 on average            |
-| `--forwarded-allow-ips`                         | `-p` with the networks of the proxies                            |
-| `--access-logfile -`                            | `plugin('AccessLog')`                                            |
-| `--reload`                                      | `pyjo-reload`                                                    |
-| `GUNICORN_CMD_ARGS`                             | `PYJO_` and the name of each option                              |
-
-- `-c 1` without `-r 1` keeps an idle connection of a client or a proxy on
-  the worker for the keep-alive timeout, while the others wait in the
-  backlog.
-- A shell in the `CMD` of a container runs the server with `exec`, so that it
-  gets `TERM`.
-- `-S` (`PYJO_SHUTDOWN_DELAY`) and `-G` go into `terminationGracePeriodSeconds`
-  of Kubernetes, 30 by default: `-S 5 -G 20` with the default.
 - The readiness probe is `/readyz`, which Django does not see, so
   `ALLOWED_HOSTS` does not reject the address of the pod that the kubelet
-  sends as `Host`; the liveness probe with `-c 1` is `tcpSocket`, as an HTTP
-  probe waits behind busy workers and restarts the pod.
+  sends as `Host`.
 - `WHITENOISE_ROOT` is another directory of `app.static.paths`, and
   `app.static.extra = {}` leaves out the favicon and the images of Pyjoyment;
   with `DEBUG`, `urlpatterns += staticfiles_urlpatterns()` serves the files of
@@ -134,6 +111,9 @@ needs another worker that is free.
 - The client of the access log behind a gateway is its own header, as
   `plugin('AccessLog', client='X-Envoy-External-Address')`, not the first
   address of `X-Forwarded-For`, which the client writes.
+
+The options of gunicorn in `prefork`, as `-c 1 -r 1` for its sync workers, are
+in the skill `deploy`.
 
 ## Mistakes
 
