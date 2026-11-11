@@ -319,31 +319,6 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
 
     # Not in Mojolicious: the release of the event loop of its own, which Perl does in DESTROY, also at the end of a with
     # block
-    # Not in Mojolicious: the code that blocks the event loop sees none running, as asyncio.get_running_loop() and the
-    # libraries that ask it, as Django, would refuse to block; _set_running_loop is in __all__ of asyncio.events, for
-    # the implementations of event loops
-    def blocking[**P, R](self, cb: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
-        """::
-
-            result = reactor.blocking(cb, *args, **kwargs)
-
-        Call blocking code and return what it returns, with no running loop of
-        :mod:`asyncio` in the thread while it runs, and the one before after
-        it, also when it raises an exception, so that a library that refuses
-        to block in a running event loop, as the ORM of Django, which raises
-        ``SynchronousOnlyOperation``, or a blocking request of
-        :mod:`Pyjo.UserAgent`, which runs an event loop of its own, runs. The
-        event loop waits for it, as for any blocking code.
-        """
-        loop = asyncio.events._get_running_loop()  # pyright: ignore[reportPrivateUsage]
-        if loop is None:
-            return cb(*args, **kwargs)
-        asyncio.events._set_running_loop(None)  # pyright: ignore[reportPrivateUsage]
-        try:
-            return cb(*args, **kwargs)
-        finally:
-            asyncio.events._set_running_loop(loop)  # pyright: ignore[reportPrivateUsage]
-
     def close(self) -> None:
         """::
 

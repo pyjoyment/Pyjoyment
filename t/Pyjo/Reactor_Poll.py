@@ -4,6 +4,7 @@ import Pyjo.Reactor.Poll
 from Pyjo.Loader import load_class
 from Pyjo.Test import *
 
+import asyncio
 import os
 import signal
 import socket
@@ -463,11 +464,26 @@ with subtest('next_tick from a signal handler'):
     ok(ticks, 'callbacks of the signal handler')
     reactor.reset()
 
-# Not in Mojolicious: blocking code, which the reactor without asyncio calls as it is
+# Not in Mojolicious: blocking code, which sees no running loop of asyncio while it runs, also of a reactor without
+# asyncio, in a loop of asyncio that runs in the thread, and the loop is running again after it
 with subtest('Blocking code'):
     reactor = Pyjo.Reactor.Poll.new()
     is_deeply_ok(reactor.blocking(lambda a, b=None: (a, b), 1, b=2), (1, 2), 'arguments and result')
     isa_ok(eval_(lambda: reactor.blocking(lambda: 1 / 0)), ZeroDivisionError, 'exception')
     is_deeply_ok(Pyjo.Reactor.new().blocking(lambda: 'base'), 'base', 'base class')
+
+    def running():
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return None
+
+    async def main():
+        loop = running()
+        inside = reactor.blocking(running)
+        error = eval_(lambda: reactor.blocking(lambda: 1 / 0))
+        return loop is not None, inside, running() is loop, type(error)
+
+    is_deeply_ok(asyncio.run(main()), (True, None, True, ZeroDivisionError), 'loop of asyncio')
 
 done_testing()
