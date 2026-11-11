@@ -38,23 +38,26 @@ a test can import it.
     $ python manage.py collectstatic
     $ python -m config.server prefork -w 8 -c 1 -r 1
 
-The reactor
------------
+The event loop
+--------------
 
-A ``WSGI`` application blocks, and runs in the event loop of its worker. With
-:mod:`Pyjo.Reactor.Asyncio`, the default reactor, the event loop of
-:mod:`asyncio` is running in the thread when the application is called, and
-Django refuses its database there: every query raises
+A ``WSGI`` application blocks, and runs in the event loop of its worker,
+which waits for it. :mod:`Pyjo.App.WSGI` calls it with
+:func:`Pyjo.IOLoop.blocking`, so that it sees no running loop of
+:mod:`asyncio` while it runs, as on a ``WSGI`` server, where Django would
+refuse its database otherwise, as every query would raise
 ``SynchronousOnlyOperation: You cannot call this from an async context - use
-a thread or sync_to_async.``, and so does the check of the database of the
-probes. :mod:`Pyjo.Reactor.Poll` runs the event loop without :mod:`asyncio`,
-which makes it the reactor of a synchronous application, not a workaround.
+a thread or sync_to_async.``, and a blocking request of :mod:`Pyjo.UserAgent`
+would raise too. The code of Django that runs outside the application, as the
+check of the database of the probes, is blocking code too, which
+:func:`Pyjo.IOLoop.blocking` runs.
 
-``PYJO_REACTOR`` selects the reactor when :mod:`Pyjo.IOLoop` is imported,
-as the first module of :mod:`Pyjoyment` or :mod:`Pyjo.UserAgent` imports it,
-so the script sets it before its imports, with ``setdefault``, so that the
-environment can still choose another one. A test or a shell that imports
-:mod:`Pyjo` first gets the reactor of :mod:`asyncio`, and fails the same way.
+The project runs on :mod:`Pyjo.Reactor.Asyncio`, the default reactor, next to
+what needs :mod:`asyncio`, as an ``ASGI`` application mounted on another
+path, and on :mod:`Pyjo.Reactor.Poll` as well, which ``PYJO_REACTOR``
+selects, except that an ``async def`` view, which Django runs in a thread
+with an event loop of its own, awaits the promises of :mod:`Pyjo.UserAgent`
+only with the reactor of :mod:`asyncio`.
 
 What passes through
 -------------------
@@ -148,10 +151,10 @@ Requests to other services
 --------------------------
 
 :mod:`Pyjo.UserAgent` is the HTTP client of a view, in the place of
-``requests`` or ``httpx``. In a view of ``WSGI`` on :mod:`Pyjo.Reactor.Poll`,
-a blocking request runs an event loop of its own, while the worker waits for
-it as for a query of the database, so a request to the application itself
-needs another worker that is free.
+``requests`` or ``httpx``. In a view of ``WSGI``, a blocking request runs
+an event loop of its own, while the worker waits for it as for a query of the
+database, so a request to the application itself needs another worker that is
+free.
 
 .. literalinclude:: ../../examples/servers/django_wsgi.py
     :language: python
@@ -161,15 +164,11 @@ ASGI
 ----
 
 The ``ASGI`` application of the project runs on the default reactor, of
-:mod:`asyncio`, without the line of ``PYJO_REACTOR``, and with the check of
-the database in the thread of the synchronous code of Django.
+:mod:`asyncio`, with the same script, which mounts it in the place of the
+``WSGI`` one.
 
 .. code-block:: python
 
-    from asgiref.sync import sync_to_async
-
-    plugin('Health', checks={'database': sync_to_async(database)}, healthz=None)
-    plugin('AccessLog')
     plugin('Mount', {'/': 'config.asgi:application'})
 
 Its ``async def`` views run in the event loop, where they await anything of

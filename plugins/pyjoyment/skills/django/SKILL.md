@@ -1,6 +1,6 @@
 ---
 name: django
-description: Serve an existing Django project, or another WSGI or ASGI application of Python, with the servers of Pyjoyment in the place of gunicorn, uWSGI or uvicorn, as its application mounted on / of a script of Pyjoyment.Lite. Use for config/server.py, the reactor of Poll that the ORM of Django needs on WSGI, ASGI with async views, the static files of collectstatic, the probes with a check of the database, the access log, and Pyjo.UserAgent in the views in the place of requests or httpx.
+description: Serve an existing Django project, or another WSGI or ASGI application of Python, with the servers of Pyjoyment in the place of gunicorn, uWSGI or uvicorn, as its application mounted on / of a script of Pyjoyment.Lite. Use for config/server.py, Pyjo.IOLoop.blocking for the code of Django outside the application, ASGI with async views, the static files of collectstatic, the probes with a check of the database, the access log, and Pyjo.UserAgent in the views in the place of requests or httpx.
 ---
 
 # Django on the servers of Pyjoyment
@@ -11,19 +11,18 @@ probes and the access log of Pyjoyment come before it.
 
 ```python
 # config/server.py
+import Pyjo.IOLoop
+
+from Pyjoyment.Lite import *
+
 import os
 
+from django.conf import settings
+from django.core.signals import request_finished, request_started
+from django.db import connection
 
-# A WSGI application blocks, so it runs on the reactor of Poll, which is chosen before Pyjoyment is imported
-os.environ.setdefault('PYJO_REACTOR', 'Pyjo.Reactor.Poll')
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-
-from Pyjoyment.Lite import *  # noqa: E402
-
-from django.conf import settings  # noqa: E402
-from django.core.signals import request_finished, request_started  # noqa: E402
-from django.db import connection  # noqa: E402
-
 
 # The output of collectstatic, before the routes, in the place of whitenoise
 app.static.paths = [str(settings.STATIC_ROOT.parent)]
@@ -31,7 +30,7 @@ app.static.immutable = r'^static/.+\.[0-9a-f]{12}\.[^/.]+$'
 
 
 # The database in a request of Django, whose handlers close a connection that the database has dropped
-def database(c):
+def database():
     request_started.send(sender=__name__)
     try:
         with connection.cursor() as cursor:
@@ -40,7 +39,7 @@ def database(c):
         request_finished.send(sender=__name__)
 
 
-plugin('Health', checks={'database': database}, healthz=None)
+plugin('Health', checks={'database': lambda c: Pyjo.IOLoop.blocking(database)}, healthz=None)
 plugin('AccessLog')
 plugin('Mount', {'/': 'config.wsgi:application'})
 
@@ -55,19 +54,20 @@ python -m config.server prefork -w 8 -c 1 -r 1 -p -l 'http://*:8080'
 
 ## WSGI or ASGI
 
-- WSGI runs on `Pyjo.Reactor.Poll`: with the reactor of asyncio, the default
-  one, the loop of asyncio is running when Django is called, and every query
-  raises `SynchronousOnlyOperation: You cannot call this from an async
-  context`. `PYJO_REACTOR` is read when `Pyjo.IOLoop` is imported, by the first
-  module of Pyjoyment, so the script sets it before its imports.
-- ASGI, `config.asgi:application`, runs on the default reactor, without the
-  line of `PYJO_REACTOR`, and the check of the database in the thread of
-  Django: `checks={'database': sync_to_async(database)}` of
-  `asgiref.sync`. Its `async def` views await asyncio and promises in the
-  event loop; its synchronous views run in one thread of Django, and so do the
-  queries of its async ORM, as `await Note.objects.acount()`, one at a time
-  in each worker, so a project of synchronous views and queries stays on
-  WSGI.
+- WSGI runs on the default reactor, of asyncio, as `Pyjo.App.WSGI` calls the
+  application with `Pyjo.IOLoop.blocking`, which it sees no running loop of
+  asyncio in: the ORM of Django and a blocking `ua.get(...)` run. The code of
+  Django outside the application, as a check of `Health` or a hook, runs
+  through `Pyjo.IOLoop.blocking(cb, *args)` too, or raises
+  `SynchronousOnlyOperation: You cannot call this from an async context`.
+- `PYJO_REACTOR=Pyjo.Reactor.Poll` runs WSGI as well, but an `async def` view
+  of WSGI, which Django runs in a thread with a loop of its own, awaits the
+  promises of Pyjoyment only on asyncio.
+- ASGI is the same script with `config.asgi:application`. Its `async def`
+  views await asyncio and promises in the event loop; its synchronous views
+  run in one thread of Django, and so do the queries of its async ORM, as
+  `await Note.objects.acount()`, one at a time in each worker, so a project of
+  synchronous views and queries stays on WSGI.
 - The ASGI application of Django has no lifespan, which the log notes on
   `debug`.
 
@@ -84,7 +84,7 @@ from django.http import JsonResponse
 ua = Pyjo.UserAgent.new()
 
 
-# WSGI on Poll: a blocking request, with an event loop of its own
+# WSGI: a blocking request, with an event loop of its own
 def release(request):
     res = ua.get('https://api.github.com/repos/pyjoyment/Pyjoyment/releases/latest').result
     return JsonResponse({'release': res.json('/tag_name')})
@@ -120,12 +120,12 @@ in the skill `deploy`.
 - `python config/server.py` puts `config/` first on `sys.path`, so
   `No module named 'config'`: `python -m config.server` from the directory of
   `manage.py`.
-- `PYJO_REACTOR` set after an import of a module of Pyjoyment, as in a
-  test, has no effect: the reactor of asyncio, and `SynchronousOnlyOperation`.
-- `PYJO_REACTOR=Pyjo.Reactor.Poll` cannot run the ASGI application.
-- `await ua.get_p(...)` in an `async def` view of WSGI fails with
-  `Task got bad yield`, and a blocking `ua.get(...)` on asyncio with
-  `Blocking request in a running event loop`.
+- A query of Django in a check, a hook or a route of Pyjoyment without
+  `Pyjo.IOLoop.blocking` raises `SynchronousOnlyOperation` on asyncio, as only
+  the mounted application is called with it.
+- `PYJO_REACTOR=Pyjo.Reactor.Poll` cannot run the ASGI application, and
+  `await ua.get_p(...)` in an `async def` view of WSGI fails there with
+  `Task got bad yield`.
 - `Health` without `healthz=None` answers the `/healthz` of the project
   itself, before its routes.
 - A check with `connection.cursor()` alone keeps a connection that the

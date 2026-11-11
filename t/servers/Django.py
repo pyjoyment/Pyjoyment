@@ -55,13 +55,8 @@ def body(response):
     return response[2].decode()
 
 
-# The changes of the sections of ASGI of the guide and of the skill to their script of WSGI
-ASGI = (
-    (r"\n# A WSGI application blocks.*\nos\.environ\.setdefault\('PYJO_REACTOR', .*\)\n", '\n'),
-    (r'(\nfrom django\.conf import settings)', r'\nfrom asgiref.sync import sync_to_async  # noqa: E402\1'),
-    (r"checks=\{'database': database\}", "checks={'database': sync_to_async(database)}"),
-    (r"'config\.wsgi:application'", "'config.asgi:application'"),
-)
+# The change of the sections of ASGI of the guide and of the skill to their script of WSGI
+ASGI = ((r"'config\.wsgi:application'", "'config.asgi:application'"),)
 
 
 def asgi(script):
@@ -71,11 +66,10 @@ def asgi(script):
     return script
 
 
-with subtest('WSGI on the reactor of Poll'):
-    with Pyjo.File.tempdir() as tmp:
+for reactor in ('Pyjo.Reactor.Asyncio', 'Pyjo.Reactor.Poll'):
+    with subtest(f'WSGI on {reactor}'), Pyjo.File.tempdir() as tmp:
         project(tmp)
-        # The reactor of the script, not the one of the environment of the test
-        server = Server(tmp.to_str(), [PYTHON, '-m', 'config.server', *DAEMON], env={'PYJO_REACTOR': None})
+        server = Server(tmp.to_str(), [PYTHON, '-m', 'config.server', *DAEMON], env={'PYJO_REACTOR': reactor})
         try:
             is_ok(body(server.request('GET', '/')), '0 notes, http from 127.0.0.1', 'view with a query')
             status, headers, data = server.request(
@@ -130,19 +124,26 @@ with subtest('Reverse proxy'):
         finally:
             server.close()
 
-with subtest('WSGI on the reactor of asyncio'):
-    with Pyjo.File.tempdir() as tmp:
-        project(tmp)
-        env = {'PYJO_REACTOR': 'Pyjo.Reactor.Asyncio'}
-        server = Server(tmp.to_str(), [PYTHON, '-m', 'config.server', *DAEMON], env=env)
-        try:
-            is_ok(server.request('GET', '/')[0], 500, 'query in the event loop of asyncio')
-            is_ok(body(server.request('GET', '/healthz')), 'ok', 'view without a query')
-            is_ok(server.request('GET', '/readyz')[0], 503, 'check of the database fails')
-        finally:
-            log = server.output()
-            server.close()
-        like_ok(log, r'You cannot call this from an async context', 'SynchronousOnlyOperation')
+# The check of the database without Pyjo.IOLoop.blocking, which Django refuses in the running loop of asyncio
+with subtest('Django outside the application'):
+    for reactor, status in (('Pyjo.Reactor.Asyncio', 503), ('Pyjo.Reactor.Poll', 200)):
+        with Pyjo.File.tempdir() as tmp:
+            project(tmp)
+            script = tmp.child('config', 'server.py')
+            code, count = re.subn(
+                r'lambda c: Pyjo\.IOLoop\.blocking\(database\)', 'lambda c: database()', script.slurp().decode()
+            )
+            is_ok(count, 1, 'check without blocking')
+            script.spew(code)
+            server = Server(tmp.to_str(), [PYTHON, '-m', 'config.server', *DAEMON], env={'PYJO_REACTOR': reactor})
+            try:
+                is_ok(server.request('GET', '/readyz')[0], status, f'{reactor}: /readyz')
+                is_ok(server.request('GET', '/')[0], 200, f'{reactor}: the application')
+            finally:
+                log = server.output()
+                server.close()
+            if status == 503:
+                like_ok(log, r'You cannot call this from an async context', 'SynchronousOnlyOperation')
 
 with subtest('ASGI'):
     with Pyjo.File.tempdir() as tmp:
@@ -163,13 +164,19 @@ with subtest('Examples'):
         mock = Server(tmp.to_str(), [PYTHON, 'mock.py', *DAEMON])
         try:
             env = {'PYJO_REACTOR': None, 'GITHUB_API_URL': f'http://127.0.0.1:{mock.port}'}
-            for name in ('django_wsgi.py', 'django_asgi.py'):
+            for name, reactor in (
+                ('django_wsgi.py', 'Pyjo.Reactor.Asyncio'),
+                ('django_wsgi.py', 'Pyjo.Reactor.Poll'),
+                ('django_asgi.py', 'Pyjo.Reactor.Asyncio'),
+            ):
                 with Pyjo.File.tempdir() as dir:
-                    server = Server(dir.to_str(), [PYTHON, EXAMPLES.child(name).to_str(), *DAEMON], env=env)
+                    command = [PYTHON, EXAMPLES.child(name).to_str(), *DAEMON]
+                    server = Server(dir.to_str(), command, env=env | {'PYJO_REACTOR': reactor})
                     try:
-                        is_ok(body(server.request('GET', '/')), 'Hello from Django at /!', f'{name}: view')
+                        is_ok(body(server.request('GET', '/')), 'Hello from Django at /!', f'{name} on {reactor}: view')
                         status, headers, data = server.request('GET', '/release')
-                        is_deeply_ok(json.loads(data), {'status': 200, 'release': '1.2.3'}, f'{name}: user agent')
+                        expected = {'status': 200, 'release': '1.2.3'}
+                        is_deeply_ok(json.loads(data), expected, f'{name} on {reactor}: user agent')
                     finally:
                         server.close()
         finally:
