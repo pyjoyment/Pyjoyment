@@ -90,7 +90,12 @@ Apache and nginx, which a container, Kubernetes and log analyzers take:
   them with paths, regular expressions or a function of the transaction.
 - `plugin('AccessLog', status=400)` logs the errors only, and
   `plugin('AccessLog', log=app.log)` writes into the log of the application,
-  in its format, `log='/var/log/myapp/access.log'` into a file.
+  in its format, `log='/var/log/myapp/access.log'` into a file, and a pattern
+  of strftime a file of each period, as
+  `plugin('AccessLog', log='/var/log/myapp/access-%Y-%m-%d.log', tz='UTC')`;
+  `tz` is the time zone of `%t`, of JSON and of the name, the local time by
+  default, as `Pyjo.Log` has it. The files that have passed stay, for a job to
+  remove them.
 - The status `499` is a request whose client closed the connection before the
   response, `101` the handshake of a WebSocket, and the size of a chunked
   response is the one of its body as the server wrote it.

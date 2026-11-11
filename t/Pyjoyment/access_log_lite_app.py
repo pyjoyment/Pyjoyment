@@ -14,9 +14,11 @@ from Pyjo.Util import steady_time
 from Pyjoyment.Lite import app, get, plugin, websocket
 
 import contextlib
+import datetime
 import io
 import json
 import re
+import zoneinfo
 
 
 # Not in Mojolicious: Pyjoyment.Plugin.AccessLog, the access log of a server of production
@@ -75,7 +77,7 @@ def application(**conf):
     return other
 
 
-COMBINED = r'^127\.0\.0\.1 - - \[\d\d/[A-Z][a-z]{2}/\d{4}:\d\d:\d\d:\d\d \+0000\] '
+COMBINED = r'^127\.0\.0\.1 - - \[\d\d/[A-Z][a-z]{2}/\d{4}:\d\d:\d\d:\d\d [+-]\d{4}\] '
 
 t = Pyjo.Test.Pyjo.new()
 
@@ -344,6 +346,52 @@ with subtest('Fields of JSON'):
         re.compile(r'^Unknown directive "%Z" of the access log'),
         'unknown directive of a field',
     )
+
+with subtest('Time zone'):
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='%t|%{%H %z}t|%{sec}t'))
+    lines(0)
+    t2.get_ok('/').status_is(200)
+    m = re.match(r'^\[\d\d/\w{3}/\d{4}:(\d\d):\d\d:\d\d ([+-]\d{4})\]\|(\d\d) ([+-]\d{4})\|(\d+)$', lines()[0])
+    ok(m, 'local time')
+    is_deeply_ok([m[1], m[2]], [m[3], m[4]], 'same time')
+    is_ok(m[2], datetime.datetime.fromtimestamp(int(m[5])).astimezone().strftime('%z'), 'local offset')
+
+    zone = datetime.timezone(datetime.timedelta(hours=2))
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='%t|%{sec}t', tz=zone))
+    t2.get_ok('/').status_is(200)
+    m = re.match(r'^\[(.+)\]\|(\d+)$', lines()[0])
+    expected = datetime.datetime.fromtimestamp(int(m[2]), zone)
+    is_ok(m[1], f'{expected:%d}/{expected:%b}/{expected:%Y}:{expected:%H:%M:%S} +0200', 'tz of tzinfo')
+
+    log = Pyjo.Log.new(tz='UTC')
+    t2 = Pyjo.Test.Pyjo.new(application(log=log, format='%{%z}t'))
+    with log.capture() as messages:
+        t2.get_ok('/').status_is(200)
+    like_ok(messages[0], r' \+0000\n$', 'tz of the log')
+    t2 = Pyjo.Test.Pyjo.new(application(log=log, format='%{%z}t', tz=zone))
+    with log.capture() as messages:
+        t2.get_ok('/').status_is(200)
+    like_ok(messages[0], r' \+0200\n$', 'tz of the option')
+
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format='json', tz=zone))
+    t2.get_ok('/').status_is(200)
+    like_ok(json.loads(lines()[0])['time'], r'\+02:00$', 'JSON in the time zone')
+    t2 = Pyjo.Test.Pyjo.new(application(log=path.to_str(), format={'status': '%>s'}, tz='UTC'))
+    t2.get_ok('/').status_is(200)
+    like_ok(json.loads(lines()[0])['time'], r'Z$', 'JSON of a dict in UTC')
+
+    throws_ok(lambda: application(tz='Nowhere/Nothing'), zoneinfo.ZoneInfoNotFoundError, 'unknown time zone')
+
+with subtest('Files of a period'):
+    pattern = tmp.child('access-%Y-%m-%d.log').to_str()
+    t2 = Pyjo.Test.Pyjo.new(application(log=pattern, tz='UTC'))
+    t2.get_ok('/').status_is(200)
+    file = tmp.child(datetime.datetime.now(datetime.UTC).strftime('access-%Y-%m-%d.log'))
+    deadline = steady_time() + 5
+    while not file.is_file and steady_time() < deadline:
+        Pyjo.IOLoop.timer(0.01, lambda loop: None)
+        Pyjo.IOLoop.one_tick()
+    like_ok(file.slurp().decode(), COMBINED.replace('[+-]', r'\+') + r'"GET / HTTP/1\.1" 200 6 ', 'file of the day')
 
 with subtest('Log'):
     log = Pyjo.Log.new()

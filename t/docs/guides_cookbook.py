@@ -221,11 +221,14 @@ with subtest('Health checks'):
 with subtest('Access log'):
 
     def logged(t, *args):
-        # The output of a request, once the server has written its response and the line after it
+        # The output of a request, once the transaction of the server has finished, after the plugin, which subscribes
+        # to the event finish first, so that a request that writes nothing does not wait
+        finished = []
+        t.app.hook('after_build_tx', lambda tx, app: tx.on('finish', lambda tx: finished.append(tx)))
         with contextlib.redirect_stdout(io.StringIO()) as stdout:
             t.get_ok(*args)
-            deadline = steady_time() + 1
-            while '" ' not in stdout.getvalue() and steady_time() < deadline:
+            deadline = steady_time() + 5
+            while not finished and steady_time() < deadline:
                 Pyjo.IOLoop.timer(0.01, lambda loop: None)
                 Pyjo.IOLoop.one_tick()
         return stdout.getvalue()
@@ -233,7 +236,7 @@ with subtest('Access log'):
     with cookbook('health') as t:
         t.app.plugin('AccessLog')
         output = logged(t, '/', {'User-Agent': 'curl/8.7.1'})
-        like_ok(output, r'127\.0\.0\.1 - - \[.+ \+0000\] "GET / HTTP/1\.1" 200 12 "-" "curl/8\.7\.1"\n', 'line')
+        like_ok(output, r'127\.0\.0\.1 - - \[.+ [+-]\d{4}\] "GET / HTTP/1\.1" 200 12 "-" "curl/8\.7\.1"\n', 'line')
         output = logged(t, '/livez')
         unlike_ok(output, r'"GET /livez', 'no probes')
 

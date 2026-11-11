@@ -15,6 +15,9 @@ Pyjoyment.Plugin.AccessLog - Access log plugin
     # A file, in a format of LogFormat of Apache, with the time of the response in milliseconds
     app.plugin('AccessLog', log='/var/log/myapp/access.log', format='%h %t "%r" %>s %b %{ms}T')
 
+    # A file of each day in UTC
+    app.plugin('AccessLog', log='/var/log/myapp/access-%Y-%m-%d.log', tz='UTC')
+
 :mod:`Pyjoyment.Plugin.AccessLog` writes the access log of the application,
 as a server of production writes it: one line for each response, with the
 client, the request, the status, the size, the referrer and the user agent,
@@ -31,9 +34,9 @@ response, which has no ``Content-Length``, and of one whose client closed the
 connection before its end. A request whose client closed the connection before
 the application responded is logged with the status ``499``, as nginx logs it,
 and a WebSocket with the status ``101`` of its handshake, once the connection
-is upgraded. The time of ``%t`` is the one of the request, in UTC, as of
-Apache, and the one of a line of JSON the one of the message of the log,
-after the response.
+is upgraded. The time of ``%t`` is the one of the request, in the local time
+or in the time zone of ``tz``, with its offset, as of Apache, and the one of
+a line of JSON the one of the message of the log, after the response.
 
 A line is written with one write of its own and flushed, so that the lines of
 the workers of :mod:`Pyjo.Server.Prefork` and :mod:`Pyjo.Server.Prethread`
@@ -130,8 +133,8 @@ is written as it is. ::
     The time of the request, as ``[06/Nov/2026:09:42:28 +0000]``.
 
 ``%{format}t``
-    The time of the request in the format of :meth:`Pyjo.Date.Pyjo_Date.strftime`,
-    in UTC, or ``sec``, ``msec``, ``usec``, ``msec_frac`` and ``usec_frac`` of
+    The time of the request in the format of :func:`time.strftime`, in the
+    local time or in the time zone of ``tz``, or ``sec``, ``msec``, ``usec``, ``msec_frac`` and ``usec_frac`` of
     the epoch, and of the end of the response with the prefix ``end:``.
 
 ``%T``
@@ -237,11 +240,14 @@ Options
 ``log`` ::
 
     app.plugin('AccessLog', log='/var/log/myapp/access.log')
+    app.plugin('AccessLog', log='/var/log/myapp/access-%Y-%m-%d.log')
     app.plugin('AccessLog', log=app.log)
 
     Where the lines go, the standard output by default, the path of a file,
-    or a :mod:`Pyjo.Log`, as the log of the application, whose format a line
-    gets, as a message of the level of ``level``.
+    or the pattern of its name, whose file of each period
+    :attr:`Pyjo.Log.Pyjo_Log.path` takes, or a :mod:`Pyjo.Log`, as the log
+    of the application, whose format a line gets, as a message of the level
+    of ``level``.
 
 ``status`` ::
 
@@ -249,6 +255,16 @@ Options
     app.plugin('AccessLog', status=[404, 499])
 
     The lowest status that is logged, or the statuses, defaults to all.
+
+``tz`` ::
+
+    app.plugin('AccessLog', tz='UTC')
+    app.plugin('AccessLog', tz='Europe/Warsaw')
+
+    The time zone of ``%t`` and ``%{format}t``, and of the time of a line of
+    JSON and the name of the file of a pattern of ``log``, as of
+    :attr:`Pyjo.Log.Pyjo_Log.tz`, defaults to the one of the
+    :mod:`Pyjo.Log` of ``log``, and to the local time.
 
 See also
 --------
@@ -268,6 +284,7 @@ import Pyjoyment.Plugin
 
 from Pyjo.Util import steady_time
 
+import datetime
 import json
 import os
 import re
@@ -323,18 +340,23 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
                 f'Unknown format "{format}" of the access log, not one of {names} nor of LogFormat'
             )
 
-        # A log of its own writes the line as it is, or the JSON of Pyjo.Log
+        # A log of its own writes the line as it is, or the JSON of Pyjo.Log, in the time zone of tz, also of the name of
+        # the file of a pattern of its path
+        tz: str | datetime.tzinfo | None
         if isinstance(target, Pyjo.Log.object):
             log = target
+            tz = conf.get('tz', log.tz)
             if format is None:
                 format = 'json' if log.json else 'combined'
         else:
+            tz = conf.get('tz')
             if format is None:
                 format = 'json' if Pyjo.Log.new().json else 'combined'
             of_json = format == 'json' or isinstance(format, Mapping)
-            log = Pyjo.Log.new(json=True) if of_json else Pyjo.Log.new(json=False, format=_text)
+            log = Pyjo.Log.new(json=True, tz=tz) if of_json else Pyjo.Log.new(json=False, format=_text, tz=tz)
             if target is not None:
                 log.path = os.fspath(target)
+        zone = Pyjo.Log._zone(tz)  # pyright: ignore[reportPrivateUsage]
         level: str = conf.get('level', 'info')
         message = cast(Callable[..., Any], getattr(log, level))
 
@@ -348,11 +370,11 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
         line: Callable[[_Transaction, _Entry], str] | None = None
         fields: Callable[[_Transaction, _Entry], list[Pyjo.Log.Field]] = _fields
         if isinstance(format, Mapping):
-            fields = _custom(cast(Mapping[str, Any], format))
+            fields = _custom(cast(Mapping[str, Any], format), zone)
         elif callable(format):
             line = format
         elif format != 'json':
-            line = _compile(FORMATS.get(format, format))
+            line = _compile(FORMATS.get(format, format), zone)
         client = _client(conf.get('client'))
         excluded = _exclude(app, conf.get('exclude'))
         logged = _status(conf.get('status'))
@@ -388,7 +410,7 @@ class Pyjoyment_Plugin_AccessLog(Pyjoyment.Plugin.object):
         app.hook('after_build_tx', after_build_tx)
 
 
-def _block(letter: str, name: str) -> _Item | None:
+def _block(letter: str, name: str, zone: datetime.tzinfo | None) -> _Item | None:
     # A directive with a name in braces
     if letter == 'C':
         return lambda tx, entry: cookie.value if (cookie := tx.req.cookie(name)) is not None else None
@@ -397,7 +419,7 @@ def _block(letter: str, name: str) -> _Item | None:
     if letter == 'o':
         return lambda tx, entry: tx.res.headers.header(name)
     if letter == 't':
-        return _time(name)
+        return _time(name, zone)
     if letter == 'T' and (factor := UNITS.get(name)) is not None:
         return lambda tx, entry: int(entry['duration'] * factor)
     return None
@@ -415,10 +437,10 @@ def _bytes(tx: _Transaction, sent: dict[str, Any]) -> int:
     return sent['offset'] if sent['body'] else 0
 
 
-def _clf(date: Pyjo.Date.object) -> str:
-    # The time of the common log format, in UTC, with the names of the months of HTTP, which no locale changes
-    time = date.to_datetime()
-    return f'[{time.day:02d}/{Pyjo.Date.MONTHS[time.month - 1]}/{time.year}:{time:%H:%M:%S} +0000]'
+def _clf(date: Pyjo.Date.object, zone: datetime.tzinfo | None) -> str:
+    # The time of the common log format, with the names of the months of HTTP, which no locale changes
+    time = _datetime(float(date.epoch or 0), zone)
+    return f'[{time.day:02d}/{Pyjo.Date.MONTHS[time.month - 1]}/{time.year}:{time:%H:%M:%S %z}]'
 
 
 def _client(option: str | Callable[[_Transaction], str | None] | None) -> Callable[[_Transaction], str | None]:
@@ -430,9 +452,9 @@ def _client(option: str | Callable[[_Transaction], str | None] | None) -> Callab
     return lambda tx: tx.req.headers.header(name) or tx.remote_address
 
 
-def _compile(format: str) -> Callable[[_Transaction, _Entry], str]:
+def _compile(format: str, zone: datetime.tzinfo | None) -> Callable[[_Transaction, _Entry], str]:
     # The text as it is and the values of the directives, escaped, with "-" for a value that is missing
-    parts = _parse(format)
+    parts = _parse(format, zone)
 
     def line(tx: _Transaction, entry: _Entry) -> str:
         return ''.join(part if isinstance(part, str) else _value(part(tx, entry)) for part in parts)
@@ -440,15 +462,26 @@ def _compile(format: str) -> Callable[[_Transaction, _Entry], str]:
     return line
 
 
-def _custom(format: Mapping[str, Any]) -> Callable[[_Transaction, _Entry], list[Pyjo.Log.Field]]:
+def _custom(
+    format: Mapping[str, Any], zone: datetime.tzinfo | None
+) -> Callable[[_Transaction, _Entry], list[Pyjo.Log.Field]]:
     # The fields of a line of JSON, of a format of LogFormat each
-    fields = {name: _field(spec) for name, spec in format.items()}
+    fields = {name: _field(spec, zone) for name, spec in format.items()}
 
     def custom(tx: _Transaction, entry: _Entry) -> list[Pyjo.Log.Field]:
         values = {name: item(tx, entry) for name, item in fields.items()}
         return [Pyjo.Log.Field(name, value, f'{name}={json.dumps(value)}') for name, value in values.items()]
 
     return custom
+
+
+def _datetime(epoch: float, zone: datetime.tzinfo | None) -> datetime.datetime:
+    # The time in the time zone, or in the local one with its offset
+    return (
+        datetime.datetime.fromtimestamp(epoch, zone)
+        if zone is not None
+        else datetime.datetime.fromtimestamp(epoch).astimezone()
+    )
 
 
 def _entry(
@@ -521,17 +554,17 @@ def _fields(tx: _Transaction, entry: dict[str, Any]) -> list[Pyjo.Log.Field]:
     return [Pyjo.Log.Field(name, value, f'{name}={json.dumps(value)}') for name, value in fields.items()]
 
 
-def _field(spec: Any) -> _Item:
+def _field(spec: Any, zone: datetime.tzinfo | None) -> _Item:
     # The value of a field of JSON: a directive alone with the type of its value, as a number or null, the text of a
     # format with "-" for a value that is missing, a dict of fields, a function, or a constant
     if isinstance(spec, Mapping):
-        fields = {name: _field(value) for name, value in cast(Mapping[str, Any], spec).items()}
+        fields = {name: _field(value, zone) for name, value in cast(Mapping[str, Any], spec).items()}
         return lambda tx, entry: {name: item(tx, entry) for name, item in fields.items()}
     if callable(spec):
         return cast(_Item, spec)
     if not isinstance(spec, str):
         return lambda tx, entry: spec
-    parts = _parse(spec)
+    parts = _parse(spec, zone)
     items = [part for part in parts if not isinstance(part, str)]
     if len(items) == 1 and not ''.join(part for part in parts if isinstance(part, str)):
         return items[0]
@@ -564,8 +597,8 @@ def _matches(path: str, patterns: Iterable[str | re.Pattern[str]]) -> bool:
     return False
 
 
-def _time(spec: str) -> _Item | None:
-    # The time of the request, or of the end of the response, in the format of strftime or as the epoch
+def _time(spec: str, zone: datetime.tzinfo | None) -> _Item | None:
+    # The time of the request, or of the end of the response, in the format of strftime in the time zone or as the epoch
     end = spec.startswith('end:')
     spec = spec.removeprefix('begin:').removeprefix('end:')
     epochs: dict[str, Callable[[float], Any]] = {
@@ -580,12 +613,12 @@ def _time(spec: str) -> _Item | None:
         epoch = float(entry['time'].epoch or 0) + (entry['duration'] if end else 0)
         if (cb := epochs.get(spec)) is not None:
             return cb(epoch)
-        return Pyjo.Date.new(epoch).strftime(spec)
+        return _datetime(epoch, zone).strftime(spec)
 
     return item
 
 
-def _parse(format: str) -> list[str | _Item]:
+def _parse(format: str, zone: datetime.tzinfo | None) -> list[str | _Item]:
     # The text between the directives and the directives of a format of LogFormat
     parts: list[str | _Item] = []
     position = 0
@@ -597,7 +630,9 @@ def _parse(format: str) -> list[str | _Item]:
         name, letter = m[1], m[2]
         if letter == '%' and name is None:
             parts.append('%')
-        elif (item := DIRECTIVES.get(letter) if name is None else _block(letter, name)) is not None:
+        elif letter == 't' and name is None:
+            parts.append(lambda tx, entry: _clf(entry['time'], zone))
+        elif (item := DIRECTIVES.get(letter) if name is None else _block(letter, name, zone)) is not None:
             parts.append(item)
         else:
             raise Pyjo.Exception.new(f'Unknown directive "{m[0]}" of the access log')
@@ -648,7 +683,6 @@ DIRECTIVES: dict[str, _Item] = {
     'q': lambda tx, entry: f'?{query}' if (query := tx.req.url.query.to_str()) else '',
     'r': lambda tx, entry: f'{entry["method"]} {entry["path"]} {entry["protocol"]}',
     's': lambda tx, entry: entry['status'],
-    't': lambda tx, entry: _clf(entry['time']),
     'T': lambda tx, entry: int(entry['duration']),
     'u': lambda tx, entry: _user(tx),
     'U': lambda tx, entry: tx.req.url.to_abs().path.to_str(),
