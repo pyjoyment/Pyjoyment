@@ -8,11 +8,13 @@ import Pyjo.Server.Prethread
 import Pyjo.Server.WSGI
 import Pyjo.Test.Pyjo
 import Pyjo.Transaction.HTTP
+import Pyjo.UserAgent
 import Pyjoyment
 
 from Pyjo.JSON import decode_json, encode_json
 from Pyjo.Test import *
 
+import asyncio
 import concurrent.futures
 import http.client
 import os
@@ -493,5 +495,47 @@ with subtest('Closed body'):
         t = Pyjo.Test.Pyjo.new(app)
         t.get_ok('/').status_is(200).content_is('Hello!')
         ok(wait(closed), 'body closed')
+
+# A synchronous application sees no running loop of asyncio, when it is called, when its body is iterated and closed,
+# as on a WSGI server, so that a library that refuses to block in one, as Django or a blocking request of
+# Pyjo.UserAgent, runs on the reactor of asyncio too
+with subtest('No running loop'):
+    seen = []
+
+    def running(where):
+        try:
+            asyncio.get_running_loop()
+            seen.append((where, True))
+        except RuntimeError:
+            seen.append((where, False))
+
+    class Body:
+        def __iter__(self):
+            running('iteration')
+            yield b'Hello'
+
+        def close(self):
+            running('close')
+
+    def synchronous(environ, start_response):
+        running('call')
+        start_response('200 OK', [('Content-Type', 'text/plain')])
+        return Body()
+
+    with Pyjo.App.WSGI.new(app=synchronous) as app:
+        Pyjo.Test.Pyjo.new(app).get_ok('/').status_is(200).content_is('Hello')
+    is_deeply_ok(seen, [('call', False), ('iteration', False), ('close', False)], 'no running loop')
+
+    # A blocking request of a user agent with an event loop and a server of its own
+    inner = Pyjo.UserAgent.new()
+    inner.server.app = Pyjo.App.WSGI.new(app=echo)
+
+    def client(environ, start_response):
+        start_response('200 OK', [('Content-Type', 'text/plain')])
+        return [inner.get('/inner').result.json('/PATH_INFO').encode()]
+
+    with Pyjo.App.WSGI.new(app=client) as app:
+        Pyjo.Test.Pyjo.new(app).get_ok('/').status_is(200).content_is('/inner')
+    inner.close()
 
 done_testing()
