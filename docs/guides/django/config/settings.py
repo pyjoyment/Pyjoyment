@@ -7,9 +7,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'insecure')
 DEBUG = os.environ.get('DJANGO_DEBUG') == '1'
-ALLOWED_HOSTS = ['*']
+# The kubelet sends the address of the pod as Host, which the probes of Pyjoyment take before Django
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = ['django.contrib.staticfiles', 'notes']
+MIDDLEWARE = ['django.middleware.security.SecurityMiddleware', 'django.middleware.common.CommonMiddleware']
 ROOT_URLCONF = 'config.urls'
 
 DATABASES = {

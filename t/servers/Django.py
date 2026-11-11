@@ -94,12 +94,31 @@ with subtest('WSGI on the reactor of Poll'):
             status, headers, data = server.request('GET', '/robots.txt')
             is_ok(headers['Cache-Control'], 'public, max-age=60', 'file of /')
             is_ok(server.request('GET', '/missing')[0], 404, 'not found of Django')
+            is_ok(server.request('GET', '/static/notes/notes.css')[0], 404, 'no files of the apps without DEBUG')
+
+            # The address of the pod as Host, as the kubelet sends it, which ALLOWED_HOSTS rejects
+            pod = {'Host': '10.1.2.3:8080'}
+            is_ok(server.request('GET', '/healthz', headers=pod)[0], 400, '/healthz of Django with the pod as Host')
+            is_ok(server.request('GET', '/readyz', headers=pod)[0], 200, '/readyz with the pod as Host')
+            is_ok(server.request('GET', '/livez', headers=pod)[0], 200, '/livez with the pod as Host')
         finally:
             log = server.output()
             server.close()
         like_ok(log, r'\] "GET / HTTP/1\.1" 200 ', 'access log')
         like_ok(log, r':\d\d \+0000\] "GET /', 'time zone of TIME_ZONE')
         unlike_ok(log, r'"GET /(?:livez|readyz)', 'no probes in the access log')
+
+with subtest('Static files of the apps with DEBUG'):
+    with Pyjo.File.tempdir() as tmp:
+        project(tmp)
+        env = {'PYJO_REACTOR': None, 'DJANGO_DEBUG': '1'}
+        server = Server(tmp.to_str(), [PYTHON, '-m', 'config.server', *DAEMON], env=env)
+        try:
+            like_ok(body(server.request('GET', '/static/notes/notes.css')), r'margin: 0', 'file of an app')
+            status, headers, data = server.request('GET', '/static/site.2fcb528ecde1.css')
+            is_ok(headers['Cache-Control'], 'public, max-age=31536000, immutable', 'collected file of Pyjoyment first')
+        finally:
+            server.close()
 
 with subtest('Reverse proxy'):
     with Pyjo.File.tempdir() as tmp:

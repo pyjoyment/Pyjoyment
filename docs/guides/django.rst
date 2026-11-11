@@ -85,7 +85,15 @@ routes, in the place of whitenoise, whose middleware leaves ``MIDDLEWARE``:
 the parent of ``STATIC_ROOT`` is the directory of the static files, which
 has the files of ``/`` too, as ``robots.txt``, and the hashed names of
 ``ManifestStaticFilesStorage`` are cached for a year, as :doc:`mounting`
-describes it.
+describes it. The directory of ``WHITENOISE_ROOT``, of the files of ``/`` as
+``favicon.ico``, is another directory of ``app.static.paths``, and
+``app.static.extra = {}`` leaves out the favicon and the images of
+:mod:`Pyjoyment` for a project that has its own.
+
+With ``DEBUG`` and before ``collectstatic``, ``staticfiles_urlpatterns()`` of
+Django serves the static files of the apps, as ``config/urls.py`` does, after
+the files that :mod:`Pyjoyment` has, as ``python -m config.server daemon``
+of a checkout has none.
 
 Probes
 ------
@@ -93,7 +101,25 @@ Probes
 :mod:`Pyjoyment.Plugin.Health` answers ``/livez`` and ``/readyz``, which
 Kubernetes requests, before the routes, so ``healthz=None`` leaves the
 ``/healthz`` of the project to it, which its monitors may request with other
-expectations.
+expectations. Django does not see the probes, so ``ALLOWED_HOSTS`` does not
+reject the address of the pod, which the kubelet sends as ``Host``, and which
+a view of Django answers with ``400 Bad Request``: ``/readyz`` is the
+readiness probe without a ``Host`` header of its own.
+
+With ``-c 1``, a probe of HTTP is a connection as any other, which waits in
+the backlog while every worker is busy, so a liveness probe of HTTP restarts
+the pod in a slow spell of a busy application. A liveness probe on
+``tcpSocket``, which the kernel accepts into the backlog, does not.
+
+.. code-block:: yaml
+
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: http
+    livenessProbe:
+      tcpSocket:
+        port: http
 
 Outside a request of Django, nothing closes a connection of Django to the
 database that the database has dropped, as after its restart, so a check
@@ -113,7 +139,10 @@ Access log
 
 :mod:`Pyjoyment.Plugin.AccessLog` writes a line of each response to the
 standard output, in the combined format of the access log of gunicorn,
-without the probes, as :doc:`cookbook` describes it.
+without the probes, as :doc:`cookbook` describes it. Behind a gateway that
+gives the address of the client in a header of its own, ``client`` takes it,
+as ``plugin('AccessLog', client='X-Envoy-External-Address')``, as the first
+address of ``X-Forwarded-For`` is whatever the client wrote there.
 
 Requests to other services
 --------------------------
@@ -143,13 +172,15 @@ the database in the thread of the synchronous code of Django.
     plugin('AccessLog')
     plugin('Mount', {'/': 'config.asgi:application'})
 
-Its ``async def`` views run in the event loop, where they await the async
-ORM of Django, as ``await Note.objects.acount()``, anything of
-:mod:`asyncio`, and the promises of :mod:`Pyjo.UserAgent`, while the event
+Its ``async def`` views run in the event loop, where they await anything of
+:mod:`asyncio` and the promises of :mod:`Pyjo.UserAgent`, while the event
 loop serves the other requests. Its synchronous views and middleware run in a
 thread, which ``sync_to_async`` of Django gives them, one thread for all of
-them, so a project of synchronous views serves one request at a time in each
-worker, and runs better on ``WSGI``.
+them, and so do the queries of its async ORM, as
+``await Note.objects.acount()``, as the backends of databases of Django are
+synchronous.
+A project of synchronous views and queries serves one request at a time in
+each worker, and runs better on ``WSGI``.
 
 .. literalinclude:: ../../examples/servers/django_asgi.py
     :language: python

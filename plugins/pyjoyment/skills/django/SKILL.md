@@ -63,10 +63,11 @@ python -m config.server prefork -w 8 -c 1 -r 1 -p -l 'http://*:8080'
 - ASGI, `config.asgi:application`, runs on the default reactor, without the
   line of `PYJO_REACTOR`, and the check of the database in the thread of
   Django: `checks={'database': sync_to_async(database)}` of
-  `asgiref.sync`. Its `async def` views await the async ORM, as
-  `await Note.objects.acount()`, and promises; its synchronous views run in
-  one thread of Django, one request at a time in each worker, so a project of
-  synchronous views stays on WSGI.
+  `asgiref.sync`. Its `async def` views await asyncio and promises in the
+  event loop; its synchronous views run in one thread of Django, and so do the
+  queries of its async ORM, as `await Note.objects.acount()`, one at a time
+  in each worker, so a project of synchronous views and queries stays on
+  WSGI.
 - The ASGI application of Django has no lifespan, which the log notes on
   `debug`.
 
@@ -122,6 +123,17 @@ needs another worker that is free.
   gets `TERM`.
 - `-S` (`PYJO_SHUTDOWN_DELAY`) and `-G` go into `terminationGracePeriodSeconds`
   of Kubernetes, 30 by default: `-S 5 -G 20` with the default.
+- The readiness probe is `/readyz`, which Django does not see, so
+  `ALLOWED_HOSTS` does not reject the address of the pod that the kubelet
+  sends as `Host`; the liveness probe with `-c 1` is `tcpSocket`, as an HTTP
+  probe waits behind busy workers and restarts the pod.
+- `WHITENOISE_ROOT` is another directory of `app.static.paths`, and
+  `app.static.extra = {}` leaves out the favicon and the images of Pyjoyment;
+  with `DEBUG`, `urlpatterns += staticfiles_urlpatterns()` serves the files of
+  the apps before `collectstatic`.
+- The client of the access log behind a gateway is its own header, as
+  `plugin('AccessLog', client='X-Envoy-External-Address')`, not the first
+  address of `X-Forwarded-For`, which the client writes.
 
 ## Mistakes
 
