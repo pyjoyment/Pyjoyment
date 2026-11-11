@@ -526,16 +526,23 @@ with subtest('No running loop'):
         Pyjo.Test.Pyjo.new(app).get_ok('/').status_is(200).content_is('Hello')
     is_deeply_ok(seen, [('call', False), ('iteration', False), ('close', False)], 'no running loop')
 
-    # A blocking request of a user agent with an event loop and a server of its own
+    # A blocking request of a user agent with an event loop and a server of its own, which a reactor on an event loop that
+    # does not nest, as Trio, refuses, as a new reactor of its class runs in the loop that runs
     inner = Pyjo.UserAgent.new()
     inner.server.app = Pyjo.App.WSGI.new(app=echo)
+    riding = []
 
     def client(environ, start_response):
+        riding.append(type(Pyjo.IOLoop.singleton.reactor).new().is_running)
         start_response('200 OK', [('Content-Type', 'text/plain')])
         return [inner.get('/inner').result.json('/PATH_INFO').encode()]
 
     with Pyjo.App.WSGI.new(app=client) as app:
-        Pyjo.Test.Pyjo.new(app).get_ok('/').status_is(200).content_is('/inner')
+        t = Pyjo.Test.Pyjo.new(app).get_ok('/')
+        if riding[0]:
+            t.status_is(500)
+        else:
+            t.status_is(200).content_is('/inner')
     inner.close()
 
 done_testing()
