@@ -165,11 +165,16 @@ kubectl apply -k kubernetes/prod
 - The public layers of
   [Pyjoyment-Lambda-Layers](https://github.com/pyjoyment/Pyjoyment-Lambda-Layers),
   as `python3_14-arm64` of Python for `provided.al2023` and
-  `pyjoyment-python3_14` of Pyjoyment, also for the runtime `python3.14`, are
-  taken by the ARN of a version, which the index of the latest release gives:
+  `pyjoyment-0_3_0-python3_14` of Pyjoyment 0.3.0, also for the runtime
+  `python3.14`, are taken by the ARN of a version, which the index of a
+  release gives, with the aliases of the latest Pyjoyment, as
+  `pyjoyment-python3_14`, in the index of the latest release:
   `python -m Pyjo 'g("https://github.com/pyjoyment/Pyjoyment-Lambda-Layers/releases/latest/download/layers.json").json("/pyjoyment-python3_14/eu-central-1")'`.
   `--function-only` tells the version of Pyjoyment of the dependencies, which
-  the layer of Pyjoyment is to have. The public layer of Pyjoyment has
+  the layer of Pyjoyment is to have: the layers of an older version are in
+  the latest release whose tag has it, as `0.3.0+2026.11.05`, and those of a
+  version come after its release, so a function of an unreleased checkout
+  takes a layer of its own build. The public layer of Pyjoyment has
   Pyjo-AWS too: `--layer-package Pyjo-AWS` leaves it out of the function, as
   the layer of its own build does, while another distribution of the namespace
   `Pyjo`, as Pyjo-MCP, stays in the function.

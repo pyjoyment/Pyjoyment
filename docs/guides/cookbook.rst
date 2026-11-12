@@ -1172,8 +1172,9 @@ layers, built by the same generator, as public layers of the account
 ``959435416781`` in the commercial regions of AWS: of Python, as
 ``python3_14-arm64`` or ``python3_15t-x86_64``, of one version and one
 architecture, for ``provided.al2023``, and of Pyjoyment, as
-``pyjoyment-python3_14``, for both architectures, with the layer of Python or
-on the runtime ``python3.14``. With ``--function-only``, the generator writes
+``pyjoyment-0_3_0-python3_14`` of Pyjoyment 0.3.0, for both architectures,
+with the layer of Python or on the runtime ``python3.14``. With
+``--function-only``, the generator writes
 ``function.zip`` alone, for them, and tells the version of Pyjoyment of the
 dependencies of the application, which the description of the layer of
 Pyjoyment says too. The layer of Pyjoyment has `Pyjo-AWS
@@ -1193,10 +1194,14 @@ namespace ``Pyjo``, as ``Pyjo-MCP``, stays in the function.
       [write] /home/sri/myapp/dist/function.zip
 
 A function takes a layer by the ARN of a version, as
-``arn:aws:lambda:<region>:959435416781:layer:pyjoyment-python3_14:<version>``,
+``arn:aws:lambda:<region>:959435416781:layer:pyjoyment-0_3_0-python3_14:<version>``,
 which the index of the layers of each release, ``layers.json``, gives as
-``{layer: {region: arn}}``. The index of the latest release is always at the
-same URL, which a one-liner reads with a JSON Pointer.
+``{layer: {region: arn}}``. A release has the layers of one version of
+Pyjoyment, which come after the release of Pyjoyment, and its tag has the
+version and the date, as ``0.3.0+2026.11.05``. Its index has the same layers
+under the names without the version too, as ``pyjoyment-python3_14``, so that
+the index of the latest release, which is always at the same URL, gives the
+layers of the latest Pyjoyment, which a one-liner reads with a JSON Pointer.
 
 .. code-block:: console
 
@@ -1206,7 +1211,9 @@ The directories `examples/lambda
 <https://github.com/pyjoyment/Pyjoyment/tree/main/examples/lambda>`_ and
 `examples/lambda_zip
 <https://github.com/pyjoyment/Pyjoyment/tree/main/examples/lambda_zip>`_ of the
-repository deploy such functions with OpenTofu.
+repository deploy such functions with OpenTofu, with the layers of the latest
+release, or of the latest release of a version of Pyjoyment, as the one that
+``--function-only`` tells, of the variable ``pyjoyment_version``.
 
 The same function runs locally, mounted in an application with
 :mod:`Pyjo.App.Lambda`, in a process of its own, which gets its invocations

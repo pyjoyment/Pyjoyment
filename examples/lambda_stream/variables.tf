@@ -27,3 +27,9 @@ variable "public_layers" {
   type        = bool
   default     = true
 }
+
+variable "pyjoyment_version" {
+  description = "The version of Pyjoyment of the public layers, as \"0.3.0\", the one that \"--function-only\" tells, or the latest one"
+  type        = string
+  default     = null
+}

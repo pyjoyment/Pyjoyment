@@ -28,6 +28,12 @@ variable "public_layers" {
   default     = true
 }
 
+variable "pyjoyment_version" {
+  description = "The version of Pyjoyment of the public layers, as \"0.3.0\", the one that \"--function-only\" tells, or the latest one"
+  type        = string
+  default     = null
+}
+
 variable "multi_value_headers" {
   description = "Whether the load balancer sends the headers and the parameters of the query with all their values"
   type        = bool
