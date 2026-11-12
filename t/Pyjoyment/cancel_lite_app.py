@@ -96,7 +96,12 @@ async def stream(c):
 def gone(path, name):
     # A request whose client goes away once the action has started
     client = t.ua.get_p(path)
-    when(name).then(lambda *values: client.cancel())
+
+    # Not a lambda, whose value would be the promise that cancel returns, which then would adopt its rejection
+    def leave(*values):
+        client.cancel()
+
+    when(name).then(leave)
     reason = []
     client.catch(reason.append).wait()
     settle()
