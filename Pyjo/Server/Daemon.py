@@ -109,8 +109,8 @@ See also
 
 :mod:`Pyjoyment`, https://mojolicious.org.
 
-Ported from `Mojo::Server::Daemon <https://github.com/mojolicious/mojo/blob/v9.52/lib/Mojo/Server/Daemon.pm>`_
-of Mojolicious 9.52.
+Ported from `Mojo::Server::Daemon <https://github.com/mojolicious/mojo/blob/v9.54/lib/Mojo/Server/Daemon.pm>`_
+of Mojolicious 9.54.
 
 Classes
 -------
@@ -724,8 +724,10 @@ class Pyjo_Server_Daemon(Pyjo.Server.object):
         return tx
 
     def _cleanup(self) -> None:
+        for id in list(self._connections):
+            self._remove(id)
         loop = self.ioloop
-        for id in [*self._connections, *self.acceptors]:
+        for id in self.acceptors:
             loop.remove(id)
         self.acceptors = []
         # Not in Mojolicious: the listen sockets of a stopped daemon, which Perl closes as it frees them

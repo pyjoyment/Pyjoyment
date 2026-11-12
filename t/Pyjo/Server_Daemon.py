@@ -425,6 +425,8 @@ with subtest('Destroy daemon while writing'):
     app_ = Pyjoyment.new()
     app_.log.level = 'fatal'
     got = {}
+    finished = []
+    app_.hook('after_build_tx', lambda tx, app: tx.on('finish', lambda tx: finished.append(True)))
 
     @app_.routes.get('/')
     def destroy(c):
@@ -453,6 +455,7 @@ with subtest('Destroy daemon while writing'):
     loop.start()
     ok(closed, 'connection has been closed')
     ok(not timeout, 'no timeout')
+    ok(finished, 'transaction has been finished')
     is_deeply_ok([e for e in errors if 'I/O watcher failed' in e], [], 'no exceptions')
 
 # Not in Mojolicious: the rest of a request that has its response already, which the server reads before it closes the

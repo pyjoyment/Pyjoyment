@@ -51,8 +51,8 @@ See also
 
 :mod:`Pyjoyment`, https://mojolicious.org.
 
-Ported from `Mojo::Message::Request <https://github.com/mojolicious/mojo/blob/v9.51/lib/Mojo/Message/Request.pm>`_
-of Mojolicious 9.51.
+Ported from `Mojo::Message::Request <https://github.com/mojolicious/mojo/blob/v9.54/lib/Mojo/Message/Request.pm>`_
+of Mojolicious 9.54.
 """
 
 import Pyjo.Cookie.Request
@@ -635,7 +635,7 @@ class Pyjo_Message_Request(Pyjo.Message.object):
             url.query.parse(str(env['QUERY_STRING']))
 
         # Method
-        if env.get('REQUEST_METHOD'):
+        if env.get('REQUEST_METHOD') is not None:
             self.method = str(env['REQUEST_METHOD'])
 
         # Scheme/Version

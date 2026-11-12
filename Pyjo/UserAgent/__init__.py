@@ -178,8 +178,8 @@ See also
 
 :mod:`Pyjoyment`, https://mojolicious.org.
 
-Ported from `Mojo::UserAgent <https://github.com/mojolicious/mojo/blob/v9.53/lib/Mojo/UserAgent.pm>`_
-of Mojolicious 9.53.
+Ported from `Mojo::UserAgent <https://github.com/mojolicious/mojo/blob/v9.54/lib/Mojo/UserAgent.pm>`_
+of Mojolicious 9.54.
 
 Classes and functions
 ---------------------
@@ -964,7 +964,7 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
     def _cleanup(self) -> Self:
         self._pid = None
         for id in list(self._connections):
-            self._finish(id, True)
+            self._finish(id, True, True)
         return self
 
     def _connect(self, loop: Pyjo.IOLoop.object, tx: Pyjo.Transaction.object, handle: Any = None) -> str:
@@ -1122,7 +1122,7 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
             tx.res.error = {'message': str(err)}
         self._finish(id, True)
 
-    def _finish(self, id: str, close: bool = False) -> None:
+    def _finish(self, id: str, close: bool = False, local: bool = False) -> None:
         # Remove request timeout and finish transaction
         if (c := self._connections.get(id)) is None:
             return None
@@ -1131,10 +1131,16 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
         if (old := c.get('tx')) is None:
             return self._reuse(id, close)
 
-        # Premature connection close
-        res = old.closed().res.finish()
-        if close and not res.code and not res.error:
+        # Premature connection close (RFC 9112 8: only close-delimited bodies may end with the server closing the connection)
+        res = old.res
+        content = res.content
+        premature = not res.code or (not res.is_finished and (local or content.is_chunked or not content.relaxed))
+        if close and premature and not res.error:
             res.error = {'message': 'Premature connection close'}
+
+        # Finish events need to see the error
+        res.finish()
+        old.closed()
 
         # Always remove connection for WebSockets
         if old.is_websocket:
