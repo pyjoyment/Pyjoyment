@@ -9,10 +9,15 @@ from Pyjoyment.Lite import any, app, get, post, websocket
 
 import os
 import re
+import subprocess
 import sys
+import textwrap
 import time
 import types
 
+
+# The checkout, of the processes of the examples
+ROOT = Pyjo.File.curfile().dirname().dirname().dirname().to_str()
 
 # The application of the examples
 app.log.level = 'fatal'
@@ -140,6 +145,52 @@ with subtest('Description'):
     verbose = os.environ.get('PYJO_HARNESS_IS_VERBOSE', os.environ.get('HARNESS_IS_VERBOSE'))
     is_ok(os.environ.get('PYJO_LOG_LEVEL'), 'trace' if verbose else 'fatal', 'log level')
     ok(Pyjo.Test.Pyjo.new().ua.insecure, 'insecure')
+
+    # The test of unittest, with a MyApp of its own, in a process of its own, as unittest runs it
+    with Pyjo.File.tempdir() as tmp:
+        tmp.child('MyApp.py').spurt(
+            textwrap.dedent("""\
+                import Pyjoyment
+
+
+                def new(**kwargs):
+                    app = Pyjoyment.new(**kwargs)
+                    app.routes.get('/welcome', {'text': '<div id="message">Hello!</div>', 'format': 'html'})
+                    return app
+            """)
+        )
+        tmp.child('test_myapp.py').spurt(
+            textwrap.dedent("""\
+                import unittest
+
+                import Pyjo.Test
+                import Pyjo.Test.Pyjo
+
+
+                def setUpModule():
+                    unittest.enterModuleContext(Pyjo.Test.raise_failures())
+
+
+                class TestMyApp(unittest.TestCase):
+                    @classmethod
+                    def setUpClass(cls):
+                        cls.t = cls.enterClassContext(Pyjo.Test.Pyjo.new('MyApp'))
+
+                    def test_welcome(self):
+                        self.t.get_ok('/welcome').status_is(200).text_is('div#message', 'Hello!')
+            """)
+        )
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join([ROOT, tmp.to_str()]))
+        p = subprocess.run(
+            [sys.executable, '-m', 'unittest', '-v', 'test_myapp'],
+            cwd=tmp.to_str(),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        like_ok(p.stderr, r'(?m)^test_welcome \(test_myapp\.TestMyApp\.test_welcome\) \.\.\. ok$', 'test of unittest')
+        unlike_ok(p.stderr, r'ResourceWarning', 'closed at the end of the class')
+        is_ok(p.returncode, 0, 'right exit status')
 
 with subtest('new'):
     t = Pyjo.Test.Pyjo.new()

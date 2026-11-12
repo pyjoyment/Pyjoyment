@@ -55,6 +55,34 @@ default for :attr:`~Pyjo_Test_Pyjo.ua`.
 The end of a ``with`` block closes the connections and the servers of its
 :attr:`~Pyjo_Test_Pyjo.ua`.
 
+A test of :class:`unittest.TestCase` makes it once for its class, after
+:func:`Pyjo.Test.raise_failures`, with
+:meth:`~unittest.TestCase.enterClassContext`, which closes it at the end of
+the class: ::
+
+    import unittest
+
+    import Pyjo.Test
+    import Pyjo.Test.Pyjo
+
+
+    def setUpModule():
+        unittest.enterModuleContext(Pyjo.Test.raise_failures())
+
+
+    class TestMyApp(unittest.TestCase):
+        @classmethod
+        def setUpClass(cls):
+            cls.t = cls.enterClassContext(Pyjo.Test.Pyjo.new('MyApp'))
+
+        def test_welcome(self):
+            self.t.get_ok('/welcome').status_is(200).text_is('div#message', 'Hello!')
+
+A request of a test blocks, as it runs the event loop until the response, so
+the test is a method of a :class:`unittest.TestCase`: in the running event
+loop of a :class:`unittest.IsolatedAsyncioTestCase`, the default reactor
+raises ``Blocking request in a running event loop``.
+
 See also
 --------
 

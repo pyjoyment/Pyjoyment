@@ -110,6 +110,7 @@ with subtest('Tests of pytest'):
     out, code = pytest('-rfEs', 'tests')
     like_ok(out, r'(?m)^tests/test_app\.py \.F$', 'tests of the application')
     like_ok(out, r'(?m)^tests/test_functions\.py \.FFs\.F$', 'tests of the functions')
+    like_ok(out, r'(?m)^tests/test_unittest\.py \.sF$', 'tests of unittest')
     like_ok(out, r"(?m)^E       AssertionError: Failed test 'exact match for content'$", 'name of the failed test')
     like_ok(out, r"(?m)^E                got: 'Hello'\nE           expected: 'Bye'$", 'got and expected')
     like_ok(out, r'(?m)^tests/test_app\.py:6: AssertionError$', 'the line of the test')
@@ -120,7 +121,16 @@ with subtest('Tests of pytest'):
     like_ok(out, r"(?m)^E                got\['a'\]\[1\] = 2\nE           expected\['a'\]\[1\] = 3$", 'difference')
     like_ok(out, r'(?m)^-+ Captured stderr call -+\n# a diagnostic message$', 'diagnostic message')
     like_ok(out, r'(?m)^SKIPPED \[1\] tests/test_functions\.py:19: not today$', 'skipped test')
-    like_ok(out, r'(?m)^=+ 4 failed, 3 passed, 1 skipped in ', 'right summary')
+    like_ok(out, r'(?m)^tests/test_unittest\.py:22: AssertionError$', 'the line of the test of unittest')
+    like_ok(out, r'(?m)^SKIPPED \[1\] tests/test_unittest\.py:24: not today$', 'skipped test of unittest')
+    like_ok(out, r'(?m)^=+ 5 failed, 4 passed, 2 skipped in ', 'right summary')
+    is_ok(code, 1, 'right exit status')
+
+with subtest('Tests of pytest after a module of unittest'):
+    # The mode of the plugin, which the module restores at its end, so that a failed test after it still fails
+    out, code = pytest('tests/test_unittest.py', 'tests/test_functions.py')
+    like_ok(out, r'(?m)^tests/test_unittest\.py \.sF\ntests/test_functions\.py \.FFs\.F$', 'in this order')
+    like_ok(out, r'(?m)^=+ 4 failed, 3 passed, 2 skipped in ', 'right summary')
     is_ok(code, 1, 'right exit status')
 
 with subtest('Passing tests of pytest'):
@@ -138,7 +148,7 @@ with subtest('Bail out of a test of pytest'):
 with subtest('Everything'):
     out, code = pytest()
     like_ok(out, r'(?m)^testpaths: t, tests$', 'testpaths')
-    like_ok(out, r'(?m)^=+ 6 failed, 5 passed, 3 skipped in ', 'right summary')
+    like_ok(out, r'(?m)^=+ 7 failed, 6 passed, 4 skipped in ', 'right summary')
     is_ok(code, 1, 'right exit status')
 
 done_testing()
