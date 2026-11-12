@@ -1,6 +1,6 @@
 ---
 name: tests
-description: Test code that uses Pyjoyment with Pyjo.Test and Pyjo.Test.Pyjo, ported from Test::More and Test::Mojo. Use for test scripts that print TAP with subtests and assertions as is_ok, like_ok and is_deeply_ok, requests to an application without a server with get_ok, post_ok, status_is, json_is and text_is, WebSockets and Server-Sent Events, the harness pyjo-prove, and tests of pytest with the fixture t.
+description: Test code that uses Pyjoyment with Pyjo.Test and Pyjo.Test.Pyjo, ported from Test::More and Test::Mojo. Use for test scripts that print TAP with subtests and assertions as is_ok, like_ok and is_deeply_ok, requests to an application without a server with get_ok, post_ok, status_is, json_is and text_is, WebSockets and Server-Sent Events, the harness pyjo-prove, tests of pytest with the fixture t, and the tests of unittest.TestCase that a project has already, as the ones of Django.
 ---
 
 # Tests
@@ -127,6 +127,43 @@ def test_login(t):
   as a test of its own, and the fixture `t` is a `Pyjo.Test.Pyjo` of the
   fixture `app`, where an assertion that fails raises `AssertionError`.
 
+## Tests of unittest that a project has
+
+```python
+# tests/test_existing.py
+import Pyjo.Test
+import Pyjo.Test.Pyjo
+
+from Pyjo.File import curfile
+
+import unittest
+
+
+# The assertions raise AssertionError in this module, and print TAP again after it
+def setUpModule():
+    unittest.enterModuleContext(Pyjo.Test.raise_failures())
+
+
+# The application among the tests that the project runs with unittest already, with one tester for the class
+class TestApp(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.t = cls.enterClassContext(Pyjo.Test.Pyjo.new(curfile().dirname().sibling('app.py')))
+
+    def test_index(self):
+        self.t.get_ok('/').status_is(200).text_is('h1', 'Hello World!')
+```
+
+- This is for a project whose tests are of `unittest.TestCase` already, as
+  a project of Django with `manage.py test`: the routes of Pyjoyment in front
+  of it are tested where its other tests are. New tests are scripts of `t` or
+  tests of pytest, which runs the modules of unittest too.
+- Without `raise_failures()`, a failure prints TAP, which unittest does not
+  read: it reports `OK`, and the process ends with 254.
+- A request of `Pyjo.Test.Pyjo` blocks until the response, so the test is a
+  method of `unittest.TestCase`, not of `IsolatedAsyncioTestCase`, whose
+  running event loop it cannot wait in.
+
 ## Commands
 
 ```sh
@@ -135,6 +172,7 @@ pyjo-prove -l -v t/basic.py          # one script, with its TAP
 pyjo-prove -l -j 4 -r t              # four scripts at a time
 python t/basic.py                    # one script, without the harness
 pytest                               # the scripts of t and the tests of pytest
+python -m unittest discover -s tests # the tests of unittest
 PYTHONDEVMODE=1 pyjo-prove -l -r t   # and the ResourceWarning of what a test leaves open
 ```
 
