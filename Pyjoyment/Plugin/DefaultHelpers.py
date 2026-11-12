@@ -420,6 +420,21 @@ reply.txt_not_found ::
 
 Render a plain text response and set the response status to ``404``.
 
+request_timeout ::
+
+    c = c.request_timeout(120)
+
+The most time in seconds from now to the end of the response, as for a
+request that waits for a model of language, which the value
+``request_timeout`` of the stash of a route sets before its first action.
+When it passes, the actions that are coroutine functions are cancelled where
+they wait, with the requests of :mod:`Pyjo.UserAgent` that they wait for, and
+the request gets an empty ``504`` response, or the connection closes when the
+response has started already, as a stream. A later call replaces the time. ::
+
+    # A route whose response has two minutes at most
+    app.routes.post('/chat', {'request_timeout': 120}).to('chat#reply')
+
 respond_to ::
 
     c = c.respond_to(json={'json': {'message': 'Welcome!'}}, html={'template': 'welcome'}, any=lambda c: ...)
@@ -661,6 +676,7 @@ class Pyjoyment_Plugin_DefaultHelpers(Pyjoyment.Plugin.object):
         app.helper('inactivity_timeout', _inactivity_timeout)
         app.helper('is_fresh', _is_fresh)
         app.helper('redirect_to', _redirect_to)
+        app.helper('request_timeout', _request_timeout)
         app.helper('respond_to', _respond_to)
         app.helper('url_with', _url_with)
         app.helper('validation', _validation)
@@ -985,6 +1001,52 @@ def _redirect_to(c: 'Controller', *args: Any, **values: Any) -> 'Controller':
     return c.rendered(None if res.is_redirect else 302)
 
 
+# Not in Mojolicious: the deadline of a request, which Mojolicious leaves to the inactivity timeout of its connection
+def _request_timeout(c: 'Controller', timeout: float) -> 'Controller':
+    stash = c.stash()
+    loop = Pyjo.IOLoop.singleton
+    if (old := stash.pop('pyjo.request_timeout', None)) is not None:
+        loop.remove(old)
+    if (tx := c.tx) is None or tx.is_finished:
+        return c
+
+    # Weakly, as the loop keeps the timer, and the transaction its subscribers
+    ref = weakref.ref(c)
+
+    def expired(loop: Pyjo.IOLoop.object) -> None:
+        if (c := ref()) is not None:
+            _expire(c, timeout)
+
+    id = stash['pyjo.request_timeout'] = loop.timer(timeout, expired)
+
+    def finish(tx: Any) -> None:
+        loop.remove(id)
+
+    tx.on('finish', finish)
+    return c
+
+
+def _expire(c: 'Controller', timeout: float) -> None:
+    stash = c.stash()
+    stash.pop('pyjo.request_timeout', None)
+    if (tx := c.tx) is None or tx.is_finished:
+        return
+    c.app.log.info(f'Request timeout of {timeout:g} seconds')
+
+    # The actions that wait, which nothing renders the response of anymore
+    stash['pyjo.cancelled'] = True
+    for action in stash.get('pyjo.actions', ()):
+        if (promise := action()) is not None:
+            promise.cancel()
+
+    # A response that has not started yet, or the end of its connection
+    if not stash.get('mojo.finished') and not c.res.content.is_dynamic and not tx.is_websocket:
+        c.res.body = b''
+        c.rendered(504)
+    elif (id := tx.connection) is not None:
+        Pyjo.IOLoop.remove(id)
+
+
 def _respond_to(c: 'Controller', *args: dict[str, Any], **values: Any) -> 'Controller':
     targets = args[0] if args else values
 
@@ -1181,6 +1243,7 @@ class Helpers:
     inactivity_timeout = Helper(_inactivity_timeout)
     is_fresh = Helper(_is_fresh)
     redirect_to = Helper(_redirect_to)
+    request_timeout = Helper(_request_timeout)
     respond_to = Helper(_respond_to)
     url_with = Helper(_url_with)
     validation = Helper(_validation)

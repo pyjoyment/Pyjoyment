@@ -218,6 +218,23 @@ with subtest('Special stash values'):
             r.get('/routes').to('Routes#bye', namespace='Pyjoyment')
             t.get_ok('/routes').status_is(500)
 
+with subtest('Timeouts of routes'):
+    r = Pyjoyment.Routes.new()
+
+    # Ten minutes of silence, and two minutes to the end of the response at most
+    r.post('/chat', {'inactivity_timeout': 600, 'request_timeout': 120}).to('chat#reply')
+
+    # The same for every route of a group
+    llm = r.under('/llm', {'inactivity_timeout': 600, 'request_timeout': 120})
+    llm.post('/complete').to('llm#complete')
+
+    timeouts = {'inactivity_timeout': 600, 'request_timeout': 120}
+    is_deeply_ok(endpoint(r, '/chat', 'POST'), {**timeouts, 'controller': 'chat', 'action': 'reply'}, 'route')
+    is_deeply_ok(match(r, '/llm/complete', 'POST')[0], timeouts, 'group')
+    is_deeply_ok(
+        endpoint(r, '/llm/complete', 'POST'), {**timeouts, 'controller': 'llm', 'action': 'complete'}, 'nested'
+    )
+
 with subtest('Namespaces'):
     with application('special'):
         with Pyjo.Test.Pyjo.new('MyApp') as t:
