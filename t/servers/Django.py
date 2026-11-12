@@ -145,6 +145,45 @@ with subtest('Django outside the application'):
             if status == 503:
                 like_ok(log, r'You cannot call this from an async context', 'SynchronousOnlyOperation')
 
+with subtest('Tests of the project'):
+    # The tests of the guide in manage.py test, on the test database of SQLite in memory, whose connection Django never
+    # closes, and in a file, as one of PostgreSQL, whose connection close_old_connections closes in the transaction of
+    # the test, with the handlers detached and without them
+    detached = re.compile(r'        for signal in \(request_started, request_finished\):\n(?:            .*\n){2}')
+
+    def test(tmp, reactor, settings):
+        env = os.environ | {'PYTHONPATH': os.pathsep.join([tmp.to_str(), ROOT.to_str()]), 'PYJO_REACTOR': reactor}
+        p = subprocess.run(
+            [PYTHON, 'manage.py', 'test', '--noinput', '--settings', settings],
+            cwd=tmp.to_str(),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        return p.stderr.replace('\r\n', '\n'), p.returncode
+
+    for reactor in ('Pyjo.Reactor.Asyncio', 'Pyjo.Reactor.Poll'):
+        with Pyjo.File.tempdir() as tmp:
+            project(tmp)
+            tmp.child('config', 'settings_file.py').spew(
+                "from config.settings import *  # noqa: F403\n\nDATABASES['default']['TEST'] = {'NAME': 'test.sqlite3'}\n"
+            )
+
+            for settings in ('config.settings', 'config.settings_file'):
+                err, code = test(tmp, reactor, settings)
+                like_ok(err, r'(?m)^Ran 2 tests in .*\n\nOK$', f'{reactor}, {settings}: passed')
+                is_ok(code, 0, f'{reactor}, {settings}: right exit status')
+
+            tests = tmp.child('notes', 'tests.py')
+            code, count = detached.subn('', tests.slurp().decode())
+            is_ok(count, 1, 'without the handlers detached')
+            tests.spew(code)
+            err, code = test(tmp, reactor, 'config.settings_file')
+            like_ok(err, r'(?m)^ +got: 500$', f'{reactor}: the connection closed in the view')
+            like_ok(err, r'(?m)^ +got: 503$', f'{reactor}: and in the check of the database')
+            like_ok(err, r'(?m)^FAILED \(failures=2\)$', f'{reactor}: failed')
+            is_ok(code, 1, f'{reactor}: right exit status')
+
 with subtest('ASGI'):
     with Pyjo.File.tempdir() as tmp:
         project(tmp)

@@ -183,6 +183,11 @@ PYTHONDEVMODE=1 pyjo-prove -l -r t   # and the ResourceWarning of what a test le
 - The test client of another framework, or `requests` against a server that
   the test starts, has no event loop of the application: `Pyjo.Test.Pyjo`
   requests it in the event loop of the test.
+- A `Pyjo.UserAgent` of its own, with `ua.server.app = app`, runs an event
+  loop of its own, where a response that a promise of the application
+  settles, as `/readyz` of `Health`, does not come on `Pyjo.Reactor.Poll`:
+  `Pyjo.Test.Pyjo` has its user agent on `Pyjo.IOLoop.singleton`, as a user
+  agent of `ioloop=Pyjo.IOLoop.singleton` does.
 - A test does not request remote hosts: the event `start` of the user agent of
   the application sends a request to an application of the test instead, as
   `t.app.ua.on('start', lambda ua, tx: ...)` with a new host and port of
