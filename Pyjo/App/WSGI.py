@@ -224,7 +224,7 @@ class _Call:
         if self.response.started:
             self.app.log.error(f'WSGI application failed: {message}')
             if (connection := self.tx.connection) is not None and (
-                stream := Pyjo.IOLoop.stream(connection)
+                stream := self._loop().stream(connection)
             ) is not None:
                 stream.close()
             return
@@ -277,13 +277,23 @@ class _Call:
     # A body without a chunk yet tries again after the events of the next cycle of the event loop
     def _later(self) -> None:
         self.busy = True
-        Pyjo.IOLoop.timer(0, self._tick)
+        self._loop().timer(0, self._tick)
+
+    # The event loop of the connection, which is the one of the server that runs the application: the singleton, or one of
+    # its own, as of the server of a blocking request of a user agent, where a step on the singleton, which waits for the
+    # blocking request, would never come
+    def _loop(self) -> Pyjo.IOLoop.object:
+        if (connection := self.tx.connection) is not None:
+            for loop in (Pyjo.IOLoop.singleton, *Pyjo.IOLoop._LOOPS):  # pyright: ignore[reportPrivateUsage]
+                if loop.stream(connection) is not None:
+                    return loop
+        return Pyjo.IOLoop.singleton
 
     # The next chunks of the body once the chunk before has been written, in the next tick of the event loop, so that the
     # application is not called in the middle of what the server does
     def _next(self, *args: Any) -> None:
         self.busy = True
-        Pyjo.IOLoop.next_tick(self._tick)
+        self._loop().next_tick(self._tick)
 
     def _rendered(self) -> None:
         if (c := self.c) is not None:
