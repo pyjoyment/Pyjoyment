@@ -155,6 +155,7 @@ with subtest('Description'):
 
                 def new(**kwargs):
                     app = Pyjoyment.new(**kwargs)
+                    app.log.level = 'fatal'
                     app.routes.get('/welcome', {'text': '<div id="message">Hello!</div>', 'format': 'html'})
                     return app
             """)
