@@ -246,6 +246,8 @@ class ScriptItem(pytest.Item):
         config = self.config
         path = Path(os.path.relpath(self.path, config.rootpath)).as_posix()
         timeout = str(config.getini('pyjo_prove_timeout')).strip()
+        # Without the debug mode of asyncio, as Pyjo.Prove runs its event loop, which would write its own slow callbacks
+        # to the standard error of the test
         result = asyncio.run(
             Pyjo.Prove.run_script(
                 path,
@@ -255,7 +257,8 @@ class ScriptItem(pytest.Item):
                 capture_stderr=True,
                 stderr_lines=STDERR_LINES,
                 cwd=str(config.rootpath),
-            )
+            ),
+            debug=False,
         )
         stderr = list(result.stderr)
         if result.stderr_left_out:

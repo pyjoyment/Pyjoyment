@@ -863,6 +863,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if console and console[0] is not None:
             stack.enter_context(contextlib.redirect_stdout(stack.enter_context(_open(console[0]))))
         try:
+            # The scripts get the development mode of Python from the environment, while the harness runs its event
+            # loop without the debug mode of asyncio, which would write its own slow callbacks to the standard error,
+            # among the lines of the scripts
             results = asyncio.run(
                 run(
                     scripts,
@@ -877,7 +880,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     color=args.color,
                     count=args.count,
                     console=bool(console),
-                )
+                ),
+                debug=False,
             )
         except KeyboardInterrupt:
             # Die of the signal, as a process that does not handle it does, without a traceback
