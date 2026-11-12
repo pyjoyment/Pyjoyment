@@ -86,6 +86,7 @@ import Pyjo.Server.Prefork
 import Pyjo.Server.Prethread
 import Pyjo.Transaction
 
+import contextvars
 import io
 import sys
 import traceback
@@ -184,6 +185,10 @@ class _Call:
         self.c = c
         self.tx = tx
         self.response = _Response()
+        # The context of contextvars of the call, its iteration and its close, which a WSGI server gives them in one
+        # thread, where the callbacks of an event loop of asyncio each run in a context of their own, as the iterator of
+        # stream_with_context of Flask resets its context variables at its end with the tokens of its start
+        self.context = contextvars.copy_context()
         self.busy = False
         self.chunked = False
         self.closed = False
@@ -193,14 +198,14 @@ class _Call:
         self.tx.on('finish', self._finish)
         try:
             environ = _environ(self.tx, self.c, self.app._model(self.tx))  # pyright: ignore[reportPrivateUsage]
-            self._step(Pyjo.IOLoop.blocking(self.response.start, self.application, environ))
+            self._step(Pyjo.IOLoop.blocking(self.context.run, self.response.start, self.application, environ))
         except Exception as e:
             self._error(e)
 
     def _close(self) -> None:
         self.done = True
         try:
-            Pyjo.IOLoop.blocking(self.response.close)
+            Pyjo.IOLoop.blocking(self.context.run, self.response.close)
         except Exception as e:
             self.app.log.error(f'WSGI application failed to close: {_message(e)}')
 
@@ -219,7 +224,7 @@ class _Call:
         if self.response.started:
             self.app.log.error(f'WSGI application failed: {message}')
             if (connection := self.tx.connection) is not None and (
-                stream := Pyjo.IOLoop.stream(connection)
+                stream := self._loop().stream(connection)
             ) is not None:
                 stream.close()
             return
@@ -272,13 +277,23 @@ class _Call:
     # A body without a chunk yet tries again after the events of the next cycle of the event loop
     def _later(self) -> None:
         self.busy = True
-        Pyjo.IOLoop.timer(0, self._tick)
+        self._loop().timer(0, self._tick)
+
+    # The event loop of the connection, which is the one of the server that runs the application: the singleton, or one of
+    # its own, as of the server of a blocking request of a user agent, where a step on the singleton, which waits for the
+    # blocking request, would never come
+    def _loop(self) -> Pyjo.IOLoop.object:
+        if (connection := self.tx.connection) is not None:
+            for loop in (Pyjo.IOLoop.singleton, *Pyjo.IOLoop._LOOPS):  # pyright: ignore[reportPrivateUsage]
+                if loop.stream(connection) is not None:
+                    return loop
+        return Pyjo.IOLoop.singleton
 
     # The next chunks of the body once the chunk before has been written, in the next tick of the event loop, so that the
     # application is not called in the middle of what the server does
     def _next(self, *args: Any) -> None:
         self.busy = True
-        Pyjo.IOLoop.next_tick(self._tick)
+        self._loop().next_tick(self._tick)
 
     def _rendered(self) -> None:
         if (c := self.c) is not None:
@@ -308,7 +323,7 @@ class _Call:
                 self._close()
             return
         try:
-            self._step(Pyjo.IOLoop.blocking(self.response.next))
+            self._step(Pyjo.IOLoop.blocking(self.context.run, self.response.next))
         except Exception as e:
             self._error(e)
 

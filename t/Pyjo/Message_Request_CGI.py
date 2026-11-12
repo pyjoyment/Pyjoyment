@@ -624,4 +624,16 @@ with subtest('Parse IIS 7.5 like CGI environment (HTTPS=off)'):
     is_ok(req.version, '1.1', 'right version')
     ok(not req.is_secure, 'not secure')
 
+# Not in Mojolicious: the method and the query of "0", which Mojolicious 9.54 takes from the environment without a test,
+# and an empty method, which is defined
+with subtest('Parse CGI environment variables with a method and a query of 0'):
+    req = Pyjo.Message.Request.new()
+    req.parse({'PATH_INFO': '/', 'QUERY_STRING': '0', 'REQUEST_METHOD': '0', 'HTTP_HOST': 'localhost'})
+    is_ok(req.method, '0', 'right method')
+    is_ok(req.url.query.to_str(), '0', 'right query')
+
+    req = Pyjo.Message.Request.new()
+    req.parse({'PATH_INFO': '/', 'REQUEST_METHOD': '', 'HTTP_HOST': 'localhost'})
+    is_ok(req.method, '', 'empty method')
+
 done_testing()

@@ -764,6 +764,76 @@ ok(not tx.error, 'no error')
 is_ok(tx.res.code, 200, 'right status')
 is_ok(tx.res.body, b'Hi!', 'right content')
 
+with subtest('Premature connection close after start-line'):
+    response, close = [None], [True]
+
+    @Pyjo.IOLoop.server(address='127.0.0.1')
+    def premature(loop, stream, id):
+        req = Pyjo.Message.Request.new()
+
+        @stream.on('read')
+        def read(stream, chunk):
+            if req.parse(chunk).is_finished:
+                stream.write(response[0], lambda stream: stream.close_gracefully() if close[0] else None)
+
+    port = Pyjo.IOLoop.acceptor(premature).port
+
+    with subtest('Content-Length not reached'):
+        response[0] = b'HTTP/1.1 200 OK\x0d\x0aContent-Length: 10\x0d\x0a\x0d\x0aHi!'
+        tx = ua.build_tx('GET', f'http://127.0.0.1:{port}/')
+        tx_error, res_error = [], []
+        tx.on('finish', lambda tx: tx_error.append(tx.error))
+        tx.res.on('finish', lambda res: res_error.append(res.error))
+        tx = ua.start(tx)
+        is_ok(tx.error['message'], 'Premature connection close', 'right error')
+        is_ok(tx_error[0]['message'], 'Premature connection close', 'error is visible in transaction finish event')
+        is_ok(res_error[0]['message'], 'Premature connection close', 'error is visible in response finish event')
+        is_ok(tx.res.code, 200, 'right status')
+        is_ok(tx.res.body, b'Hi!', 'right content')
+
+    with subtest('Chunked without last chunk'):
+        response[0] = b'HTTP/1.1 200 OK\x0d\x0aTransfer-Encoding: chunked\x0d\x0a\x0d\x0a3\x0d\x0aHi!\x0d\x0a'
+        tx = ua.get(f'http://127.0.0.1:{port}/')
+        is_ok(tx.error['message'], 'Premature connection close', 'right error')
+        is_ok(tx.res.code, 200, 'right status')
+        is_ok(tx.res.body, b'Hi!', 'right content')
+
+    with subtest('Incomplete headers'):
+        response[0] = b'HTTP/1.1 200 OK\x0d\x0aContent-Le'
+        tx = ua.get(f'http://127.0.0.1:{port}/')
+        is_ok(tx.error['message'], 'Premature connection close', 'right error')
+        is_ok(tx.res.code, 200, 'right status')
+        is_ok(tx.res.body, b'', 'no content')
+
+    with subtest('Body delimited by connection close'):
+        response[0] = b'HTTP/1.1 200 OK\x0d\x0aConnection: close\x0d\x0a\x0d\x0aHi!'
+        tx = ua.get(f'http://127.0.0.1:{port}/')
+        ok(not tx.error, 'no error')
+        is_ok(tx.res.code, 200, 'right status')
+        is_ok(tx.res.body, b'Hi!', 'right content')
+
+    with subtest('User agent destroyed during body delimited by connection close'):
+        response[0] = b'HTTP/1.1 200 OK\x0d\x0aConnection: close\x0d\x0a\x0d\x0aHi!'
+        close[0] = False
+        destroyed = Pyjo.UserAgent.new()
+        tx = destroyed.build_tx('GET', f'http://127.0.0.1:{port}/')
+        # close() releases the connections, as Perl does in DESTROY of the user agent
+        tx.res.content.once('read', lambda content, chunk: Pyjo.IOLoop.next_tick(lambda loop: destroyed.close()))
+        error = []
+
+        def destroyed_cb(ua, tx):
+            error.append(tx.error)
+            Pyjo.IOLoop.stop()
+
+        destroyed.start(tx, destroyed_cb)
+        Pyjo.IOLoop.start()
+        close[0] = True
+        is_ok(error[0]['message'], 'Premature connection close', 'right error')
+        is_ok(tx.res.body, b'Hi!', 'right content')
+
+    # Not in Mojolicious: the server of the subtest, which the rest of the test does not need
+    Pyjo.IOLoop.remove(premature)
+
 # Connection limit
 ua = Pyjo.UserAgent.new(max_connections=2)
 result = None
