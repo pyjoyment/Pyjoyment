@@ -255,6 +255,9 @@ app.start()
   `get('/chat', {'inactivity_timeout': 600}, chat)`, or of a group with
   `under`. `request_timeout` there, or `c.request_timeout(120)`, bounds the
   whole response: the actions are cancelled, and the request gets `504`.
+  `heartbeat` there, or `c.heartbeat(15)`, writes a comment of Server-Sent
+  Events, or a ping of a WebSocket, while the stream waits, for a proxy with
+  an idle timeout of its own.
 
 ## Documentation
 

@@ -174,6 +174,32 @@ Data storage persistent only for the next request, stored in the ``session``. ::
     c.flash(message='User created successfully!')
     c.redirect_to('show_user', id=23)
 
+heartbeat ::
+
+    c = c.heartbeat()
+    c = c.heartbeat(15)
+    c = c.heartbeat(60, 10)
+    c = c.heartbeat(None)
+
+Keep a stream alive while it waits, as for a model of language that is silent
+for minutes, which the value ``heartbeat`` of the stash of a route sets
+before its first action, so that proxies and load balancers with an idle
+timeout of their own, and the inactivity timeout of the connection, keep it:
+a comment ``: heartbeat`` of Server-Sent Events every ``interval`` seconds,
+``20`` by default, once the response is a stream of ``text/event-stream``, or
+the pings of a WebSocket, with
+:meth:`Pyjo.Transaction.WebSocket.Pyjo_Transaction_WebSocket.heartbeat`,
+which closes the connection of a peer that does not answer in ``timeout``
+seconds. ``None`` stops it. ::
+
+    # A stream of events whose connection stays open while it waits
+    @app.routes.get('/events', {'heartbeat': 15})
+    async def events(c):
+        c.write_sse()
+        async for chunk in llm.stream(c.param('q')):
+            c.write_sse({'text': chunk})
+        c.finish()
+
 inactivity_timeout ::
 
     c = c.inactivity_timeout(3600)
@@ -625,7 +651,7 @@ import time
 import weakref
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 
 if TYPE_CHECKING:
@@ -673,6 +699,7 @@ class Pyjoyment_Plugin_DefaultHelpers(Pyjoyment.Plugin.object):
         app.helper('current_route', _current_route)
         app.helper('exception_format', _exception_format)
         app.helper('flash', _flash)
+        app.helper('heartbeat', _heartbeat)
         app.helper('inactivity_timeout', _inactivity_timeout)
         app.helper('is_fresh', _is_fresh)
         app.helper('redirect_to', _redirect_to)
@@ -888,6 +915,41 @@ def _http_not_found(c: 'Controller') -> Any:
     if format == 'json':
         return c.helpers.reply.json_not_found()
     return c.helpers.reply.html_not_found()
+
+
+# Not in Mojolicious: the comments of Server-Sent Events that keep a stream alive, which Mojolicious leaves to the
+# application, and the pings of a WebSocket
+def _heartbeat(c: 'Controller', interval: float | None = 20, timeout: float | None = 20) -> 'Controller':
+    if (tx := c.tx) is None:
+        return c
+    if tx.is_websocket:
+        cast(Any, tx).heartbeat(interval, timeout)
+        return c
+
+    stash = c.stash()
+    loop = Pyjo.IOLoop.singleton
+    if (old := stash.pop('pyjo.heartbeat', None)) is not None:
+        loop.remove(old)
+    if interval is None or tx.is_finished:
+        return c
+
+    # Weakly, as the loop keeps the timer, and the transaction its subscribers
+    ref = weakref.ref(c)
+
+    def beat(loop: Pyjo.IOLoop.object) -> None:
+        if (c := ref()) is None or (tx := c.tx) is None or tx.is_finished:
+            return
+        res = c.res
+        if res.content.is_dynamic and (res.headers.content_type or '').startswith('text/event-stream'):
+            c.write_sse({'comment': 'heartbeat'})
+
+    id = stash['pyjo.heartbeat'] = loop.recurring(interval, beat)
+
+    def finish(tx: Any) -> None:
+        loop.remove(id)
+
+    tx.on('finish', finish)
+    return c
 
 
 def _inactivity_timeout(c: 'Controller', timeout: float) -> 'Controller':
@@ -1240,6 +1302,7 @@ class Helpers:
     current_route = Helper(_current_route)
     exception_format = Helper(_exception_format)
     flash = Helper(_flash)
+    heartbeat = Helper(_heartbeat)
     inactivity_timeout = Helper(_inactivity_timeout)
     is_fresh = Helper(_is_fresh)
     redirect_to = Helper(_redirect_to)

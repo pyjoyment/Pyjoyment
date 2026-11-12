@@ -224,6 +224,10 @@ with subtest('Timeouts of routes'):
     # Ten minutes of silence, and two minutes to the end of the response at most
     r.post('/chat', {'inactivity_timeout': 600, 'request_timeout': 120}).to('chat#reply')
 
+    # A stream of events with a comment every 15 seconds
+    r.get('/events', {'heartbeat': 15}).to('chat#events')
+    is_deeply_ok(endpoint(r, '/events'), {'heartbeat': 15, 'controller': 'chat', 'action': 'events'}, 'heartbeat')
+
     # The same for every route of a group
     llm = r.under('/llm', {'inactivity_timeout': 600, 'request_timeout': 120})
     llm.post('/complete').to('llm#complete')

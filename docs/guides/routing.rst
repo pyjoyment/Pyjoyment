@@ -432,12 +432,18 @@ to the end of the response, as the helper ``request_timeout`` sets it, after
 which the actions are cancelled and the request gets a ``504`` response. A
 request that waits for a model of language, which can be silent for minutes,
 needs both, and the routes of :ref:`under <routing-under>` give them to all
-the routes of a group.
+the routes of a group. The value ``heartbeat`` keeps a stream alive while it
+waits, for proxies and load balancers with an idle timeout of their own, as
+the helper ``heartbeat`` does, with a comment of Server-Sent Events or a ping
+of a WebSocket every so many seconds.
 
 .. code-block:: python
 
     # Ten minutes of silence, and two minutes to the end of the response at most
     r.post('/chat', {'inactivity_timeout': 600, 'request_timeout': 120}).to('chat#reply')
+
+    # A stream of events with a comment every 15 seconds
+    r.get('/events', {'heartbeat': 15}).to('chat#events')
 
     # The same for every route of a group
     llm = r.under('/llm', {'inactivity_timeout': 600, 'request_timeout': 120})
