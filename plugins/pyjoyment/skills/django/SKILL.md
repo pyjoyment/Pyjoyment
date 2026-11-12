@@ -1,6 +1,6 @@
 ---
 name: django
-description: Serve an existing Django project, or another WSGI or ASGI application of Python, with the servers of Pyjoyment in the place of gunicorn, uWSGI or uvicorn, as its application mounted on / of a script of Pyjoyment.Lite. Use for config/server.py, Pyjo.IOLoop.blocking for the code of Django outside the application, ASGI with async views, the static files of collectstatic, the probes with a check of the database, the access log, and Pyjo.UserAgent in the views in the place of requests or httpx.
+description: Serve an existing Django project, or another WSGI or ASGI application of Python, with the servers of Pyjoyment in the place of gunicorn, uWSGI or uvicorn, as its application mounted on / of a script of Pyjoyment.Lite. Use for config/server.py, Pyjo.IOLoop.blocking for the code of Django outside the application, ASGI with async views, the static files of collectstatic, the probes with a check of the database, the access log, Pyjo.UserAgent in the views in the place of requests or httpx, and the tests of the routes of Pyjoyment in manage.py test.
 ---
 
 # Django on the servers of Pyjoyment
@@ -132,6 +132,14 @@ in the skill `deploy`.
   database has dropped, and fails every probe until the worker restarts.
 - Django sets `TZ` of the process to `TIME_ZONE`, `America/Chicago` by
   default, which the time of the logs of Pyjoyment follows.
+- A test of the routes of Pyjoyment in `manage.py test`, with
+  `Pyjo.Test.Pyjo` of the application of `config.server` in a `TestCase`,
+  fails in the transaction of the test on PostgreSQL, as
+  `close_old_connections` of `request_started` and `request_finished` closes
+  its connection: the class detaches it for its requests, as the test client
+  of Django does, with `signal.disconnect(close_old_connections)` and
+  `cls.addClassCleanup(signal.connect, close_old_connections)`. SQLite in
+  memory, the default test database, hides it.
 
 ## Documentation
 

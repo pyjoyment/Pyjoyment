@@ -188,6 +188,29 @@ each worker, and runs better on ``WSGI``.
 The ``ASGI`` application of Django has no lifespan, which
 :mod:`Pyjo.App.ASGI` notes in the log on ``debug`` and serves it without.
 
+Tests
+-----
+
+The tests of the project, which ``manage.py test`` runs, test the static
+files, the probes and the routes of :mod:`Pyjoyment` in front of it too, with
+:mod:`Pyjo.Test.Pyjo` of the application of ``config/server.py`` in a
+``TestCase`` of Django, as :mod:`Pyjo.Test` describes the tests of
+:mod:`unittest`.
+
+.. literalinclude:: django/notes/tests.py
+    :language: python
+    :caption: notes/tests.py
+
+A request of the test reaches the ``WSGIHandler`` of Django, as one of a
+server does, which sends ``request_started`` and ``request_finished``, and so
+does the check of the database. Their handler ``close_old_connections``
+closes a connection that is not in the autocommit of the settings, as the one
+of the transaction of a ``TestCase``, so a query of the view and of the check
+fails after it. The test client of Django detaches the handler for its own
+requests, and the test detaches it for its class. The test database of SQLite
+in memory, the default, hides it, as Django does not close its connection,
+and one of PostgreSQL, or of SQLite in a file, shows it.
+
 More
 ----
 
