@@ -45,7 +45,7 @@ locals {
   )
   pyjoyment_layer = (
     var.pyjoyment_layer != null ? var.pyjoyment_layer
-    : var.public_layers ? local.public_layers["pyjoyment-${local.python_name}"][local.region]
+    : var.public_layers ? local.public_layers[local.pyjoyment_name][local.region]
     : aws_lambda_layer_version.pyjoyment.arn
   )
 }

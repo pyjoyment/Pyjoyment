@@ -55,6 +55,14 @@ the version of Pyjoyment of the dependencies, which the description of the
 layer says too: the inline metadata of the script takes Pyjoyment of the
 checkout, which can be newer than the one of the latest release.
 
+`-var pyjoyment_version=0.3.0` takes the layer of the latest release of that
+version of Pyjoyment, `pyjoyment-0_3_0-python3_15`, for a function of the
+checkout of an older version. Its release is the latest one whose tag has the
+version and the date, as `0.3.0+2026.11.05`, in the list of the API of GitHub,
+which answers 60 requests an hour of an address without a token. The layers of
+a version come after its release, so the checkout of a version that is not
+released yet takes the layers of its own build.
+
 `-var public_layers=false` takes the layer of the build in the place of the
 public one, which the generator writes without `--function-only`:
 

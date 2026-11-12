@@ -26,7 +26,7 @@ resource "aws_lambda_layer_version" "pyjoyment" {
 locals {
   pyjoyment_layer = (
     var.pyjoyment_layer != null ? var.pyjoyment_layer
-    : var.public_layers ? local.public_layers["pyjoyment-${local.python_name}"][data.aws_region.current.region]
+    : var.public_layers ? local.public_layers[local.pyjoyment_name][data.aws_region.current.region]
     : aws_lambda_layer_version.pyjoyment.arn
   )
 }
