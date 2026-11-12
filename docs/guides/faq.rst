@@ -271,7 +271,10 @@ with the attributes
 applications you can also use the helper ``inactivity_timeout`` of
 :mod:`Pyjoyment.Plugin.DefaultHelpers` to change it on demand for each
 connection individually. This timeout always applies, so you might have to
-tweak it for applications that take a long time to process a request.
+tweak it for applications that take a long time to process a request. A
+request that takes minutes, as one that waits for a model of language, needs
+the timeouts of its route and of the infrastructure in front of the
+application too, which :ref:`cookbook-long-requests` describes.
 
 What does "Premature connection close" mean?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

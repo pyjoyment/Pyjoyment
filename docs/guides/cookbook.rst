@@ -935,6 +935,72 @@ such as seen in `Istio
 examples, visit the `Envoy documentation
 <https://www.envoyproxy.io/docs/envoy/latest/start/start>`_.
 
+.. _cookbook-long-requests:
+
+Long requests
+~~~~~~~~~~~~~
+
+A request that waits for a model of language, for a tool of an agent or for
+a long job can be silent for minutes before its first byte, and can stream
+for minutes after it. Each layer in front of the application has timeouts of
+its own, between two reads or for the whole response, and the shortest one
+ends the request, with an error that the application never sees.
+
+The application gives such a route timeouts of its own with the values
+``inactivity_timeout``, ``request_timeout`` and ``heartbeat`` of its stash,
+as :doc:`routing` describes: a longer inactivity timeout of the connection,
+the most time to the end of the response, after which the request gets a
+``504``, and a comment of Server-Sent Events or a ping of a WebSocket while
+the stream waits, more often than the shortest idle timeout in front of it.
+An action that is a coroutine function is cancelled when its connection
+closes before its response ends, as when a proxy in front of it gives up,
+with the requests of :mod:`Pyjo.UserAgent` that it waits for. A
+``request_timeout`` below the timeout of the whole response of a layer in
+front of the application ends the request with the ``504`` of the
+application, which it logs, rather than with an error of that layer.
+
+* nginx waits ``proxy_read_timeout`` between two reads from the
+  application, 60 seconds by default, and buffers the response, which holds
+  back a stream of events until ``proxy_buffering off`` or the header
+  ``X-Accel-Buffering: no`` of the response; ingress-nginx of Kubernetes has
+  them as the annotations ``nginx.ingress.kubernetes.io/proxy-read-timeout``
+  and ``nginx.ingress.kubernetes.io/proxy-buffering``.
+
+  .. code-block:: nginx
+
+      location / {
+        proxy_pass http://myapp;
+        proxy_read_timeout 600s;
+        proxy_buffering off;
+      }
+
+* Caddy passes a stream of ``text/event-stream`` on at once, and waits for
+  the headers of the response as long as ``response_header_timeout`` of its
+  ``transport http``.
+* The Application Load Balancer of AWS closes a connection that is idle for
+  its idle timeout, 60 seconds by default, which a heartbeat keeps from it,
+  and CloudFront waits its origin response timeout for the first byte and
+  between two reads, 30 seconds by default.
+* The Application Load Balancer of Google Cloud waits the timeout of its
+  backend service, 30 seconds by default, for the whole response of HTTP,
+  also of a stream of events, which a heartbeat does not extend, and for a
+  WebSocket that is idle.
+* Cloud Run ends a request after the request timeout of the service, 5
+  minutes by default, which ``gcloud run deploy --timeout`` changes, also
+  for a stream of events and a WebSocket.
+* Kubernetes has no timeouts of its own for the requests of a Service; the
+  Ingress controller in front of it, or a route of the Gateway API, with
+  ``timeouts.request`` and ``timeouts.backendRequest`` of an HTTPRoute, has
+  them.
+* Amazon API Gateway ends a request after the timeout of its integration,
+  and passes a stream on only with the response transfer mode ``STREAM`` of
+  a REST API, with the limits of its documentation.
+* AWS Lambda ends an invocation after the timeout of the function, 3
+  seconds by default and 15 minutes at most, and streams a response with
+  ``PYJO_LAMBDA_INVOKE_MODE=RESPONSE_STREAM``, as :ref:`cookbook-aws-lambda`
+  describes, whose ``request_timeout`` below the timeout of the function
+  gives the client a ``504`` of the application.
+
 FastCGI
 ~~~~~~~
 
@@ -1039,6 +1105,8 @@ the command :mod:`Pyjoyment.Command.wsgi` for it.
 .. literalinclude:: cookbook/wsgi/welcome.py
     :language: python
     :caption: myapp.py
+
+.. _cookbook-aws-lambda:
 
 AWS Lambda
 ~~~~~~~~~~
@@ -2146,6 +2214,41 @@ batches.
 It is also strongly recommended to respect every sites ``robots.txt`` file as
 well as terms of service, and to wait a little before reopening connections to
 the same host, or the operators might be forced to block your access.
+
+Long requests of the user agent
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A service that answers slowly, as the API of a model of language, which can
+be silent for minutes before its first byte, gets a user agent of its own,
+whose :attr:`~Pyjo.UserAgent.Pyjo_UserAgent.inactivity_timeout` waits that
+long, and whose :attr:`~Pyjo.UserAgent.Pyjo_UserAgent.request_timeout`
+bounds each of its requests. A request with a time of its own races with
+:meth:`Pyjo.Promise.Pyjo_Promise.timeout`, and
+:meth:`Pyjo.Promise.Pyjo_Promise.cancel` closes its connection when the time
+passes first, as nothing awaits its response anymore, and does nothing when
+the request has ended.
+
+.. code-block:: python
+
+    import Pyjo.Promise
+    import Pyjo.UserAgent
+
+    # A user agent of its own for a slow service
+    llm = Pyjo.UserAgent.new(inactivity_timeout=300, request_timeout=600)
+
+
+    # One request with a time of its own
+    async def complete(prompt):
+        promise = llm.post_p('https://api.example.com/v1/complete', json={'prompt': prompt})
+        try:
+            tx = await Pyjo.Promise.race(promise, Pyjo.Promise.timeout(120, 'Too slow'))
+        finally:
+            promise.cancel()
+        return tx.result.json()
+
+An action of :mod:`Pyjoyment` that awaits such a request is cancelled when
+its client goes away, with the request, as :ref:`cookbook-long-requests`
+describes.
 
 Concurrent blocking requests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
