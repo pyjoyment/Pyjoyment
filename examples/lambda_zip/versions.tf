@@ -14,10 +14,11 @@ terraform {
   }
 }
 
-# The credentials and the region of the default chain of AWS: the variables of the environment, the profile and the
-# role of the machine
+# The credentials and the region of the profile of the variable "aws_profile", or of the default chain of AWS: the
+# variables of the environment, the profile and the role of the machine
 provider "aws" {
-  region = var.region
+  profile = var.aws_profile
+  region  = var.region
 
   default_tags {
     tags = {
