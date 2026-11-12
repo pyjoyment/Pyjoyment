@@ -609,7 +609,7 @@ with subtest('Development mode'):
             'PYTHONDEVMODE': '1',
         }
         p = subprocess.run([sys.executable, '-c', code], cwd=tmp, env=env, capture_output=True)
-    like_ok(p.stderr.decode(), r'(?m)^debug: False$', 'no debug mode of asyncio')
+    like_ok(p.stderr.decode().replace('\r\n', '\n'), r'(?m)^debug: False$', 'no debug mode of asyncio')
     is_ok(p.returncode, 0, 'right exit status')
 
 with subtest('Limit the lines of the standard error'):
