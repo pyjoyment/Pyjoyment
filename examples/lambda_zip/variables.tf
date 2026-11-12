@@ -10,6 +10,12 @@ variable "region" {
   default     = null
 }
 
+variable "aws_profile" {
+  description = "The profile of AWS of the credentials and the region, or the one of the default chain of AWS"
+  type        = string
+  default     = null
+}
+
 variable "pyjoyment_layer" {
   description = "The ARN of a published layer of Pyjoyment, in the place of the public one or of function/dist/pyjoyment.zip"
   type        = string

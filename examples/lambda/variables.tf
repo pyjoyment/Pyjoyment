@@ -10,6 +10,12 @@ variable "region" {
   default     = null
 }
 
+variable "aws_profile" {
+  description = "The profile of AWS of the credentials and the region, or the one of the default chain of AWS"
+  type        = string
+  default     = null
+}
+
 variable "runtime" {
   description = "The runtime of Python of the function, the one of \"generate lambda-zip --runtime\""
   type        = string

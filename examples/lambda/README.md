@@ -40,8 +40,8 @@ uv run --directory examples/lambda/function python app.py generate lambda-zip --
 ```
 
 OpenTofu 1.13 deploys it with the credentials and the region of the default
-chain of AWS, as `AWS_PROFILE` and `AWS_REGION`, and a new build of the same
-files changes nothing:
+chain of AWS, as `AWS_PROFILE` and `AWS_REGION`, or of the profile of
+`-var aws_profile=NAME`, and a new build of the same files changes nothing:
 
 ```sh
 tofu -chdir=examples/lambda init
