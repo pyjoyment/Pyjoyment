@@ -583,6 +583,35 @@ with subtest('Capture the standard error'):
     out, err, code = prove_stderr('--capture-stderr', '--timeout', '2', 'child.py')
     like_ok(out, r'(?m)^child\.py \.+ Timed out$', 'a process of the script keeps its output open')
 
+# The event loop of the harness without the debug mode of asyncio, which the development mode of Python turns on, as it
+# would write the slow callbacks of the harness to the standard error, among the lines of the scripts
+with subtest('Development mode'):
+    code = textwrap.dedent("""
+        import asyncio
+        import sys
+
+        import Pyjo.Prove
+
+        run = Pyjo.Prove.run
+
+        async def checked(*args, **kwargs):
+            print(f'debug: {asyncio.get_running_loop().get_debug()}', file=sys.stderr)
+            return await run(*args, **kwargs)
+
+        Pyjo.Prove.run = checked
+        sys.exit(Pyjo.Prove.main(['pass.py']))
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, 'pass.py'), 'w') as f:
+            f.write(textwrap.dedent(SCRIPTS['pass.py']))
+        env = {k: v for k, v in os.environ.items() if k != 'PYJO_PROVE_OPTS'} | {
+            'PYTHONPATH': ROOT,
+            'PYTHONDEVMODE': '1',
+        }
+        p = subprocess.run([sys.executable, '-c', code], cwd=tmp, env=env, capture_output=True)
+    like_ok(p.stderr.decode().replace('\r\n', '\n'), r'(?m)^debug: False$', 'no debug mode of asyncio')
+    is_ok(p.returncode, 0, 'right exit status')
+
 with subtest('Limit the lines of the standard error'):
     out, err, code = prove_stderr('--capture-stderr', 'flood.py')
     is_ok(err, ''.join(f'flood.py: line {n}\n' for n in range(1, 11)), 'all lines by default')
