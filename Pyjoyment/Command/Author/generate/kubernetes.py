@@ -10,6 +10,8 @@ Pyjoyment.Command.Author.generate.kubernetes - Kubernetes generator command
       python -m MyApp generate kubernetes --image ghcr.io/me/myapp:1.0
       python -m MyApp generate kubernetes --host-path
       python -m MyApp generate kubernetes --graceful-timeout 25
+      python -m MyApp generate kubernetes --grace-period 30
+      python -m MyApp generate kubernetes --liveness-probe 3000
       python -m MyApp generate kubernetes --shutdown-delay 10
       python -m MyApp generate kubernetes --no-dev
       python -m MyApp generate kubernetes --server prefork -- --workers 2
@@ -19,6 +21,9 @@ Pyjoyment.Command.Author.generate.kubernetes - Kubernetes generator command
                                          the project in the pod of "dev", which
                                          --no-dev leaves out, defaults to
                                          installing it
+          --grace-period <seconds>       terminationGracePeriodSeconds of "prod",
+                                         whose graceful timeout is what the
+                                         shutdown delay and 5 seconds leave
       -G, --graceful-timeout <seconds>   Graceful timeout of the workers of the
                                          server of "prod", defaults to the one of
                                          the server
@@ -29,6 +34,9 @@ Pyjoyment.Command.Author.generate.kubernetes - Kubernetes generator command
       -i, --image <name>                 Image of "prod", the one of "generate
                                          dockerfile", defaults to the name of the
                                          application
+          --liveness-probe <port|path>   Liveness probe on the port, or of the
+                                         path, defaults to the liveness of the
+                                         plugin Health, or the port without it
       -p, --port <port>                  Port that the server listens on,
                                          defaults to 3000
       -S, --shutdown-delay <seconds>     Time that the server of "prod" keeps
@@ -68,6 +76,16 @@ application without it connect to the port, which the server listens on once
 it has started. The probes are a patch of their own, ``base/probes.yaml``, as
 the application gets the plugin or loses it.
 
+``--liveness-probe`` gives the liveness probe a path of its own, or a port,
+which the kubelet connects to with ``tcpSocket``. A server whose workers
+serve one connection at a time, as ``prefork -c 1`` of an application that
+blocks, keeps a request of a probe in the backlog while every worker is busy,
+so that a liveness probe of HTTP restarts a pod that is only busy, where the
+kernel accepts the connection of ``tcpSocket`` into the backlog. The startup
+probe stays the one of the liveness of the application, as a pod gets no
+requests before it has started, and the readiness probe the one of its
+readiness.
+
 The overlay ``prod`` runs the image of ``--image``, which
 :mod:`Pyjoyment.Command.Author.generate.dockerfile` builds, with the
 pre-forking server of the image, in the operating mode ``production``.
@@ -78,7 +96,11 @@ proxies of the cluster know it, and ``terminationGracePeriodSeconds`` is 5
 seconds above the delay and the 25 seconds that
 :attr:`Pyjo.Server.Prefork.Pyjo_Server_Prefork.graceful_timeout` gives a
 worker, or ``--graceful-timeout``, which sets ``PYJO_GRACEFUL_TIMEOUT``, so
-that the server stops by itself before the kill of Kubernetes. Without
+that the server stops by itself before the kill of Kubernetes.
+``--grace-period`` gives ``terminationGracePeriodSeconds`` instead, as the
+30 seconds that Kubernetes gives a pod by default, and the graceful timeout
+is what the delay and the 5 seconds leave of it, 20 seconds with the delay of
+5 seconds. Without
 ``--image``, the image is the one of the name of the application, as
 ``docker build -t myapp .`` tags it, which a cluster of Docker Desktop or
 OrbStack takes from Docker.
@@ -187,8 +209,15 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         Run this command.
         """
         arguments = list(args)
-        spec = {'dev!': None, 'G|graceful-timeout=i': None, 'host-path': None, 'i|image=s': None, 'p|port=i': None}
-        if not (opts := getopt(arguments, {**spec, 'S|shutdown-delay=i': None, 's|server=s': None})):
+        spec = {
+            'dev!': None,
+            'grace-period=i': None,
+            'G|graceful-timeout=i': None,
+            'host-path': None,
+            'i|image=s': None,
+        }
+        more = {'liveness-probe=s': None, 'p|port=i': None, 'S|shutdown-delay=i': None, 's|server=s': None}
+        if not (opts := getopt(arguments, {**spec, **more})):
             raise Pyjo.Exception.new(self.usage)
 
         # The server of dev, which reloads the application of the directory of the project, where its files change,
@@ -208,6 +237,12 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         health = app.renderer.get_helper('health.path') is not None
         probes = {'livez': app.health.path('livez'), 'readyz': app.health.path('readyz')} if health else None
 
+        # The liveness probe of a path of its own, or of a port, which the kernel accepts a connection of into the
+        # backlog, where a request waits behind the workers that are busy
+        liveness: str | None = opts.liveness_probe
+        if liveness is not None and not re.fullmatch(r'/\S*|[1-9][0-9]{0,4}', liveness):
+            raise Pyjo.Exception.new(f'Unknown liveness probe: {liveness}')
+
         # The script of Pyjoyment.Lite or the package of the application, and the dependencies of pyproject.toml, or of
         # the inline metadata of PEP 723 of a script without it, as generate dockerfile has them
         exe = os.environ.get('PYJO_EXE')
@@ -219,7 +254,7 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
         lock = 'uv.lock' if project else f'{script}.lock'
         port = opts.port or 3000
 
-        base = {'moniker': moniker, 'name': name, 'port': port, 'probes': probes}
+        base = {'liveness': liveness, 'moniker': moniker, 'name': name, 'port': port, 'probes': probes}
         self.render_to_rel_file('base_kustomization', 'kubernetes/base/kustomization.yaml', base)
         self.render_to_rel_file('base_deployment', 'kubernetes/base/deployment.yaml', base)
         self.render_to_rel_file('base_service', 'kubernetes/base/service.yaml', base)
@@ -228,6 +263,17 @@ class Pyjoyment_Command_Author_generate_kubernetes(Pyjoyment.Command.object):
 
         graceful: int | None = opts.graceful_timeout
         delay: int = 5 if opts.shutdown_delay is None else opts.shutdown_delay
+
+        # The graceful timeout of the time that Kubernetes gives the pod, after the delay and the 5 seconds of the
+        # server to stop by itself
+        if (period := opts.grace_period) is not None:
+            if graceful is not None:
+                raise Pyjo.Exception.new('The grace period gives the graceful timeout, without --graceful-timeout')
+            if (graceful := period - delay - 5) < 1:
+                raise Pyjo.Exception.new(
+                    f'The grace period of {period} seconds leaves no graceful timeout after the shutdown delay of '
+                    f'{delay} seconds and 5 seconds'
+                )
         prod = {'delay': delay, 'graceful_timeout': graceful, 'image': opts.image, 'moniker': moniker, 'name': name}
         self.render_to_rel_file('prod_kustomization', 'kubernetes/prod/kustomization.yaml', prod)
         self.render_to_rel_file('prod_deployment', 'kubernetes/prod/deployment.yaml', prod)
@@ -379,7 +425,14 @@ spec:
             periodSeconds: 1
             failureThreshold: 30
           livenessProbe:
-% if probes:
+% if liveness is not None and liveness.startswith('/'):
+            httpGet:
+              path: <%= liveness %>
+              port: http
+% elif liveness is not None:
+            tcpSocket:
+              port: <%= liveness %>
+% elif probes:
             httpGet:
               path: <%= probes['livez'] %>
               port: http

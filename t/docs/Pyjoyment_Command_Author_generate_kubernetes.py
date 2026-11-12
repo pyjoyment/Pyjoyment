@@ -103,6 +103,53 @@ with subtest('Synopsis'):
         'graceful timeout',
     )
 
+    # python -m MyApp generate kubernetes --grace-period 30
+    tmp = project()
+    generate(tmp, '--grace-period', '30')
+    like_ok(
+        read(tmp, 'prod/deployment.yaml'), r'(?m)^      terminationGracePeriodSeconds: 30$', 'grace period of its own'
+    )
+    like_ok(
+        read(tmp, 'prod/deployment.yaml'),
+        r'(?m)^            - name: PYJO_GRACEFUL_TIMEOUT\n              value: "20"$',
+        'graceful timeout of what the delay and 5 seconds leave',
+    )
+    tmp = project()
+    generate(tmp, '--grace-period', '60', '--shutdown-delay', '10')
+    like_ok(read(tmp, 'prod/deployment.yaml'), r'(?m)^      terminationGracePeriodSeconds: 60$', 'with a delay')
+    like_ok(read(tmp, 'prod/deployment.yaml'), r'PYJO_GRACEFUL_TIMEOUT\n              value: "45"', 'and its timeout')
+    throws_ok(
+        lambda: generate(project(), '--grace-period', '30', '--graceful-timeout', '20'),
+        re.compile(r'^The grace period gives the graceful timeout, without --graceful-timeout'),
+        'not with a graceful timeout',
+    )
+    throws_ok(
+        lambda: generate(project(), '--grace-period', '10'),
+        re.compile(r'^The grace period of 10 seconds leaves no graceful timeout after the shutdown delay of 5 seconds'),
+        'too short',
+    )
+
+    # python -m MyApp generate kubernetes --liveness-probe 3000
+    tmp = project()
+    generate(tmp, '--liveness-probe', '3000')
+    like_ok(
+        read(tmp, 'base/probes.yaml'),
+        r'livenessProbe:\n            tcpSocket:\n              port: 3000\n',
+        'on the port',
+    )
+    tmp = project()
+    generate(tmp, '--liveness-probe', '/-/live')
+    like_ok(
+        read(tmp, 'base/probes.yaml'),
+        r'livenessProbe:\n            httpGet:\n              path: /-/live\n              port: http\n',
+        'of the path',
+    )
+    throws_ok(
+        lambda: generate(project(), '--liveness-probe', 'http'),
+        re.compile(r'^Unknown liveness probe: http'),
+        'neither a port nor a path',
+    )
+
     # python -m MyApp generate kubernetes --shutdown-delay 10
     tmp = project()
     generate(tmp, '--shutdown-delay', '10')
@@ -181,6 +228,21 @@ with subtest('Description'):
         'readiness',
     )
     like_ok(read(probes, 'dev/deployment.yaml'), r'startupProbe:\n            failureThreshold: 300', 'start of dev')
+
+    # A liveness probe on the port, with the startup and the readiness of the plugin
+    busy = project()
+    generate(busy, '--liveness-probe', '3000')
+    like_ok(
+        read(busy, 'base/probes.yaml'), r'startupProbe:\n            httpGet:\n              path: /livez', 'startup'
+    )
+    like_ok(
+        read(busy, 'base/probes.yaml'), r'livenessProbe:\n            tcpSocket:\n              port: 3000', 'liveness'
+    )
+    like_ok(
+        read(busy, 'base/probes.yaml'),
+        r'readinessProbe:\n            httpGet:\n              path: /readyz',
+        'readiness',
+    )
 
     # prod, in the operating mode production, on the image of the name of the application
     like_ok(read(tmp, 'base/deployment.yaml'), r'image: pyjoyment\n          imagePullPolicy: IfNotPresent', 'image')
@@ -276,13 +338,15 @@ with subtest('Kustomize'):
     kubernetes = Pyjoyment.Command.Author.generate.kubernetes.new(app=application)
     tmp = project()
     tmp.child('MyApp').make_path().child('__init__.py').spew('pass\n')
-    generate(tmp, '--image', 'ghcr.io/me/myapp:1.0')
+    generate(tmp, '--image', 'ghcr.io/me/myapp:1.0', '--liveness-probe', '3000', '--grace-period', '30')
     for overlay in ('dev', 'prod'):
         command = [str(kubectl), 'kustomize', tmp.child('kubernetes', overlay).to_str()]
         result = subprocess.run(command, capture_output=True, text=True)
         is_ok(result.returncode, 0, f'{overlay} builds')
         like_ok(result.stdout, r'selector:\n    matchLabels:\n      app\.kubernetes\.io/name: pyjoyment', 'selector')
     like_ok(result.stdout, r'image: ghcr\.io/me/myapp:1\.0', 'image of prod')
+    like_ok(result.stdout, r'livenessProbe:\n          tcpSocket:\n            port: 3000\n', 'liveness on the port')
+    like_ok(result.stdout, r'terminationGracePeriodSeconds: 30\n', 'grace period')
     result = subprocess.run(
         [str(kubectl), 'kustomize', tmp.child('kubernetes', 'dev').to_str()], capture_output=True, text=True
     )
