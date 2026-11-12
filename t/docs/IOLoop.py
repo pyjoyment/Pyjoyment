@@ -151,7 +151,8 @@ with subtest('blocking'):
     app.log.level = 'fatal'
     plugin = app.plugin
     plugin('Health', checks={'db': lambda c: Pyjo.IOLoop.blocking(Note.objects.exists)})
-    Pyjo.Test.Pyjo.new(app).get_ok('/readyz').status_is(200).content_is('ok')
+    with Pyjo.Test.Pyjo.new(app) as t:
+        t.get_ok('/readyz').status_is(200).content_is('ok')
     is_ok(Pyjo.IOLoop.blocking(lambda a, b: a + b, 1, b=2), 3, 'result')
 
 with subtest('client and server'):
