@@ -238,6 +238,7 @@ import functools
 import inspect
 import os
 import sys
+import weakref
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Self, cast, overload
@@ -1059,9 +1060,26 @@ def _action(next: Any, c: Pyjoyment.Controller.object, action: Callable[..., Any
     # Not in Mojolicious: an action that is a coroutine function runs as a promise, which async sub of Mojo returns
     if inspect.iscoroutine(val):
         val = Pyjo.Promise.new(val)
+        _cancel_on_close(c, val)
     if isinstance(val, Pyjo.Promise.object):
         val.catch(functools.partial(_reply_exception, c))
     return val
+
+
+# Unlike Mojolicious: an async sub of Mojo runs to its end after its connection closes, with the requests that it waits
+# for, as a promise cannot be cancelled; a coroutine is cancelled where it waits, as nothing reads its response anymore
+def _cancel_on_close(c: Pyjoyment.Controller.object, promise: Pyjo.Promise.object) -> None:
+    # Weakly, as the transaction keeps its subscribers, and the coroutine the controller
+    controller, ref = weakref.ref(c), weakref.ref(promise)
+
+    def finish(tx: Pyjo.Transaction.HTTP.object) -> None:
+        if tx.res.is_finished or (promise := ref()) is None or (c := controller()) is None:
+            return
+        c.stash()['pyjo.cancelled'] = True
+        promise.cancel()
+
+    if (tx := c.tx) is not None:
+        tx.on('finish', finish)
 
 
 def _dispatch(next: Callable[[], Any], c: Pyjoyment.Controller.object) -> None:
@@ -1076,6 +1094,9 @@ def _exception(next: Callable[[], Any], c: Pyjoyment.Controller.object) -> None:
 
 
 def _reply_exception(c: Pyjoyment.Controller.object, e: Any) -> None:
+    # The cancellation of an action whose connection has closed, which has no response to render
+    if c.stash().get('pyjo.cancelled') and not isinstance(e, Exception):
+        return
     c.helpers.reply.exception(e)
 
 

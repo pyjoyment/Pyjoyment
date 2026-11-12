@@ -76,6 +76,11 @@ app.start()
   `for`, which waits with the event loop.
 - `c.ua()` is the user agent of the application: `get_p`, `post_p`,
   `put_p` and the others give a promise of the transaction.
+- An `async def` action whose client goes away before its response ends is
+  cancelled where it waits: its `finally` blocks run, `except Exception` does
+  not catch the cancellation, and the request of `get_p` that it waits for
+  closes its connection. `promise.cancel()` does it for a promise of a
+  request or of a coroutine.
 
 ## Code that blocks
 
