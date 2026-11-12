@@ -66,6 +66,12 @@ def raw(c):
     c.on('message', lambda c, msg: c.send(msg))
 
 
+# A slow service, which never answers
+@r.post('/v1/slow')
+def slow(c):
+    c.render_later()
+
+
 @r.any('/*rest', {'rest': ''})
 def page(c):
     host = c.req.headers.host
@@ -814,6 +820,42 @@ with subtest('Streaming response and request'):
         # Process transaction
         tx = ua.start(tx)
         is_ok(tx.result.json('/body'), 'Hello World!', 'written')
+
+with subtest('Long requests of the user agent'):
+    import Pyjo.Promise
+    import Pyjo.UserAgent
+
+    # A user agent of its own for a slow service
+    llm = Pyjo.UserAgent.new(inactivity_timeout=300, request_timeout=600)
+
+    # One request with a time of its own
+    async def complete(prompt):
+        promise = llm.post_p('https://api.example.com/v1/complete', json={'prompt': prompt})
+        try:
+            tx = await Pyjo.Promise.race(promise, Pyjo.Promise.timeout(120, 'Too slow'))
+        finally:
+            promise.cancel()
+        return tx.result.json()
+
+    with llm, remote(llm):
+        got = []
+        Pyjo.Promise.new(complete('Hello')).then(got.append).wait()
+        is_ok(got[0]['host'], 'api.example.com', 'host of the service')
+        is_ok(got[0]['body'], '{"prompt":"Hello"}', 'request')
+
+        # The same with a time that passes first, on a service that does not answer
+        async def slow(prompt):
+            promise = llm.post_p('https://api.example.com/v1/slow', json={'prompt': prompt})
+            try:
+                tx = await Pyjo.Promise.race(promise, Pyjo.Promise.timeout(0.1, 'Too slow'))
+            finally:
+                promise.cancel()
+            return tx.result.json()
+
+        reason = []
+        Pyjo.Promise.new(slow('Hello')).catch(reason.append).wait()
+        like_ok(str(reason[0]), r'^Too slow', 'the time passed first')
+        is_deeply_ok(llm._connections, {}, 'connection of the request closed')
 
 with subtest('Non-blocking'):
     # Concurrent non-blocking requests
