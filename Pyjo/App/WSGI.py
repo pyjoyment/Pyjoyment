@@ -41,8 +41,12 @@ A ``WSGI`` application blocks, and it runs in the event loop, which waits for
 it, so that the workers of :mod:`Pyjo.Server.Prefork` and
 :mod:`Pyjo.Server.Prethread` serve it at the same time, as for any blocking
 operation, with
-:attr:`~Pyjo.Server.Daemon.Pyjo_Server_Daemon.max_clients` as low as ``1``. A
-response that the application has given whole is written with its
+:attr:`~Pyjo.Server.Daemon.Pyjo_Server_Daemon.max_clients` as low as ``1``.
+It is called, and its response iterated and closed, with
+:func:`Pyjo.IOLoop.blocking`, so that it sees no running loop of
+:mod:`asyncio`, as it would on a ``WSGI`` server, and the ORM of Django and a
+blocking request of :mod:`Pyjo.UserAgent` run on
+:mod:`Pyjo.Reactor.Asyncio` too. A response that the application has given whole is written with its
 ``Content-Length``. Another one is written as the application gives it, each
 chunk in a tick of the event loop once the one before has been written, and
 after an empty chunk, which the application gives while it has none yet, in the
@@ -188,14 +192,15 @@ class _Call:
     def start(self) -> None:
         self.tx.on('finish', self._finish)
         try:
-            self._step(self.response.start(self.application, _environ(self.tx, self.c, self.app._model(self.tx))))  # pyright: ignore[reportPrivateUsage]
+            environ = _environ(self.tx, self.c, self.app._model(self.tx))  # pyright: ignore[reportPrivateUsage]
+            self._step(Pyjo.IOLoop.blocking(self.response.start, self.application, environ))
         except Exception as e:
             self._error(e)
 
     def _close(self) -> None:
         self.done = True
         try:
-            self.response.close()
+            Pyjo.IOLoop.blocking(self.response.close)
         except Exception as e:
             self.app.log.error(f'WSGI application failed to close: {_message(e)}')
 
@@ -303,7 +308,7 @@ class _Call:
                 self._close()
             return
         try:
-            self._step(self.response.next())
+            self._step(Pyjo.IOLoop.blocking(self.response.next))
         except Exception as e:
             self._error(e)
 

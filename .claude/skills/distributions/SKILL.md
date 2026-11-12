@@ -46,6 +46,15 @@ back here.
   as the reactor of poll has them: with the timers first, a recurring timer of
   no time starves the I/O. While the loop runs, started by something else,
   `start` and `one_tick` return right away, as `Pyjo.Reactor.Asyncio` does.
+- **Blocking code.** `blocking` of `Pyjo.Reactor`, which `Pyjo.App.WSGI`
+  calls an application with, runs it with no running loop of asyncio in the
+  thread, whatever the reactor, so that Django and a blocking request of
+  `Pyjo.UserAgent` run in it; a reactor inherits it, and overrides it only for
+  an event loop of its own that a library asks for, as asyncio is asked.
+  A blocking request runs a new reactor of the class, so on a loop that does
+  not nest, as Trio, it raises there: a test of the suite that makes one in
+  the event loop expects that when a new reactor of the class is running
+  already, as `type(reactor).new().is_running` tells.
 - **State in the kernel.** Pyjoyment closes some sockets before it removes
   them from the reactor, and forks the workers of `Pyjo.Server.Prefork`, the
   servers of `Pyjo.Server.Hot` and `Pyjo.Server.Reload`, and the subprocesses.

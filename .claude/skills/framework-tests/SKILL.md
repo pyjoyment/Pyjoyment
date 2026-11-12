@@ -114,8 +114,9 @@ port 0 instead, which `ports()` gives.
   of `docs/guides/django`, the examples of Django and the code of the skill
   `django`, in processes of their own, as the settings of Django are set once
   in a process and the reactor is chosen before Pyjoyment is imported, on
-  WSGI with `Pyjo.Reactor.Poll`, where they pass, and with asyncio, where the
-  database fails as the guide says, and on ASGI, and compares the schemas
+  WSGI with both reactors, with a check of the database without
+  `Pyjo.IOLoop.blocking`, which fails with asyncio as the skill says, and on
+  ASGI, and compares the schemas
   of the type hints of `Pyjo.JSON.Schema` with the ones of pydantic, which the
   MCP SDK gives its tools, and what `Pyjo.INI` loads of the files of AWS with what
   botocore reads of them. The servers, the frameworks, aiobotocore, with

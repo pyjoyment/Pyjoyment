@@ -105,7 +105,9 @@ app.start()
   JSON, so it is a value that JSON encodes.
 - The workers of `python app.py prefork -w 8`, or of `prethread`, serve the
   requests of an application whose code blocks anyway, one request at a time
-  each with `-c 1`.
+  each with `-c 1`, and `Pyjo.IOLoop.blocking(cb, *args)` calls such code with
+  no running loop of asyncio, for a library that refuses to block in one, as
+  the ORM of Django.
 - On the default reactor, which runs the event loop of asyncio, an action
   awaits a coroutine or a future of asyncio too, as `asyncio.sleep`, a
   library of asyncio, as asyncpg or aiobotocore, or `asyncio.to_thread` for a

@@ -78,10 +78,9 @@ app.start()
   the script comes first, so `legacy.py` next to `app.py` is found.
 - A WSGI application runs in the event loop, so one that blocks, as Flask
   with a blocking database, blocks the other requests: `prefork` with more
-  workers serves it, as gunicorn would. Django refuses its database in the
-  event loop of asyncio, the default reactor, so it runs on
-  `PYJO_REACTOR=Pyjo.Reactor.Poll`, set before Pyjoyment is imported, as the
-  skill `django` says.
+  workers serves it, as gunicorn would. It sees no running loop of asyncio,
+  so Django runs its database on the default reactor, as the skill `django`
+  says.
 - An ASGI application runs with `run_coroutine` of the reactor, which only
   the reactor of asyncio has.
 - `Pyjo.App.CGI` needs pipes that the event loop watches, which Windows does

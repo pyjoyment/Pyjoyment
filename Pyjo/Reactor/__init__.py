@@ -233,6 +233,33 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
         """
         return _Awaitable(promise)
 
+    # Not in Mojolicious: Perl has no event loop that its libraries could find running; _get_running_loop and
+    # _set_running_loop are in __all__ of asyncio.events, for the implementations of event loops, and asyncio is not
+    # imported for a reactor without it, as no loop of asyncio runs before it is
+    def blocking[**P, R](self, cb: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+        """::
+
+            result = reactor.blocking(cb, *args, **kwargs)
+
+        Call blocking code and return what it returns, as an application of
+        ``WSGI`` or a query of a database, which holds the event loop until it
+        returns, with no running loop of :mod:`asyncio` in the thread while it
+        runs, and the one before after it, also when it raises an exception,
+        so that a library that refuses to block in a running event loop of
+        :mod:`asyncio`, as the ORM of Django, which raises
+        ``SynchronousOnlyOperation``, or a blocking request of
+        :mod:`Pyjo.UserAgent`, runs. It is the loop of
+        :mod:`Pyjo.Reactor.Asyncio`, or another one that runs in the thread,
+        as of a reactor of Twisted on :mod:`asyncio`.
+        """
+        if (asyncio := sys.modules.get('asyncio')) is None or (loop := asyncio.events._get_running_loop()) is None:
+            return cb(*args, **kwargs)
+        asyncio.events._set_running_loop(None)
+        try:
+            return cb(*args, **kwargs)
+        finally:
+            asyncio.events._set_running_loop(loop)
+
     # Not in Mojolicious: how a coroutine runs as a promise, as Mojo's async sub
     def run_coroutine(
         self, coro: Coroutine[Any, Any, Any], resolve: Callable[[Any], Anything], reject: Callable[[Any], Anything]

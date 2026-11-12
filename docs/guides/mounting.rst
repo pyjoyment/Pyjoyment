@@ -40,17 +40,18 @@ WSGI
 ~~~~
 
 A ``WSGI`` application blocks, and it runs in the event loop, which waits for
-it as for any other blocking operation. The pre-forking and the pre-threading
-servers run it in their workers at the same time, best with few connections
-for each worker.
+it as for any other blocking operation, and which it sees as not running, so
+that a library that refuses to block in a running loop of :mod:`asyncio`, as
+Django, runs, as :func:`Pyjo.IOLoop.blocking` does for other blocking code.
+The pre-forking and the pre-threading servers run it in their workers at the
+same time, best with few connections for each worker.
 
 .. code-block:: sh
 
     $ python myapp.py prefork -w 8 -c 1
 
-:doc:`django` serves a project of Django this way, on :mod:`Pyjo.Reactor.Poll`,
-which its database needs, and :doc:`gunicorn` translates the options of
-gunicorn.
+:doc:`django` serves a project of Django this way, and :doc:`gunicorn`
+translates the options of gunicorn.
 
 ASGI
 ~~~~
