@@ -132,6 +132,9 @@ plugin('Mount', {re.compile(r'/(?P<user>\w+)/blog(?P<path>/.*)?'): flask_app})
   the request is the 404 of the application that mounts it; a regular
   expression of the whole path, with its group `path`, is exact.
 - `PYJO_REACTOR=Pyjo.Reactor.Poll` cannot run an ASGI application.
+- `plugin('Health')` answers `/livez`, `/readyz` and `/healthz` before the
+  routes, so a mounted application with a `/healthz` of its own, which its
+  monitors request, loses it: `plugin('Health', healthz=None)`.
 - The `SCRIPT_NAME` of WSGI and the `root_path` of ASGI carry the prefix: an
   application that builds its URLs from them, as Flask with `url_for`, links
   under the prefix.

@@ -17,6 +17,7 @@ from Pyjoyment.Lite import app, get, hook, plugin
 import http.client
 import signal
 import socket
+import time
 
 
 # Not in Mojolicious: Pyjoyment.Plugin.Health, the liveness and the readiness of containers and orchestrators
@@ -153,6 +154,17 @@ with subtest('Timeout'):
     like_ok(str(logs), r'Health check "warmup" failed: timeout of 0\.1 seconds', 'right message')
     warmup.resolve()
     t2.get_ok('/readyz').status_is(200).content_is('ok')
+
+    # A check that returns a value has run to its end before its timeout starts, so the timeout does not bound it
+    def blocking(c):
+        time.sleep(0.08)
+        return True
+
+    other = application({'checks': {'blocking': blocking}, 'timeout': 0.02})
+    t2 = Pyjo.Test.Pyjo.new(other)
+    started = time.monotonic()
+    t2.get_ok('/readyz').status_is(200).content_is('ok')
+    cmp_ok(time.monotonic() - started, '>=', 0.08, 'ran to its end')
 
 with subtest('Helpers'):
     other = application()

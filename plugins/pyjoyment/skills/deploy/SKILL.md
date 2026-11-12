@@ -93,9 +93,11 @@ worker model:
 - A shell in the `CMD` of a container runs the server with `exec`, so that it
   gets `TERM`.
 - `-S` (`PYJO_SHUTDOWN_DELAY`) and `-G` go into `terminationGracePeriodSeconds`
-  of Kubernetes, 30 by default: `-S 5 -G 20` with the default.
+  of Kubernetes, 30 by default: `-S 5 -G 20` with the default, as
+  `generate kubernetes --grace-period 30` sets them.
 - The liveness probe of an application with `-c 1` is on `tcpSocket`, as an
-  HTTP probe waits behind busy workers and restarts the pod; `/readyz` is the
+  HTTP probe waits behind busy workers and restarts the pod, as
+  `generate kubernetes --liveness-probe 8080` makes it; `/readyz` is the
   readiness probe.
 
 ## Access log
@@ -153,7 +155,11 @@ kubectl apply -k kubernetes/prod
   makes an image of AWS Lambda.
 - `kubernetes/dev` runs the files of the project from a ConfigMap on the image
   of uv, `kubernetes/prod` the image of `-i`, with the probes of `/livez` and
-  `/readyz` and the graceful stop of the pods.
+  `/readyz` and the graceful stop of the pods. `--grace-period 30` keeps the
+  `terminationGracePeriodSeconds` of Kubernetes, with the graceful timeout of
+  what the shutdown delay and 5 seconds leave, 20 seconds, and
+  `--liveness-probe 8080` puts the liveness probe on `tcpSocket` of the port,
+  for workers of `-c 1`.
 - On AWS Lambda the script ends with `handler = app.start()`: the runtime of
   Python calls `app.handler`, and a custom runtime runs the script itself.
 - The public layers of
@@ -238,6 +244,12 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
   deployment: take it from the environment or the configuration.
 - `/readyz` with the checks of a database in the liveness probe restarts the
   containers when the database is down: liveness is `/livez`.
+- The `timeout` of `Health` bounds a check that returns a promise or a
+  coroutine; a check that returns a value runs to its end, blocking the event
+  loop, so the timeouts of its client bound it, as `connect_timeout` of a
+  database.
+- `plugin('Health')` answers `/healthz` before the routes, also of a mounted
+  application with its own: `healthz=None` leaves it to the application.
 - A blocking request handler under `daemon` blocks every connection: more
   workers of `prefork`, `-c 1`, or code that does not block.
 - The log goes to the standard error, which a container, Kubernetes and AWS

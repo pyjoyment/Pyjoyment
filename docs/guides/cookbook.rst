@@ -526,6 +526,19 @@ waits for the checks of the application, as a database that is not up yet.
 The server listens before it forks its workers, and a connection waits for a
 worker in the backlog of the listen socket.
 
+So does a probe: with workers that serve one connection at a time, as
+``prefork -c 1`` for an application that blocks, a liveness probe of HTTP
+waits behind the busy workers, and restarts a pod that is only busy. Its
+liveness probe connects to the port, which the kernel accepts into the
+backlog, as ``--liveness-probe`` of
+:mod:`Pyjoyment.Command.Author.generate.kubernetes` makes it.
+
+.. code-block:: yaml
+
+    livenessProbe:
+      tcpSocket:
+        port: 3000
+
 .. mermaid::
 
     sequenceDiagram
@@ -572,6 +585,10 @@ of ``PYJO_SHUTDOWN_DELAY``, until they know, and then closes its listen
 sockets, so a new connection that one of them still opens is refused.
 ``terminationGracePeriodSeconds`` has room for the delay and for the 25
 seconds of :attr:`~Pyjo.Server.Prefork.Pyjo_Server_Prefork.graceful_timeout`.
+A deployment that keeps the 30 seconds that Kubernetes gives by default
+shortens the graceful timeout instead, as ``PYJO_GRACEFUL_TIMEOUT=20`` with
+the delay of 5 seconds, which ``--grace-period 30`` of
+:mod:`Pyjoyment.Command.Author.generate.kubernetes` sets.
 From ``TERM`` on, readiness fails with the check ``shutdown``, so that a load
 balancer that checks readiness, as one outside of the cluster, takes the
 instance out of its rotation during the delay, and one that keeps its

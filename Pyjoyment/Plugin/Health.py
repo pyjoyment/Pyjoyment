@@ -42,12 +42,17 @@ the probes of Cloud Run, the health checks of load balancers and the
     Pyjoyment, and its workers, tells: a client whose connection is kept alive
     gets ``503`` with its last response.
 
-The checks run at the same time, each with a timeout, and a check passes
-unless it raises an exception, returns ``False``, or returns a promise, a
-coroutine or another awaitable that is rejected, is fulfilled with ``False``,
-or does not settle within its timeout. The reason of a failure goes to the
-log, as the ``warn`` message ``Health check "db" failed: ...``, not to the
-response, which withholds it.
+The checks run at the same time, and a check passes unless it raises an
+exception, returns ``False``, or returns a promise, a coroutine or another
+awaitable that is rejected, is fulfilled with ``False``, or does not settle
+within its timeout. A check that returns a value has run to its end before its
+timeout starts, so the timeout does not bound it: it blocks the event loop
+while it runs, as any code that blocks does, and the timeouts of its own
+client bound it, as ``connect_timeout`` of a database, and a library that
+refuses a running loop of :mod:`asyncio`, as the ORM of Django, runs in
+:func:`Pyjo.IOLoop.blocking`. The reason of a failure goes to the log, as the
+``warn`` message ``Health check "db" failed: ...``, not to the response,
+which withholds it.
 
 A query of ``verbose`` lists the checks on success too, ``exclude`` leaves a
 check out, as many times as there are checks to leave out, and a check of its
@@ -74,7 +79,18 @@ cheap, is not logged but on the level ``trace``, and is answered also where a
 hook rejects it, as :mod:`Pyjoyment.Plugin.AllowedHosts` would reject the
 ``Host`` of the address of a pod, which a probe of Kubernetes sends. A hook of
 ``around_dispatch`` that the application registers before the plugin wraps
-the probes too.
+the probes too. So an endpoint takes the path from the routes of the
+application, and from an application that :mod:`Pyjoyment.Plugin.Mount`
+mounts: one with a ``/healthz`` of its own, which its monitors request, keeps
+it with ``healthz=None``.
+
+A server whose workers serve one connection at a time, as ``prefork -c 1``
+for an application that blocks, keeps a probe in the backlog while every
+worker is busy, so that a liveness probe of HTTP restarts a container that is
+only busy. Its liveness probe connects to the port, as ``tcpSocket`` of
+Kubernetes, which the kernel accepts into the backlog, as
+:mod:`Pyjoyment.Command.Author.generate.kubernetes` makes it with
+``--liveness-probe``, and ``/readyz`` stays its readiness probe.
 
 See :mod:`Pyjoyment.Plugins` for a list of plugins that are available by
 default.
@@ -115,8 +131,9 @@ Options
 
     app.plugin('Health', timeout=0.5)
 
-    The time in seconds that a check may take, defaults to ``1``, the
-    timeout of a probe of Kubernetes.
+    The time in seconds that a check of a promise, a coroutine or another
+    awaitable may take, defaults to ``1``, the timeout of a probe of
+    Kubernetes.
 
 Helpers
 -------
