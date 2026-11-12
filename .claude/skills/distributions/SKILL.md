@@ -55,6 +55,15 @@ back here.
   not nest, as Trio, it raises there: a test of the suite that makes one in
   the event loop expects that when a new reactor of the class is running
   already, as `type(reactor).new().is_running` tells.
+- **Cancellation.** `run_coroutine` returns a function that cancels the
+  coroutine where it waits, with the exception of the cancellation of the
+  event loop, and the promise that it waits for, with `cancel` of
+  `Pyjo.Promise`, which closes the connection of a request; Pyjoyment cancels
+  an action that is a coroutine function when its connection closes before
+  its response ends. A reactor that runs a coroutine as a task of its loop
+  cancels the task, as `Pyjo.Reactor.Asyncio` does, and its `awaitable`
+  cancels the promise when the wait of the task is cancelled; one that
+  returns `None` leaves such an action running to its end.
 - **State in the kernel.** Pyjoyment closes some sockets before it removes
   them from the reactor, and forks the workers of `Pyjo.Server.Prefork`, the
   servers of `Pyjo.Server.Hot` and `Pyjo.Server.Reload`, and the subprocesses.

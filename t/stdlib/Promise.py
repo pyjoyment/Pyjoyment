@@ -1,7 +1,9 @@
 import Pyjo.Exception
 import Pyjo.IOLoop
 import Pyjo.Promise
+import Pyjo.Reactor
 import Pyjo.Reactor.Asyncio
+import Pyjo.Reactor.Poll
 
 from Pyjo.Test import *
 
@@ -268,6 +270,96 @@ with subtest('Promise of a future of concurrent.futures'):
             return await Pyjo.Promise.new(executor.submit(lambda: 'awaited'))
 
     is_ok(asyncio.run(futures(), loop_factory=asyncio.SelectorEventLoop), 'awaited', 'awaited in a task of asyncio')
+
+
+# Not in Mojolicious: the cancellation of a coroutine, on the reactor of asyncio and on the base class, of Poll
+def cancellation(name: str, cancelled_error: type[BaseException]) -> None:
+    with subtest(f'Cancellation of a coroutine on {name}'):
+        events = []
+
+        async def main():
+            try:
+                await Pyjo.Promise.timer(5)
+            except Exception:
+                events.append('caught as an exception')
+            finally:
+                events.append('finally')
+
+        promise = Pyjo.Promise.new(main())
+        Pyjo.IOLoop.timer(0.01, lambda loop: promise.cancel())
+        reason = []
+        promise.catch(reason.append).wait()
+        is_deeply_ok(events, ['finally'], 'finally, not except Exception')
+        isa_ok(reason[0], cancelled_error, 'rejected with the cancellation of the reactor')
+
+    with subtest(f'The promise that a cancelled coroutine waits for on {name}'):
+        events = []
+        waiting = Pyjo.Promise.new(cancel=lambda: events.append('promise cancelled'))
+
+        async def inner():
+            try:
+                await Pyjo.Promise.timer(5)
+            finally:
+                events.append('inner finally')
+
+        async def outer():
+            await waiting
+            await Pyjo.Promise.new(inner())
+
+        promise = Pyjo.Promise.new(outer())
+        Pyjo.IOLoop.timer(0.01, lambda loop: promise.cancel())
+        promise.catch(lambda e: None).wait()
+        is_deeply_ok(events, ['promise cancelled'], 'cancelled')
+
+        # A coroutine in a promise that the cancelled coroutine waits for
+        events.clear()
+        waiting.resolve()
+        promise = Pyjo.Promise.new(outer())
+        Pyjo.IOLoop.timer(0.01, lambda loop: promise.cancel())
+        promise.catch(lambda e: None).wait()
+        is_deeply_ok(events, ['inner finally'], 'cancelled too')
+
+    with subtest(f'A coroutine that goes on after its cancellation on {name}'):
+
+        async def main():
+            try:
+                await Pyjo.Promise.timer(5)
+            except BaseException:
+                pass
+            return await Pyjo.Promise.timer(0.01, 'recovered')
+
+        promise = Pyjo.Promise.new(main())
+        Pyjo.IOLoop.timer(0.01, lambda loop: promise.cancel())
+        got = []
+        promise.then(got.append).wait()
+        is_deeply_ok(got, ['recovered'], 'fulfilled')
+
+    with subtest(f'Cancellation before the first step on {name}'):
+        events = []
+
+        async def main():
+            events.append('started')
+            await Pyjo.Promise.timer(5)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            early = Pyjo.Promise.new(main())
+            early.cancel()
+            reason = []
+            early.catch(reason.append).wait()
+            del early
+            gc.collect()
+        isa_ok(reason[0], cancelled_error, 'rejected')
+        is_deeply_ok([str(w.message) for w in caught], [], 'no warnings')
+
+
+for reactor, cancelled_error in (
+    (Pyjo.Reactor.Asyncio, asyncio.CancelledError),
+    (Pyjo.Reactor.Poll, Pyjo.Reactor.CancelledError),
+):
+    Pyjo.IOLoop.singleton.reactor = reactor.new()
+    cancellation(reactor.__name__, cancelled_error)
+Pyjo.IOLoop.singleton.reactor = Pyjo.Reactor.Asyncio.new()
 
 with subtest('warnings'):
     with warnings.catch_warnings(record=True) as warn:

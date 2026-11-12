@@ -123,6 +123,23 @@ with subtest('awaitable and coroutine'):
     Pyjo.IOLoop.one_tick()
     is_deeply_ok(got, ['done'], 'driven without asyncio')
 
+    # Cancel the coroutine, whose finally blocks run
+    events = []
+
+    async def main():
+        try:
+            await reactor.awaitable(Pyjo.Promise.new(cancel=lambda: events.append('promise cancelled')))
+        finally:
+            events.append('finally')
+
+    got = []
+    cancel = reactor.run_coroutine(main(), got.append, got.append)
+    cancel()
+    is_deeply_ok(events, ['finally', 'promise cancelled'], 'cancelled where it waits, with its promise')
+    isa_ok(got[0], Pyjo.Reactor.CancelledError, 'rejected')
+    cancel()
+    is_ok(len(got), 1, 'once')
+
 with subtest('future'):
     import concurrent.futures
 

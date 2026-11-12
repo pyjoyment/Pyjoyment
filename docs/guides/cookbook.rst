@@ -1553,6 +1553,16 @@ Promises returned by actions will automatically get the default
 :mod:`Pyjoyment` exception handler attached. Making it much harder to ever
 miss a non-blocking exception again, even if you forgot to handle it yourself.
 
+An action that is a coroutine function is cancelled where it waits when its
+connection closes before its response ends, as when the client goes away or
+the inactivity timeout of the connection passes. It gets the exception of the
+cancellation of the reactor, :class:`asyncio.CancelledError` of the default
+one, which ``except Exception`` does not catch, so that its ``finally``
+blocks run, and the request of :mod:`Pyjo.UserAgent` that it waits for closes
+its connection, so that a request to a slow service, as a model of language,
+whose answer nobody reads anymore, stops too. An action that has rendered its
+response goes on to its end.
+
 Timers
 ~~~~~~
 

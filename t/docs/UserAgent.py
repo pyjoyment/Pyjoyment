@@ -24,6 +24,7 @@ def root(c):
 
 
 app.routes.any('/test', {'text': 'test'})
+app.routes.any('/slow', lambda c: c.render_later())
 app.routes.any('/test.json', lambda c: c.render(json={'user': c.req.url.to_abs().userinfo}))
 app.routes.any('/search', {'text': 'Mojolicious'})
 app.routes.any('/mock-mojolicious', {'text': 'mock'})
@@ -565,6 +566,15 @@ with subtest('start_p'):
 
         ok_start.catch(lambda err: print(f'Connection error: {err}')).wait()
     is_ok(stdout.getvalue(), '200\n', 'print(tx.result.body)')
+
+    # Stop a request that nothing waits for
+    tx = ua.build_tx('GET', 'http://example.com/slow')
+    promise = ua.start_p(tx)
+    Pyjo.IOLoop.timer(0.05, lambda loop: promise.cancel())
+    reason = []
+    promise.catch(reason.append).wait()
+    is_deeply_ok(reason, ['Request cancelled'], 'rejected')
+    is_ok(tx.res.error, {'message': 'Request cancelled'}, 'error of the transaction')
 
 with subtest('websocket'):
     with output() as stdout:

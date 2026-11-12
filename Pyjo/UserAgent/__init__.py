@@ -853,9 +853,33 @@ class Pyjo_UserAgent(Pyjo.EventEmitter.object):
                 print(tx.result.body)
 
             ok.catch(lambda err: warn(f'Connection error: {err}')).wait()
+
+        The promise closes the connection of the request when it is cancelled
+        with :meth:`Pyjo.Promise.Pyjo_Promise.cancel`, as when the coroutine
+        that awaits it is cancelled, and is rejected with
+        ``Request cancelled``. ::
+
+            # Stop a request that nothing waits for
+            promise = ua.start_p(tx)
+            promise.cancel()
         """
-        promise = Pyjo.Promise.new()
-        self.start(tx, lambda ua, tx: ua.transactor.promisify(promise, tx))
+
+        def done(ua: Pyjo_UserAgent, tx: Pyjo.Transaction.HTTP.object) -> None:
+            ua.transactor.promisify(promise, tx)
+
+        # Not in Mojolicious: the connection of the request, which a redirect replaces with the same callback, weakly,
+        # as the promise keeps the function of its cancellation
+        ref, callback = weakref.ref(self), weakref.ref(done)
+
+        def cancel() -> None:
+            if (ua := ref()) is None or (cb := callback()) is None:
+                return
+            for id, c in list(ua._connections.items()):
+                if c.get('cb') is cb:
+                    ua._error(id, 'Request cancelled')
+
+        promise = Pyjo.Promise.new(cancel=cancel)
+        self.start(tx, done)
         return promise
 
     # The arguments of the transactor come before the callback, so the method is not typed further; unlike

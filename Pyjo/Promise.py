@@ -168,7 +168,7 @@ import warnings
 import weakref
 
 from collections.abc import Awaitable, Callable, Coroutine, Generator
-from typing import TYPE_CHECKING, Any, Concatenate, cast
+from typing import TYPE_CHECKING, Any, Concatenate, Self, cast
 
 
 type Anything = builtins.object
@@ -201,7 +201,10 @@ class Pyjo_Promise(Pyjo.Base.object):
     """
 
     def __init__(
-        self, cb: Callable[[Handler, Handler], Anything] | Awaitable[Any] | concurrent.futures.Future[Any] | None = None
+        self,
+        cb: Callable[[Handler, Handler], Anything] | Awaitable[Any] | concurrent.futures.Future[Any] | None = None,
+        *,
+        cancel: Callable[[], Anything] | None = None,
     ) -> None:
         """::
 
@@ -209,6 +212,7 @@ class Pyjo_Promise(Pyjo.Base.object):
             promise = Pyjo.Promise.new(lambda resolve, reject: ...)
             promise = Pyjo.Promise.new(coroutine)
             promise = Pyjo.Promise.new(future)
+            promise = Pyjo.Promise.new(cancel=lambda: ...)
 
         Construct a new :mod:`Pyjo.Promise` object. ::
 
@@ -245,7 +249,17 @@ class Pyjo_Promise(Pyjo.Base.object):
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 promise = Pyjo.Promise.new(executor.submit(time.sleep, 1))
                 promise.wait()
+
+        ``cancel`` is the function that :meth:`cancel` calls, which stops what
+        the promise waits for, as :meth:`Pyjo.UserAgent.Pyjo_UserAgent.start_p`
+        closes the connection of its request; the one of a coroutine cancels
+        it. ::
+
+            # A promise of a timer that stops it
+            promise = Pyjo.Promise.new(cancel=lambda: Pyjo.IOLoop.remove(id))
+            id = Pyjo.IOLoop.timer(5, lambda loop: promise.resolve())
         """
+        self._cancel = cancel
         self._debug: Pyjo.Exception.object | None = None
         self._handled = False
         self._ioloop: weakref.ref[Pyjo.IOLoop.object] | None = None
@@ -268,7 +282,7 @@ class Pyjo_Promise(Pyjo.Base.object):
             def resolve(value: Any) -> None:
                 self.resolve() if value is None else self.resolve(value)
 
-            self.ioloop.reactor.run_coroutine(coro, resolve, lambda e: self.reject(e))
+            self._cancel = self.ioloop.reactor.run_coroutine(coro, resolve, lambda e: self.reject(e))
 
         elif cb is not None:
             cb(lambda *values: self.resolve(*values), lambda *values: self.reject(*values))
@@ -369,6 +383,40 @@ class Pyjo_Promise(Pyjo.Base.object):
         that promise.
         """
         return _all(3, promises)
+
+    # Not in Mojolicious: Mojo::Promise follows the Promise of ECMAScript, which cannot be cancelled
+    def cancel(self) -> Self:
+        """::
+
+            promise = promise.cancel()
+
+        Stop what a pending promise waits for, with the function ``cancel``
+        that it was made with, once, as nothing waits for the promise anymore:
+        a coroutine gets the exception of the cancellation of the reactor, as
+        :class:`asyncio.CancelledError`, where it waits, and a request of
+        :meth:`Pyjo.UserAgent.Pyjo_UserAgent.start_p` closes its connection.
+        The promise is settled as what it waits for ends, and is not reported
+        as an unhandled rejected promise then. A promise that is settled, or
+        has nothing to cancel, stays as it is. A coroutine that awaits a
+        promise cancels it when it is cancelled itself. ::
+
+            # Cancel a coroutine, whose finally blocks run
+            async def main():
+                try:
+                    await Pyjo.Promise.timer(5)
+                finally:
+                    print('cancelled')
+
+            promise = Pyjo.Promise.new(main())
+            Pyjo.IOLoop.timer(1, lambda loop: promise.cancel())
+            promise.catch(lambda err: print(type(err).__name__)).wait()
+        """
+        if self._status or (cancel := self._cancel) is None:
+            return self
+        self._cancel = None
+        self._handled = True
+        cancel()
+        return self
 
     def catch(self, cb: Handler) -> 'Pyjo_Promise':
         """::
