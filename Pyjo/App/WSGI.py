@@ -86,6 +86,7 @@ import Pyjo.Server.Prefork
 import Pyjo.Server.Prethread
 import Pyjo.Transaction
 
+import contextvars
 import io
 import sys
 import traceback
@@ -184,6 +185,10 @@ class _Call:
         self.c = c
         self.tx = tx
         self.response = _Response()
+        # The context of contextvars of the call, its iteration and its close, which a WSGI server gives them in one
+        # thread, where the callbacks of an event loop of asyncio each run in a context of their own, as the iterator of
+        # stream_with_context of Flask resets its context variables at its end with the tokens of its start
+        self.context = contextvars.copy_context()
         self.busy = False
         self.chunked = False
         self.closed = False
@@ -193,14 +198,14 @@ class _Call:
         self.tx.on('finish', self._finish)
         try:
             environ = _environ(self.tx, self.c, self.app._model(self.tx))  # pyright: ignore[reportPrivateUsage]
-            self._step(Pyjo.IOLoop.blocking(self.response.start, self.application, environ))
+            self._step(Pyjo.IOLoop.blocking(self.context.run, self.response.start, self.application, environ))
         except Exception as e:
             self._error(e)
 
     def _close(self) -> None:
         self.done = True
         try:
-            Pyjo.IOLoop.blocking(self.response.close)
+            Pyjo.IOLoop.blocking(self.context.run, self.response.close)
         except Exception as e:
             self.app.log.error(f'WSGI application failed to close: {_message(e)}')
 
@@ -308,7 +313,7 @@ class _Call:
                 self._close()
             return
         try:
-            self._step(Pyjo.IOLoop.blocking(self.response.next))
+            self._step(Pyjo.IOLoop.blocking(self.context.run, self.response.next))
         except Exception as e:
             self._error(e)
 

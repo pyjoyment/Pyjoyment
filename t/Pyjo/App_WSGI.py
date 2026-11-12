@@ -16,6 +16,7 @@ from Pyjo.Test import *
 
 import asyncio
 import concurrent.futures
+import contextvars
 import http.client
 import os
 import re
@@ -309,6 +310,34 @@ with subtest('Pyjoyment on WSGI'):
         is_ok(t.tx.res.headers.content_length, '12', 'right "Content-Length" value')
         t.get_ok('/prefix/chunks').status_is(200).content_is('012')
         t.get_ok('/prefix/missing').status_is(404)
+
+
+# An iterator that sets a context variable at its start and resets it with its token at its end, as the one of
+# stream_with_context of Flask, which needs one context for the call, the iteration and the close, as a WSGI server gives
+variable = contextvars.ContextVar('variable')
+
+
+@validator
+def contextual(environ, start_response):
+    def body():
+        token = variable.set('set')
+        try:
+            yield b'one'
+            yield b'two'
+        finally:
+            variable.reset(token)
+
+    start_response('200 OK', [('Content-Type', 'text/plain')])
+    return body()
+
+
+with subtest('Context of the call'):
+    with Pyjo.App.WSGI.new(app=contextual) as app:
+        t = Pyjo.Test.Pyjo.new(app)
+        with app.log.capture('error') as logs:
+            t.get_ok('/').status_is(200).content_is('onetwo')
+        ok(not t.tx.error, 'whole response')
+        is_deeply_ok(list(logs), [], 'no error of the application')
 
 
 # A list, without the validator, whose iterator would hide it
