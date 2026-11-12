@@ -3718,14 +3718,19 @@ def _split(pattern: str, string: str) -> list[str]:
     return fields
 
 
-# The name that a mistake of the name of an attribute most likely meant: one that the name starts with or that starts
-# with the name, of three letters at least, as "req" for "request", or else the closest one
+# The name that a mistake of the name of an attribute most likely meant: one that the name starts with, of three letters
+# at least, as "req" for "request" of another framework, which comes before one that starts with the name, as
+# "request_timeout", or else the closest one
 def _suggest(name: str, names: Iterable[str]) -> str | None:  # pyright: ignore[reportUnusedFunction]
     import difflib
 
     others = [n for n in names if n != name and not n.startswith('_')]
-    if prefixes := [n for n in others if len(n) > 2 and (name.startswith(n) or n.startswith(name))]:
-        return difflib.get_close_matches(name, prefixes, n=1, cutoff=0)[0]
+    for prefixes in (
+        [n for n in others if len(n) > 2 and name.startswith(n)],
+        [n for n in others if len(n) > 2 and n.startswith(name)],
+    ):
+        if prefixes:
+            return difflib.get_close_matches(name, prefixes, n=1, cutoff=0)[0]
     return next(iter(difflib.get_close_matches(name, others, n=1)), None)
 
 

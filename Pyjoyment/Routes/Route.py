@@ -55,9 +55,10 @@ from typing import Any, Self, cast, overload
 
 # Reserved stash values
 # Not in Mojolicious: toml and yaml, which the renderer renders as json
+# Unlike Mojolicious: the timeouts of a route, inactivity_timeout and request_timeout, are reserved too
 _RESERVED = frozenset(
-    'action app cb controller data extends format handler inline json layout namespace path status template text '
-    'toml variant yaml'.split()
+    'action app cb controller data extends format handler inactivity_timeout inline json layout namespace path '
+    'request_timeout status template text toml variant yaml'.split()
 )
 
 

@@ -1045,6 +1045,14 @@ class Pyjoyment_App(_Base):
 
 
 def _action(next: Any, c: Pyjoyment.Controller.object, action: Callable[..., Any], last: bool) -> Any:
+    # Not in Mojolicious: the timeouts of the stash of a route, as of its defaults or of a route of under before it, set
+    # before its action
+    stash = c.stash()
+    if (timeout := stash.get('inactivity_timeout')) is not None:
+        c.helpers.inactivity_timeout(timeout)
+    if (timeout := stash.get('request_timeout')) is not None and 'pyjo.request_timeout' not in stash:
+        c.helpers.request_timeout(timeout)
+
     try:
         val = action(c)
     except TypeError as e:
@@ -1061,6 +1069,7 @@ def _action(next: Any, c: Pyjoyment.Controller.object, action: Callable[..., Any
     if inspect.iscoroutine(val):
         val = Pyjo.Promise.new(val)
         _cancel_on_close(c, val)
+        stash.setdefault('pyjo.actions', []).append(weakref.ref(val))
     if isinstance(val, Pyjo.Promise.object):
         val.catch(functools.partial(_reply_exception, c))
     return val

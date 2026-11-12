@@ -425,6 +425,24 @@ For security reasons the dispatcher will always check if the ``controller``
 is actually a subclass of :mod:`Pyjoyment.Controller` or :mod:`Pyjoyment`
 before dispatching to it.
 
+The values ``inactivity_timeout`` and ``request_timeout`` are the timeouts of
+a route, which are set before its first action: the inactivity timeout of the
+connection, as the helper ``inactivity_timeout`` sets it, and the most time
+to the end of the response, as the helper ``request_timeout`` sets it, after
+which the actions are cancelled and the request gets a ``504`` response. A
+request that waits for a model of language, which can be silent for minutes,
+needs both, and the routes of :ref:`under <routing-under>` give them to all
+the routes of a group.
+
+.. code-block:: python
+
+    # Ten minutes of silence, and two minutes to the end of the response at most
+    r.post('/chat', {'inactivity_timeout': 600, 'request_timeout': 120}).to('chat#reply')
+
+    # The same for every route of a group
+    llm = r.under('/llm', {'inactivity_timeout': 600, 'request_timeout': 120})
+    llm.post('/complete').to('llm#complete')
+
 Namespaces
 ~~~~~~~~~~
 
@@ -646,6 +664,8 @@ expressions.
     /bar        ..U.  *     bar      ^/bar
       +/baz     ...W  GET   baz      ^/baz
     /yada       ....  *     yada     ^/yada
+
+.. _routing-under:
 
 Under
 ~~~~~

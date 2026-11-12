@@ -249,8 +249,12 @@ app.start()
   does not know them, `Task got bad yield: <Pyjo.Steps.Request ...>`: await
   `Steps(...).run_p(c.ua())`. Inside the steps, a promise or a coroutine of
   asyncio is a `TypeError`, as nothing runs the event loop for `run`.
-- A long wait, as a stream of events, needs a longer inactivity timeout of its
-  connection: `c.inactivity_timeout(300)`.
+- A long wait, as a stream of events or a model of language that is silent
+  for minutes, needs a longer inactivity timeout of its connection:
+  `c.inactivity_timeout(300)`, or the value of the stash of its route,
+  `get('/chat', {'inactivity_timeout': 600}, chat)`, or of a group with
+  `under`. `request_timeout` there, or `c.request_timeout(120)`, bounds the
+  whole response: the actions are cancelled, and the request gets `504`.
 
 ## Documentation
 
