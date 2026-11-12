@@ -29,7 +29,11 @@ for code in Skills.blocks('tests'):
     tmp.child(*name.split('/')).dirname().make_path()
     tmp.child(*name.split('/')).spew(code)
     files[name] = code
-is_deeply_ok(sorted(files), ['app.py', 't/basic.py', 'tests/conftest.py', 'tests/test_app.py'], 'files of the project')
+is_deeply_ok(
+    sorted(files),
+    ['app.py', 't/basic.py', 'tests/conftest.py', 'tests/test_app.py', 'tests/test_existing.py'],
+    'files of the project',
+)
 
 
 def run(*args):
@@ -50,9 +54,21 @@ with subtest('The script without the harness'):
     like_ok(stdout, re.compile(r'^ok 4 - Values$', re.M), 'Values')
     like_ok(stdout, re.compile(r'^1\.\.4$', re.M), 'plan')
 
+with subtest('unittest'):
+    p = subprocess.run(
+        [sys.executable, '-m', 'unittest', 'discover', '-v', '-s', 'tests'],
+        cwd=tmp.to_str(),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    is_ok(p.returncode, 0, 'passed')
+    like_ok(p.stderr, r'(?m)^test_index \(test_existing\.TestApp\.test_index\) \.\.\. ok$', 'test of unittest')
+    is_ok(p.stdout, '', 'no TAP')
+
 with subtest('pytest'):
     if importlib.util.find_spec('pytest') is None:
-        skip('pytest is required, as of the dependency group "pytest"', 3)
+        skip('pytest is required, as of the dependency group "pytest"', 4)
     else:
         # The plugin of the entry point where Pyjoyment is installed, as uv installs it, or of the checkout otherwise
         entry_point = any(
@@ -63,5 +79,6 @@ with subtest('pytest'):
         is_ok(status, 0, 'passed')
         like_ok(stdout, r't/basic\.py PASSED', 'script')
         like_ok(stdout, r'tests/test_app\.py::test_login PASSED', 'test of pytest')
+        like_ok(stdout, r'tests/test_existing\.py::TestApp::test_index PASSED', 'test of unittest')
 
 done_testing()

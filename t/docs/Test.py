@@ -239,17 +239,27 @@ with subtest('Exceptions'):
 
 
                     def setUpModule():
-                        Pyjo.Test.raise_failures()
-
-
-                    def tearDownModule():
-                        Pyjo.Test.raise_failures(False)
+                        unittest.enterModuleContext(Pyjo.Test.raise_failures())
 
 
                     class TestURL(unittest.TestCase):
                         def test_host(self):
                             url = Pyjo.URL.new('HtTp://Example.Com')
                             Pyjo.Test.is_ok(url.host, 'Example.Com', 'right host')
+                """)
+            )
+        # The module and, after it, a test that prints TAP again, as the mode is the one before the module
+        with open(os.path.join(tmp, 'test_url_after.py'), 'w') as f:
+            f.write(
+                textwrap.dedent("""\
+                    import unittest
+
+                    import Pyjo.Test
+
+
+                    class TestAfter(unittest.TestCase):
+                        def test_fail(self):
+                            Pyjo.Test.is_ok('Example.Com', 'example.com', 'without the mode')
                 """)
             )
         env = dict(os.environ, PYTHONPATH=ROOT)
@@ -259,6 +269,18 @@ with subtest('Exceptions'):
         like_ok(p.stderr, r'(?m)^test_host \(test_url\.TestURL\.test_host\) \.\.\. ok$', 'test of unittest')
         is_ok(p.stdout, '', 'no TAP')
         is_ok(p.returncode, 0, 'right exit status')
+
+        p = subprocess.run(
+            [sys.executable, '-m', 'unittest', '-v', 'test_url', 'test_url_after'],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        like_ok(p.stderr, r'(?m)^Ran 2 tests in .*\n\nOK$', 'passed for unittest')
+        like_ok(p.stdout, r'(?m)^not ok 1 - without the mode$', 'TAP of the failed test')
+        like_ok(p.stderr, r'(?m)^# Tests were run but no plan was declared', 'no plan')
+        is_ok(p.returncode, 254, 'exit status of a test script without a plan')
 
 with subtest('bail_out'):
     out, err, code = run(
@@ -525,6 +547,20 @@ with subtest('raise_failures'):
         after='ok(True)\ndone_testing()',
     )
     is_ok(out, "Failed test 'raised'\nok 1\n1..1\n", 'raised, then printed')
+    is_ok(code, 0, 'right exit status')
+
+    out, err, code = run(
+        """
+        with raise_failures():
+            is_ok(1, 1, 'same')
+            try:
+                is_ok(1, 2, 'raised')
+            except AssertionError as e:
+                print(e)
+        """,
+        after='ok(True)\ndone_testing()',
+    )
+    is_ok(out, "Failed test 'raised'\n         got: 1\n    expected: 2\nok 1\n1..1\n", 'raised in the block')
     is_ok(code, 0, 'right exit status')
 
 with subtest('skip'):

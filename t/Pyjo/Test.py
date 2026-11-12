@@ -615,4 +615,22 @@ with subtest('Exceptions'):
     is_ok(out, 'ok 1\n1..1\n', 'TAP again')
     is_ok(code, 0, 'right exit status')
 
+    out, err, code = run("""
+        import Pyjo.Test
+        from Pyjo.Test import *
+        with Pyjo.Test.raise_failures():
+            with Pyjo.Test.raise_failures(False):
+                ok(True, 'printed')
+            with Pyjo.Test.raise_failures():
+                pass
+            try:
+                ok(False, 'raised')
+            except AssertionError as e:
+                print(e)
+        ok(True, 'printed again')
+        done_testing()
+    """)
+    is_ok(out, "ok 1 - printed\nFailed test 'raised'\nok 2 - printed again\n1..2\n", 'the mode before each block')
+    is_ok(code, 0, 'right exit status')
+
 done_testing()

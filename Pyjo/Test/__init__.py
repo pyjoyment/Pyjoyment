@@ -157,7 +157,12 @@ work in the tests of another test runner, as pytest or unittest, where
 report as a skipped test, or in a subtest leaves the subtest, and
 :func:`bail_out` raises :exc:`BailOut`. A subtest is a block, the plans are
 not checked, :func:`skip` does nothing, and :func:`diag` and :func:`note`
-print their messages, which the runner captures. ::
+print their messages, which the runner captures.
+
+A module of tests of :class:`unittest.TestCase` calls it in ``setUpModule``,
+with :func:`unittest.enterModuleContext`, which restores the mode that it
+replaced at the end of the module, as the one of pytest, which runs such a
+module too: ::
 
     import unittest
 
@@ -166,17 +171,18 @@ print their messages, which the runner captures. ::
 
 
     def setUpModule():
-        Pyjo.Test.raise_failures()
-
-
-    def tearDownModule():
-        Pyjo.Test.raise_failures(False)
+        unittest.enterModuleContext(Pyjo.Test.raise_failures())
 
 
     class TestURL(unittest.TestCase):
         def test_host(self):
             url = Pyjo.URL.new('HtTp://Example.Com')
             Pyjo.Test.is_ok(url.host, 'Example.Com', 'right host')
+
+Without it, a failed test prints TAP, which unittest does not read, so it
+reports the test as passed, and the process ends with the exit status of a
+test script without a plan. unittest has no bail out: :exc:`BailOut` is an
+error of its test, and the other tests run.
 
 Functions
 ---------
@@ -619,17 +625,23 @@ def plan_tests(how_many: int) -> 'Plan':
     return plan(tests=how_many)
 
 
-def raise_failures(enable: bool = True) -> None:
+def raise_failures(enable: bool = True) -> 'RaiseFailures':
     """::
 
         raise_failures()
         raise_failures(False)
 
+        with raise_failures():
+            is_ok(1, 1, 'same')
+
     Make the functions raise exceptions instead of printing TAP, as the
-    section `Exceptions`_ describes, or print TAP again with ``False``.
+    section `Exceptions`_ describes, or print TAP again with ``False``. It
+    returns a :class:`RaiseFailures`, whose block ends in the mode that it
+    replaced.
     """
     global _raising
-    _raising = enable
+    previous, _raising = _raising, enable
+    return RaiseFailures(previous)
 
 
 def skip(why: str | None = None, how_many: int = 1) -> bool:
@@ -671,6 +683,28 @@ class Plan:
     ) -> None:
         if exc_type is None and not _current().done:
             done_testing()
+
+
+class RaiseFailures:
+    """
+    The mode of :func:`raise_failures`, which it sets at once. It is a context
+    manager: at the end of its block, the functions raise exceptions or print
+    TAP as they did before :func:`raise_failures`, also where
+    :func:`unittest.enterModuleContext` or
+    :meth:`unittest.TestCase.enterClassContext` ends it.
+    """
+
+    def __init__(self, previous: bool) -> None:
+        self._previous = previous
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
+    ) -> None:
+        global _raising
+        _raising = self._previous
 
 
 class Result:
