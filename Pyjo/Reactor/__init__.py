@@ -172,6 +172,17 @@ _DETECTED: dict[str, str] = {}
 __path__ = extend_path(__path__, __name__)
 
 
+# Not in Mojolicious: Perl has no cancellation of an async sub, whose promise waits on
+class CancelledError(BaseException):
+    """
+    Exception raised in a coroutine that :meth:`Pyjo_Reactor.run_coroutine` of
+    the base class runs, where it waits, when it is cancelled, as
+    :class:`asyncio.CancelledError` is raised in a task of :mod:`asyncio`, so
+    that ``except Exception`` does not catch it, and its ``finally`` blocks
+    run.
+    """
+
+
 class Pyjo_Reactor(Pyjo.EventEmitter.object):
     """
     :mod:`Pyjo.Reactor` inherits all methods from :mod:`Pyjo.EventEmitter` and
@@ -263,10 +274,10 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
     # Not in Mojolicious: how a coroutine runs as a promise, as Mojo's async sub
     def run_coroutine(
         self, coro: Coroutine[Any, Any, Any], resolve: Callable[[Any], Anything], reject: Callable[[Any], Anything]
-    ) -> None:
+    ) -> Callable[[], None] | None:
         """::
 
-            reactor.run_coroutine(coro, resolve, reject)
+            cancel = reactor.run_coroutine(coro, resolve, reject)
 
         Run a coroutine and call ``resolve`` with what it returns or
         ``reject`` with the exception it raises. The base class runs it at
@@ -276,19 +287,32 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
         until it ends, as the reactor of asyncio keeps its tasks. A reactor of an
         event loop runs it as a task of its loop, where it can await anything
         of that loop.
+
+        It returns a function that cancels the coroutine, which gets the
+        exception of the cancellation of the reactor where it waits, as
+        :class:`CancelledError` of the base class, and cancels the promise
+        that it waits for, as with :meth:`Pyjo.Promise.Pyjo_Promise.cancel`,
+        or ``None`` for a reactor that cannot cancel it. ::
+
+            # Cancel the coroutine, whose finally blocks run
+            cancel = reactor.run_coroutine(main(), resolve, reject)
+            cancel()
         """
 
         coroutines = self._coroutines
         coroutines.add(coro)
+        # What the coroutine waits for, whose settling resumes it unless it was cancelled meanwhile
+        current: list[Any] = [None]
 
-        def step() -> None:
+        def step(error: BaseException | None = None) -> None:
+            current[0] = None
             try:
-                waiting = coro.send(None)
+                waiting = coro.send(None) if error is None else coro.throw(error)
             except StopIteration as e:
                 coroutines.discard(coro)
                 resolve(e.value)
                 return
-            except Exception as e:
+            except (Exception, CancelledError) as e:
                 coroutines.discard(coro)
                 reject(e)
                 return
@@ -298,12 +322,23 @@ class Pyjo_Reactor(Pyjo.EventEmitter.object):
                 coro.close()
                 reject(TypeError(f'{_name(type(self))} cannot wait for {waiting!r}'))
                 return
+            current[0] = waiting
+
+            def resume(*values: Any) -> None:
+                if current[0] is waiting:
+                    step()
+
             then(resume, resume)
 
-        def resume(*values: Any) -> None:
-            step()
+        def cancel() -> None:
+            if (waiting := current[0]) is None:
+                return
+            step(CancelledError())
+            if callable(canceller := getattr(waiting, 'cancel', None)):
+                canceller()
 
         step()
+        return cancel
 
     @classmethod
     def detect(cls) -> str:

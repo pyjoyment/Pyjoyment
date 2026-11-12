@@ -162,6 +162,30 @@ with subtest('all, all_settled, any and race'):
         'results',
     )
 
+with subtest('cancel'):
+    with contextlib.redirect_stdout(io.StringIO()) as stdout:
+        # Cancel a coroutine, whose finally blocks run
+        async def main():
+            try:
+                await Pyjo.Promise.timer(5)
+            finally:
+                print('cancelled')
+
+        promise = Pyjo.Promise.new(main())
+        Pyjo.IOLoop.timer(0.01, lambda loop: promise.cancel())
+        promise.catch(lambda err: print(type(err).__name__)).wait()
+    is_ok(stdout.getvalue(), 'cancelled\nCancelledError\n', 'finally block and the cancellation of the reactor')
+    ok(promise.cancel() is promise, 'settled, as it is')
+
+    # Nothing to cancel
+    promise = Pyjo.Promise.new()
+    promise.cancel()
+    promise.resolve('later')
+    got = []
+    promise.then(got.append)
+    Pyjo.IOLoop.one_tick()
+    is_deeply_ok(got, ['later'], 'still pending')
+
 with subtest('catch'):
     got = []
     promise = Pyjo.Promise.reject('Oops')
@@ -255,6 +279,13 @@ with subtest('new'):
     got = []
     promise.then(lambda *values: got.append(values)).wait()
     is_deeply_ok(got, [()], 'future of concurrent.futures')
+
+    # A promise of a timer that stops it
+    promise = Pyjo.Promise.new(cancel=lambda: Pyjo.IOLoop.remove(id))
+    id = Pyjo.IOLoop.timer(5, lambda loop: promise.resolve())
+    promise.cancel()
+    is_ok(Pyjo.IOLoop.singleton.reactor.remove(id), False, 'timer removed')
+    is_ok(promise.cancel(), promise, 'once')
 
 with subtest('reject and resolve'):
     got = []

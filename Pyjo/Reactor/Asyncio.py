@@ -314,7 +314,13 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
             if not future.done():
                 future.set_result(None)
 
+        # The promise of a task that is cancelled while it waits, which nothing waits for anymore
+        def cancelled(future: asyncio.Future[None]) -> None:
+            if future.cancelled() and callable(cancel := getattr(promise, 'cancel', None)):
+                cancel()
+
         promise.then(settle, settle)
+        future.add_done_callback(cancelled)
         return future
 
     # Not in Mojolicious: the release of the event loop of its own, which Perl does in DESTROY, also at the end of a with
@@ -335,16 +341,19 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
     # Not in Mojolicious: a task of the loop
     def run_coroutine(
         self, coro: Coroutine[Any, Any, Any], resolve: Callable[[Any], Any], reject: Callable[[Any], Any]
-    ) -> None:
+    ) -> Callable[[], None]:
         """::
 
-            reactor.run_coroutine(coro, resolve, reject)
+            cancel = reactor.run_coroutine(coro, resolve, reject)
 
         Run a coroutine as a task of :attr:`loop`, where it can await anything
         of the loop, and call ``resolve`` with what it returns or ``reject``
         with the exception it raises. A task that is not done is something to
         watch, so that :meth:`start` does not stop before it, and each step of
-        the coroutine is an event, which ends :meth:`one_tick`.
+        the coroutine is an event, which ends :meth:`one_tick`. It returns a
+        function that cancels the task, whose coroutine gets
+        :class:`asyncio.CancelledError` where it waits, and whose promise that
+        it waits for is cancelled.
         """
         task = self.loop.create_task(_steps(coro, weakref.WeakMethod(self._step)))
         self._tasks.add(task)
@@ -362,6 +371,11 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.object):
                 resolve(task.result())
 
         task.add_done_callback(done)
+
+        def cancel() -> None:
+            task.cancel()
+
+        return cancel
 
     # Not in Mojolicious: a future of the loop
     def future(self) -> asyncio.Future[Any]:
