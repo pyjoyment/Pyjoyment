@@ -772,7 +772,10 @@ txs = [ua.get_p('/') for _ in range(1, 6)]
 
 def limit(*results):
     global result
-    result = [stream for stream in (Pyjo.IOLoop.stream(r[0].connection) for r in results) if stream is not None]
+    # Unlike Mojolicious: the connections that are active, not the transactions whose connection is, as each start of
+    # a request runs a tick of the event loop, where a fast one, as of uvloop, finishes the first request before the
+    # last one starts, which takes its connection, so the transactions count it twice
+    result = {r[0].connection for r in results if Pyjo.IOLoop.stream(r[0].connection) is not None}
 
 
 Pyjo.Promise.all(*txs).then(limit).wait()
