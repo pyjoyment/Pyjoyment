@@ -1052,6 +1052,9 @@ def _action(next: Any, c: Pyjoyment.Controller.object, action: Callable[..., Any
         c.helpers.inactivity_timeout(timeout)
     if (timeout := stash.get('request_timeout')) is not None and 'pyjo.request_timeout' not in stash:
         c.helpers.request_timeout(timeout)
+    if (interval := stash.get('heartbeat')) is not None and 'pyjo.heartbeat' not in stash:
+        stash['pyjo.heartbeat'] = None
+        c.helpers.heartbeat(interval)
 
     try:
         val = action(c)

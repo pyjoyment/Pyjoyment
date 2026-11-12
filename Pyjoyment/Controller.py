@@ -953,7 +953,7 @@ class Pyjoyment_Controller(_Base):
         :meth:`Pyjoyment.Pyjoyment_App.defaults`. Some stash values have a
         special meaning and are reserved, the full list is currently
         ``action``, ``app``, ``cb``, ``controller``, ``data``, ``extends``,
-        ``format``, ``handler``, ``inactivity_timeout``, ``inline``,
+        ``format``, ``handler``, ``heartbeat``, ``inactivity_timeout``, ``inline``,
         ``json``, ``layout``, ``namespace``, ``path``, ``request_timeout``,
         ``status``, ``template``, ``text``, ``toml``, ``variant`` and
         ``yaml``. Note that all stash values with a ``mojo.*`` prefix are

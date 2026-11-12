@@ -199,9 +199,10 @@ with subtest('Reserved stash value'):
     ok(t.app.routes.is_reserved('yaml'), 'is reserved')
     ok(t.app.routes.is_reserved('toml'), 'is reserved')
 
-    # Not in Mojolicious: the timeouts of a route
+    # Not in Mojolicious: the timeouts of a route and its heartbeat
     ok(t.app.routes.is_reserved('inactivity_timeout'), 'is reserved')
     ok(t.app.routes.is_reserved('request_timeout'), 'is reserved')
+    ok(t.app.routes.is_reserved('heartbeat'), 'is reserved')
 
 with subtest('Reserved stash value (in placeholder)'):
     throws_ok(
