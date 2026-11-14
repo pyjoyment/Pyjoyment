@@ -47,7 +47,7 @@ jobs:
       - name: Install Node from mise.lock
         uses: jdx/mise-action@v5
         with:
-          version: 2026.11.0 # datasource=github-releases depName=jdx/mise
+          version: 2026.11.7 # datasource=github-releases depName=jdx/mise
           install_args: node
 
       # npm ci checks every package against its integrity in package-lock.json.
