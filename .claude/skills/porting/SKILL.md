@@ -10,7 +10,10 @@ newest one when the port starts, and its documentation names that release
 ("Ported from ... of Mojolicious 9.49"); the first ports are from 9.49. The
 changes of newer releases are followed in the issue that tracks upstream, and a
 change is ported to the modules it touches, whose documentation then names the
-newer release. A fix that cannot wait for a release, as a security one, is
+newer release. `MOJOLICIOUS_VERSION` of `.versions.env` is the release that the
+port is synchronized with: Renovate opens a pull request for a new release, on
+whose branch, or in a pull request of its own, its changes are ported, and the
+new version is merged with them. A fix that cannot wait for a release, as a security one, is
 ported before it, and the module names the release that will have it. An edit
 of a module that ports nothing from upstream leaves its release as it is.
 
