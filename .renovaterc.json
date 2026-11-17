@@ -58,6 +58,12 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["caddy"],
       "sourceUrl": "https://github.com/caddyserver/caddy"
+    },
+    {
+      "description": "The releases of the projects that Pyjoyment follows, as Mojolicious, whose version in .versions.env is the one that the ported modules are synchronized with. Its pull request announces a release: the changes of the release are ported on its branch, or in a pull request of their own, and the new version is merged with them, never alone.",
+      "matchFileNames": [".versions.env"],
+      "addLabels": ["upstream"],
+      "automerge": false
     }
   ],
   "customManagers": [
@@ -71,6 +77,16 @@
       ],
       "matchStrings": [
         "(\\s+|.*?@)(?<currentValue>\\S+?)!?\\s*#\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(\\s+versioning=(?<versioning>\\S+))?(\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+    {
+      "description": "Renovate hints in a comment before a variable *_VERSION of .versions.env.",
+      "customType": "regex",
+      "extractVersionTemplate": "^v?(?<version>.*)$",
+      "managerFilePatterns": ["/^\\.versions\\.env$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s+datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(\\s+versioning=(?<versioning>\\S+))?\\s*\\n[A-Z0-9_]+_VERSION=(?<currentValue>\\S+)"
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
     }

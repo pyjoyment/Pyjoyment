@@ -284,8 +284,8 @@ back here.
 [Trunk](https://docs.trunk.io) runs the linters and formatters configured in
 `.trunk/trunk.yaml`: ruff for Python (lint, import order and formatting),
 Biome for CSS, HTML, JavaScript, JSON, Markdown and YAML (lint and
-formatting), taplo for TOML, yamllint, actionlint, and shellcheck and shfmt
-for the shell scripts. shellcheck runs
+formatting), taplo for TOML, yamllint, actionlint, dotenv-linter for
+`.versions.env`, and shellcheck and shfmt for the shell scripts. shellcheck runs
 with all its checks but the ones that `.shellcheckrc` disables, and shfmt
 formats as `.editorconfig` says, with the branches of `case` indented: the
 definition of shfmt in `.trunk/trunk.yaml` runs it without the flags that
