@@ -99,6 +99,7 @@ lint:
     # The version of package.json, which Renovate bumps in both, and which the
     # ! keeps from trunk upgrade
     - biome@2.6.8! # datasource=npm depName=@biomejs/biome
+    - dotenv-linter@4.0.0
     - git-diff-check
     - pyright@1.1.414
     # The format command of ruff is disabled in the plugin by default
