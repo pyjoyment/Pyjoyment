@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, the options of gunicorn translated into prefork, reverse proxies and TLS, graceful stops, the Health plugin for probes and the AccessLog plugin for the access log of the requests, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
+description: Run and deploy a Pyjoyment application. Use for its servers (daemon, prefork, prethread, the zero downtime of pyjo-hot, pyjo-reload in development), their options and PYJO_* variables, the options of gunicorn translated into prefork, reverse proxies and TLS, the security headers of HSTS, CSP with its reports and nonce, and Permissions-Policy, graceful stops, the Health plugin for probes and the AccessLog plugin for the access log of the requests, the Cache-Control and the precompressed gzip, brotli and zstd variants of the static files, and the generators of a pyproject.toml, a Dockerfile, the manifests of Kubernetes and the ZIP files of AWS Lambda, and WSGI, ASGI and FastCGI servers in front of it.
 ---
 
 # Deployment
@@ -28,6 +28,9 @@ app.secrets = [os.environ.get('APP_SECRET', 'Change this secret')]
 # /livez and /healthz while the server answers, /readyz once the checks pass, for the probes of an orchestrator
 ready = {'db': True}
 plugin('Health', checks={'db': lambda c: ready['db']})
+
+# HSTS, a CSP that the browsers report the violations of before it is enforced, Permissions-Policy and the others
+plugin('SecurityHeaders', csp_report_only={'default-src': ["'self'"]}, reports='/csp-reports')
 
 
 @get('/')
@@ -137,6 +140,37 @@ Apache and nginx, which a container, Kubernetes and log analyzers take:
 - The status `499` is a request whose client closed the connection before the
   response, `101` the handshake of a WebSocket, and the size of a chunked
   response is the one of its body as the server wrote it.
+
+## Security headers
+
+`plugin('SecurityHeaders')` adds to every response, of the routes, the static
+files and the pages of errors, the headers that a review checks first:
+`Strict-Transport-Security`, `Content-Security-Policy`, `Permissions-Policy`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy` and
+`Cross-Origin-Opener-Policy`. A header that an action sets is kept, and
+`security_headers={...}` in the defaults of a route replaces the options for
+its responses.
+
+- HSTS, `max-age=31536000` by default, goes only with the responses of HTTPS,
+  of a reverse proxy too with `-p`, never for `localhost`. A site that starts
+  with it starts with `hsts={'max_age': 300}`, as browsers keep it and it
+  cannot be taken back, and adds `include_subdomains` and `preload` once every
+  subdomain has HTTPS.
+- The default CSP, `base-uri 'self'; frame-ancestors 'self'; object-src
+  'none'`, restricts no script or style. A policy of the pages goes into
+  `csp_report_only` with `reports='/csp-reports'`, a route that logs the
+  violations and emits the hook `csp_report`, and into `csp` once the reports
+  are clean.
+- An inline script or style needs the nonce of the response, which the tag
+  helpers `javascript` and `stylesheet` and `csp_nonce()` give, and a response
+  with a nonce gets `Cache-Control: private`: a page that a CDN keeps loads its
+  scripts and styles from files, allowed by the sources of the policy, as
+  `'self'`, not by a nonce, which the CDN would give to every client.
+- `Permissions-Policy` turns off the camera, the geolocation and the microphone
+  by default: `permissions={'geolocation': ['self']}` allows a feature to the
+  pages.
+- CORS, for the pages of other sites that read the application, is
+  `plugin('CORS')`, of the skill `api`.
 
 ## Containers, Kubernetes and AWS Lambda
 
@@ -257,6 +291,13 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
   application with its own: `healthz=None` leaves it to the application.
 - A blocking request handler under `daemon` blocks every connection: more
   workers of `prefork`, `-c 1`, or code that does not block.
+- No `Strict-Transport-Security` behind a reverse proxy without `-p`
+  (`PYJO_REVERSE_PROXY=1`): the application takes the request for one of HTTP,
+  as `X-Forwarded-Proto` is ignored without it.
+- A CSP in `csp` before its reports are read blocks the scripts of the pages
+  in production; `'unsafe-inline'` next to a nonce is ignored by browsers, and
+  a `style` or `onclick` attribute is blocked by a policy of the styles or the
+  scripts with a nonce.
 - The log goes to the standard error, which a container, Kubernetes and AWS
   Lambda collect as it is written; `PYJO_LOG_FORMAT=json` makes each line
   JSON for a collector of logs, and `PYJO_LOG_LEVEL` its level. `print` goes
@@ -270,3 +311,5 @@ PYJO_LISTEN='fcgi://127.0.0.1:9000' python app.py daemon    # FastCGI behind ngi
 - From gunicorn: https://pyjoyment.readthedocs.io/en/stable/guides/gunicorn.html
 - generate dockerfile: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Command_Author_generate_dockerfile.html
 - Rendering, precompressed static files: https://pyjoyment.readthedocs.io/en/stable/guides/rendering.html#precompressed-static-files
+- Cookbook, security headers: https://pyjoyment.readthedocs.io/en/stable/guides/cookbook.html#security-headers
+- Pyjoyment.Plugin.SecurityHeaders: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_SecurityHeaders.html

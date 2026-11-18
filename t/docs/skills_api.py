@@ -32,7 +32,10 @@ def load(name):
 with subtest('REST'):
     t = load('rest.py')
     t.get_ok('/items').status_is(200).json_is([{'id': 1, 'name': 'Pen', 'price': 1.5}])
-    t.header_is('Access-Control-Allow-Origin', '*')
+    page = {'Origin': 'https://app.example.com'}
+    t.get_ok('/items', page).status_is(200).header_is('Access-Control-Allow-Origin', '*')
+    preflight = {**page, 'Access-Control-Request-Method': 'DELETE'}
+    t.options_ok('/items/1', preflight).status_is(204).header_like('Access-Control-Allow-Methods', r'DELETE')
     t.post_ok('/items', json={'name': 'Book', 'price': 'cheap'}).status_is(422)
     t.json_is('/errors/0', '/price: Expected number - got string.')
     t.post_ok('/items', json={'name': 'Book', 'price': 9.9, 'tags': ['paper']}).status_is(201)

@@ -22,6 +22,10 @@ from Pyjoyment.Lite import *
 from typing import NotRequired, TypedDict
 
 
+# CORS, for the pages of every other site, with the answers of the preflight requests of PUT, PATCH and DELETE
+plugin('CORS')
+
+
 class Item(TypedDict):
     name: str
     price: float
@@ -79,12 +83,6 @@ def remove(c):
     c.rendered(204)
 
 
-# CORS, for each response
-@hook('after_dispatch')
-def cors(c):
-    c.res.headers.header('Access-Control-Allow-Origin', '*')
-
-
 app.start()
 ```
 
@@ -98,6 +96,10 @@ app.start()
   object reports it as `/: Expected object - got null.`.
 - `c.rendered(204)` ends a response without a body; `c.reply.json_not_found()`
   renders 404 as JSON.
+- `plugin('CORS', origins=['https://app.example.com'], credentials=True, paths=['/api'])`
+  lets the pages of a frontend read the API with the cookies of its user; the
+  origins are also those of `plugin('AllowedHosts', origins=...)`, which
+  rejects the other ones.
 
 ## JSON-RPC
 
@@ -148,9 +150,15 @@ app.start()
   `text`, `status` or `format`, which `render` and the router reserve.
 - `json.dumps` of Python with `c.render(data=...)` or `text=` skips the
   `Content-Type` of JSON, which `c.render(json=...)` sets.
+- `Access-Control-Allow-Origin` set by hand misses the preflight requests,
+  which a browser sends before a `PUT` or a request of JSON, and `Vary: Origin`;
+  `credentials=True` needs origins of their own, as browsers refuse `*` with
+  cookies, and reflecting any `Origin` would let every site read the data of the
+  user.
 
 ## Documentation
 
 - Pyjo.JSON.Schema: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_JSON_Schema.html
 - Pyjo.JSON.RPC: https://pyjoyment.readthedocs.io/en/stable/api/Pyjo_JSON_RPC.html
 - Rendering JSON: https://pyjoyment.readthedocs.io/en/stable/guides/rendering.html
+- Pyjoyment.Plugin.CORS: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_CORS.html
