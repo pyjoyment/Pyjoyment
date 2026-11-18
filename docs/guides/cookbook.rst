@@ -179,6 +179,98 @@ it, where it ends the dispatch of a request that is not allowed.
     :language: python
     :caption: myapp.py
 
+Security headers
+~~~~~~~~~~~~~~~~
+
+A browser protects the pages of an application from the pages of other sites
+as far as the headers of their responses ask it to.
+:mod:`Pyjoyment.Plugin.SecurityHeaders` adds them to every response, of the
+actions, the static files and the pages of errors alike, with defaults that
+restrict nothing that a page usually needs, so it can be enabled before any
+of them is tuned.
+
+.. code-block:: python
+
+    plugin('SecurityHeaders')
+
+``Strict-Transport-Security`` makes the browser use HTTPS only for the site,
+for as long as its ``max-age`` says, a year by default, so that an attacker on
+the network cannot strip the encryption of the next visit. It is sent only
+with the responses of HTTPS, also of a request that a `Reverse proxy`_ has
+received with HTTPS, and never for ``localhost``. A site that starts to use it
+starts with a few minutes, as a browser keeps it for that long and the site
+cannot take it back, and adds ``include_subdomains`` and ``preload`` only once
+every subdomain has HTTPS.
+
+``Content-Security-Policy`` says where the scripts, the styles, the images and
+the frames of a page may come from, so that a script that an attacker injects
+into a page does not run. The default one only keeps other sites from framing
+the pages and from changing their base URL, as a policy of the scripts depends
+on the pages. A policy of its own is tried out first with ``csp_report_only``,
+which the browser reports the violations of without enforcing it, with the
+route of ``reports``, which logs them, and moves to ``csp`` once the reports
+are only of what the pages should not do.
+
+.. literalinclude:: cookbook/security_headers.py
+    :language: python
+    :caption: myapp.py
+
+An inline script or style needs a nonce, a random value of the response that
+the policy names and that the element has. The helpers ``javascript`` and
+``stylesheet`` give it to their inline scripts and styles, as the helper
+``csp_nonce`` gives it to a template, and the pages of errors of Pyjoyment have
+it too. A response with a nonce gets ``Cache-Control: private``, as a CDN
+would give the same nonce to every client, so a page that a CDN keeps loads
+its scripts and styles from files instead, which the sources of the policy
+allow.
+
+The hook ``csp_report`` gets each violation, to store it or to send it to a
+service of monitoring, as the route is public and its reports come from
+anyone.
+
+.. code-block:: python
+
+    @hook('csp_report')
+    def csp_report(c, report):
+        c.app.log.info(f'{report["effectiveDirective"]} blocked {report["blockedURL"]}')
+
+``Permissions-Policy`` turns off the features of the browser that the pages do
+not use, the camera, the geolocation and the microphone by default, also for
+the frames of other sites in them, and ``X-Content-Type-Options``,
+``Referrer-Policy`` and ``Cross-Origin-Opener-Policy`` keep the browser from
+guessing the type of a response, from sending the whole URL of a page to
+other sites, and from giving a page of another site a reference to the window
+of the page.
+
+Cross-origin resource sharing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A page of another site can request the application, but the browser gives it
+the response only if the response says that its origin may read it, with the
+headers of CORS. :mod:`Pyjoyment.Plugin.CORS` adds them for the origins of its
+options, every origin by default, and answers the preflight request that a
+browser sends before a request that a page could not send without CORS, as a
+``PUT`` or a request of JSON, before the routes, so that it reaches no action.
+
+.. code-block:: python
+
+    plugin('CORS')
+
+A frontend on a site of its own, which reads an API with the cookies of the
+session of its user, names its origins, as a browser gives a page the
+response of a request with cookies only when it names the origin of the page,
+never with ``*``. With
+:mod:`Pyjoyment.Plugin.AllowedHosts`, which rejects the requests of the other
+origins, the origins are in both.
+
+.. literalinclude:: cookbook/cors.py
+    :language: python
+    :caption: myapp.py
+
+CORS protects what a page of another site may read, not what it may request,
+as a form of another site can still post to the application, which the CSRF
+protection of forms is for.
+
 .. _cookbook-deployment:
 
 Deployment
@@ -2715,8 +2807,8 @@ JSONP
 
 A page of another site reads the JSON of your application with CORS, which a
 new API should use: the header ``Access-Control-Allow-Origin`` names the
-origins that may read the response, and the recipe `Hosts and origins`_ says
-how to check them.
+origins that may read the response, which the recipe `Cross-origin resource
+sharing`_ adds to every response, and an action to its own.
 
 .. code-block:: python
 
