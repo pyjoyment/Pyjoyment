@@ -613,10 +613,16 @@ your bundler can find them. Using a directory named ``assets`` or
 ``frontend`` in your application root directory is a good best practice
 though.
 
-Static files are served with ``Last-Modified`` and ``ETag`` headers, so that
-browsers revalidate them, and with the ``Cache-Control`` header of
+Static files are served with an ``ETag`` header of their content, or of
+their modification time and size above
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.max_etag_size`, and a
+``Last-Modified`` header, so that browsers revalidate them, and with the
+``Cache-Control`` header of
 :attr:`~Pyjoyment.Static.Pyjoyment_Static.cache_control` if you set one. The
-files whose paths match
+files of a build that gives them all the same modification time, earlier than
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.min_last_modified`, as the ZIP files
+of ``generate lambda-zip`` do, have no ``Last-Modified`` header, which would
+not tell them apart. The files whose paths match
 :attr:`~Pyjoyment.Static.Pyjoyment_Static.immutable`, like the assets with a
 checksum in their names, which never change, are cached by browsers for a year
 without revalidation, except in ``development`` mode.

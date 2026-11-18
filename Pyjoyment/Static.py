@@ -45,8 +45,9 @@ import Pyjo.Date
 import Pyjo.File
 import Pyjo.Loader
 
-from Pyjo.Util import encode, md5_sum, trim
+from Pyjo.Util import encode, trim
 
+import hashlib
 import os
 import re
 import stat
@@ -176,6 +177,45 @@ class Pyjoyment_Static(Pyjo.Base.object):
             static.immutable = re.compile(r'\\.[0-9a-f]{12}\\.[^/.]+$')
         """
 
+        # Not in Mojolicious: the files that are too large to be read for their ETag
+        self.max_etag_size: int = 10485760
+        """::
+
+            max_etag_size = static.max_etag_size
+            static.max_etag_size = 10485760
+
+        Largest size of a file whose ``ETag`` is the MD5 of its content,
+        defaults to ``10485760``, 10 MiB, which takes about 10 milliseconds
+        to read once for each version of the file in each process. A larger
+        one, as a video, which would block the event loop for as long as it
+        is read, has the ``ETag`` of its modification time and size, which
+        does not tell apart a change that keeps both. ``generate dockerfile``
+        and ``generate lambda-zip`` write no precompressed variant of such a
+        file. ::
+
+            # The ETag of the content of every file
+            static.max_etag_size = 2**63
+        """
+
+        # Not in Mojolicious: the files whose mtime is not the time of their change
+        self.min_last_modified: float = 631152000
+        """::
+
+            min_last_modified = static.min_last_modified
+            static.min_last_modified = 631152000
+
+        Earliest modification time, in seconds since the epoch, that is
+        served as ``Last-Modified``, defaults to ``631152000``, 1990-01-01.
+        A file of an earlier one, as the 1980-01-01 of the files of a ZIP of
+        ``generate lambda-zip`` or the 1970-01-01 of a build with
+        ``SOURCE_DATE_EPOCH=0``, which every file of the build has, is served
+        with its ``ETag`` alone, so that ``If-Modified-Since`` does not take
+        a file of a newer build for the one that the client has. ::
+
+            # Last-Modified of every file
+            static.min_last_modified = 0
+        """
+
         self.paths: list[str] = []
         """::
 
@@ -204,6 +244,7 @@ class Pyjoyment_Static(Pyjo.Base.object):
         """
 
         self._assets: dict[str, str] | None = None
+        self._etags: dict[tuple[int, int, int, int, int], str] = {}
         self._index: dict[str, str] | None = None
 
     def asset_path(self, asset: str) -> str:
@@ -391,7 +432,11 @@ class Pyjoyment_Static(Pyjo.Base.object):
             static.serve_asset(Pyjoyment.Controller.new(), Pyjo.Asset.File.new())
 
         Serve a :mod:`Pyjo.Asset.File` or :mod:`Pyjo.Asset.Memory` object with
-        ``Range``, ``If-Modified-Since`` and ``If-None-Match`` support.
+        ``Range``, ``If-Modified-Since`` and ``If-None-Match`` support. The
+        ``ETag`` is the MD5 of the content, which a file is read for once for
+        each of its versions, up to :attr:`max_etag_size`, and
+        ``Last-Modified`` the modification time, if it is not earlier than
+        :attr:`min_last_modified`.
         """
         # Content-Type
         if asset.is_file:
@@ -403,12 +448,12 @@ class Pyjoyment_Static(Pyjo.Base.object):
         res.headers.accept_ranges = 'bytes'
         # Whole seconds, as Perl gives the time of a file, and as an HTTP date has it
         mtime = int(asset.mtime)
-        etag = md5_sum(str(mtime).encode())
-        # Not in Mojolicious: a representation with a Content-Encoding, as a precompressed variant, has an ETag of its
-        # own, as the original and its variant can have the same mtime
-        if encoding := res.headers.content_encoding:
-            etag = f'{etag}-{encoding}'
-        if self.is_fresh(c, etag=etag, last_modified=mtime):
+        # Unlike Mojolicious: the ETag of the content, where Mojolicious has the MD5 of the mtime, which every file of
+        # a build with a fixed mtime shares, and the precompressed variant with its file, and no Last-Modified of
+        # such an mtime
+        etag = self._etag(asset)
+        last_modified = mtime if mtime >= self.min_last_modified else None
+        if self.is_fresh(c, etag=etag, last_modified=last_modified):
             res.code = 304
             return res
 
@@ -477,6 +522,33 @@ class Pyjoyment_Static(Pyjo.Base.object):
 
                 if short not in assets or checksum == 'development':
                     assets[short] = long
+
+    # Not in Mojolicious: the MD5 of the content of an asset, of a file once for each of its versions
+    def _etag(self, asset: Pyjo.Asset.object) -> str:
+        if (size := asset.size) > self.max_etag_size:
+            return f'{int(asset.mtime):x}-{size:x}'
+
+        key = None
+        etags = self._etags
+        if asset.is_file:
+            st = os.fstat(cast(Pyjo.Asset.File.object, asset).handle.fileno())
+            key = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+            if (etag := etags.get(key)) is not None:
+                return etag
+
+        md5 = hashlib.md5(usedforsecurity=False)
+        offset = 0
+        while chunk := asset.get_chunk(offset):
+            md5.update(chunk)
+            offset += len(chunk)
+        etag = md5.hexdigest()
+
+        # Files of reply.file, as the uploads, which come and go, do not fill the memory
+        if key is not None:
+            if len(etags) >= 4096:
+                etags.clear()
+            etags[key] = etag
+        return etag
 
     def _get_data_file(self, rel: str) -> Pyjo.Asset.Memory.object | None:
         # Protect files without extensions and templates with two extensions

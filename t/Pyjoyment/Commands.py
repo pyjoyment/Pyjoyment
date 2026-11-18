@@ -476,7 +476,7 @@ with subtest('generate dockerfile'):
     content = app.rel_file('Dockerfile').slurp().decode()
     like_ok(
         content,
-        r'(?m)^COPY \. \.\nENV PATH=.*\nRUN find public -type f -size \+859c \\\n'
+        r'(?m)^COPY \. \.\nENV PATH=.*\nRUN find public -type f -size \+859c -size -10485761c \\\n'
         + r"    \\\( -name '\*\.css' -o -name '\*\.csv' -o .* -o -name '\*\.xml' \\\) \\\n"
         + r"    -exec sh -c 'gzip -k -f -9 -n \"\$@\" \\\n"
         + r'    && if command -v brotli >/dev/null; then brotli -k -f -q 11 "\$@"; fi \\\n'
@@ -490,7 +490,7 @@ with subtest('generate dockerfile'):
         dockerfile.run('--compress', 'public', '--compress', 'my static', '-C', '*.css', '--compress-pattern', '*.js')
     like_ok(
         app.rel_file('Dockerfile').slurp().decode(),
-        r"(?m)^RUN find public 'my static' -type f -size \+859c \\\n    \\\( -name '\*\.css' -o -name '\*\.js' \\\) \\\n",
+        r"(?m)^RUN find public 'my static' -type f -size \+859c -size -10485761c \\\n    \\\( -name '\*\.css' -o -name '\*\.js' \\\) \\\n",
         'right paths and patterns',
     )
     app.rel_file('Dockerfile').remove()
@@ -972,6 +972,8 @@ with subtest('generate lambda-zip'):
     public.child('logo.png').spew(b'\x89PNG' * 500)
     public.child('random.txt').spew(os.urandom(2000))
     public.child('nested').make_path().child('data.json').spew('[' + '1, ' * 500 + '1]')
+    public.child('large.css').spew(css * 2)
+    lambda_zip.app.static.max_etag_size = len(css) * 2 - 1
     with local(PYJO_EXE=None):
         output, calls = generate('--compress', 'public')
     encodings = re.search(r'\[compress\] public \((.*)\)', output)[1].split(', ')
@@ -984,6 +986,7 @@ with subtest('generate lambda-zip'):
     ok('public/nested/data.json.gz' in function, 'variant in a subdirectory')
     ok('public/app.css' in function, 'file')
     ok('public/small.css.gz' not in function, 'no variant of a small file')
+    ok('public/large.css' in function and 'public/large.css.gz' not in function, 'no variant of a large file')
     ok('public/logo.png.gz' not in function, 'no variant of an image')
     ok('public/random.txt.gz' not in function, 'no variant that is not smaller')
     crcs = {name: info.CRC for name, info in function.items() if name.startswith('public/')}
@@ -994,6 +997,7 @@ with subtest('generate lambda-zip'):
         crcs,
         'same variants',
     )
+    lambda_zip.app.static.max_etag_size = 10485760
     with local(PYJO_EXE=None):
         generate('-c', './public/nested', '-C', '*.png', '--compress-pattern', '*.json')
     function = entries('dist/function.zip')

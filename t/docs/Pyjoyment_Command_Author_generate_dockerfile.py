@@ -70,7 +70,7 @@ with subtest('Synopsis'):
     tmp = Pyjo.File.tempdir()
     tmp.child('pyproject.toml').spew('[project]\nname = "my_app"\n')
     content = generate(tmp, '--compress', 'public')
-    like_ok(content, r'(?m)^RUN find public -type f -size \+859c \\$', 'variants')
+    like_ok(content, r'(?m)^RUN find public -type f -size \+859c -size -10485761c \\$', 'variants')
 
     # python -m MyApp generate dockerfile --apt-package brotli --apt-package zstd --compress public
     tmp = Pyjo.File.tempdir()
