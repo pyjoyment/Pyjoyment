@@ -96,6 +96,16 @@ with subtest('immutable'):
     ok(static.immutable.search('admin/css/base.5af66c1b1797.css'), 'hashed name of Django')
     ok(not static.immutable.search('admin/css/base.css'), 'name without a hash')
 
+with subtest('max_etag_size'):
+    static = Pyjoyment.Static.new()
+    max_etag_size = static.max_etag_size
+    is_ok(max_etag_size, 10485760, 'default')
+    static.max_etag_size = 10485760
+
+    # The ETag of the content of every file
+    static.max_etag_size = 2**63
+    is_ok(static.max_etag_size, 2**63, 'every file')
+
 with subtest('min_last_modified'):
     static = Pyjoyment.Static.new()
     min_last_modified = static.min_last_modified

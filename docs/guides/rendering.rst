@@ -613,7 +613,9 @@ your bundler can find them. Using a directory named ``assets`` or
 ``frontend`` in your application root directory is a good best practice
 though.
 
-Static files are served with an ``ETag`` header of their content and a
+Static files are served with an ``ETag`` header of their content, or of
+their modification time and size above
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.max_etag_size`, and a
 ``Last-Modified`` header, so that browsers revalidate them, and with the
 ``Cache-Control`` header of
 :attr:`~Pyjoyment.Static.Pyjoyment_Static.cache_control` if you set one. The

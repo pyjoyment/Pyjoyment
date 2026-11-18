@@ -121,7 +121,9 @@ files of
 of ``generate dockerfile``, the formats of text, or the names of
 ``--compress-pattern``, and leaves out the files smaller than
 :attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.min_compress_size` of the
-renderer.
+renderer, and the ones larger than
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.max_etag_size` of
+:mod:`Pyjoyment.Static`.
 With ``--compress-encoding``, it writes the variants of those encodings only,
 as ``br`` and ``gzip`` for a function behind CloudFront, which forwards no
 other encoding of ``Accept-Encoding`` to the origin, and fails when the
@@ -391,7 +393,8 @@ class Pyjoyment_Command_Author_generate_lambda_zip(Pyjoyment.Command.object):
                             executables.add(name)
             # The variants of the static files, which Pyjoyment.Static serves
             if compress:
-                encodings = _compress(function, compress, patterns, self.app.renderer.min_compress_size, compressors)
+                sizes = (self.app.renderer.min_compress_size, self.app.static.max_etag_size)
+                encodings = _compress(function, compress, patterns, sizes, compressors)
                 self._loud(f'  [compress] {", ".join(compress)} ({", ".join(encodings)})')
             if not managed:
                 executable = f'{prefix}/bin/{interpreter}' if layer else f'"$LAMBDA_TASK_ROOT/python/bin/{interpreter}"'
@@ -468,10 +471,14 @@ _TOOLS = {
 }
 
 
-# The variants of the static files of the directories of the application, of the formats of the patterns and of at
-# least the size, with the compressors, without a variant that is not smaller than its file
+# The variants of the static files of the directories of the application, of the formats of the patterns and between
+# the sizes, with the compressors, without a variant that is not smaller than its file
 def _compress(
-    function: Pyjo.File.object, paths: list[str], patterns: list[str], size: int, compressors: list[_Compressor]
+    function: Pyjo.File.object,
+    paths: list[str],
+    patterns: list[str],
+    sizes: tuple[int, int],
+    compressors: list[_Compressor],
 ) -> list[str]:
     for path in paths:
         parts = [p for p in re.split(r'[\\/]', path) if p not in ('', '.')]
@@ -479,7 +486,9 @@ def _compress(
             raise Pyjo.Exception.new(f'Directory not found in the application: {path}')
         for file in function.child(*parts).list_tree().each():
             name = file.to_str()
-            if os.path.getsize(name) < size or not any(fnmatch.fnmatchcase(file.basename(), p) for p in patterns):
+            if not sizes[0] <= os.path.getsize(name) <= sizes[1] or not any(
+                fnmatch.fnmatchcase(file.basename(), p) for p in patterns
+            ):
                 continue
             for _, ext, compressor in compressors:
                 compressor(name)

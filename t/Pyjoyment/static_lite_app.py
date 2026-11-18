@@ -750,6 +750,14 @@ with subtest('ETag of the content'):
     )
     t.app.static.min_last_modified = 631152000
 
+    # A file larger than max_etag_size, which is not read for its ETag
+    t.app.static.max_etag_size = 3
+    t.get_ok('/a.css').status_is(200).header_is('ETag', f'"{315532800:x}-4"').content_is('a {}')
+    # A file of the size of the limit is read
+    t.get_ok('/b.js').status_is(200).header_like('ETag', r'^"[0-9a-f]{32}"$')
+    t.get_ok('/a.css', {'If-None-Match': f'"{315532800:x}-4"'}).status_is(304).content_is('')
+    t.app.static.max_etag_size = 10485760
+
     t.app.static.paths.pop(0)
 
 done_testing()

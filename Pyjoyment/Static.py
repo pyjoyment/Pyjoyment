@@ -177,6 +177,26 @@ class Pyjoyment_Static(Pyjo.Base.object):
             static.immutable = re.compile(r'\\.[0-9a-f]{12}\\.[^/.]+$')
         """
 
+        # Not in Mojolicious: the files that are too large to be read for their ETag
+        self.max_etag_size: int = 10485760
+        """::
+
+            max_etag_size = static.max_etag_size
+            static.max_etag_size = 10485760
+
+        Largest size of a file whose ``ETag`` is the MD5 of its content,
+        defaults to ``10485760``, 10 MiB, which takes about 10 milliseconds
+        to read once for each version of the file in each process. A larger
+        one, as a video, which would block the event loop for as long as it
+        is read, has the ``ETag`` of its modification time and size, which
+        does not tell apart a change that keeps both. ``generate dockerfile``
+        and ``generate lambda-zip`` write no precompressed variant of such a
+        file. ::
+
+            # The ETag of the content of every file
+            static.max_etag_size = 2**63
+        """
+
         # Not in Mojolicious: the files whose mtime is not the time of their change
         self.min_last_modified: float = 631152000
         """::
@@ -414,8 +434,9 @@ class Pyjoyment_Static(Pyjo.Base.object):
         Serve a :mod:`Pyjo.Asset.File` or :mod:`Pyjo.Asset.Memory` object with
         ``Range``, ``If-Modified-Since`` and ``If-None-Match`` support. The
         ``ETag`` is the MD5 of the content, which a file is read for once for
-        each of its versions, and ``Last-Modified`` the modification time, if
-        it is not earlier than :attr:`min_last_modified`.
+        each of its versions, up to :attr:`max_etag_size`, and
+        ``Last-Modified`` the modification time, if it is not earlier than
+        :attr:`min_last_modified`.
         """
         # Content-Type
         if asset.is_file:
@@ -504,6 +525,9 @@ class Pyjoyment_Static(Pyjo.Base.object):
 
     # Not in Mojolicious: the MD5 of the content of an asset, of a file once for each of its versions
     def _etag(self, asset: Pyjo.Asset.object) -> str:
+        if (size := asset.size) > self.max_etag_size:
+            return f'{int(asset.mtime):x}-{size:x}'
+
         key = None
         etags = self._etags
         if asset.is_file:

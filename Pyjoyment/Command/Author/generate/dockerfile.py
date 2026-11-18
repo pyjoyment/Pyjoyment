@@ -102,7 +102,9 @@ TrueType and OpenType, or the names of ``--compress-pattern``, as the formats
 of images, video, audio, the WOFF fonts, PDF and archives are compressed
 already, and leaves out the files smaller than
 :attr:`~Pyjoyment.Renderer.Pyjoyment_Renderer.min_compress_size` of the
-renderer.
+renderer, and the ones larger than
+:attr:`~Pyjoyment.Static.Pyjoyment_Static.max_etag_size` of
+:mod:`Pyjoyment.Static`.
 With ``--compress-encoding``, it writes the variants of those encodings only,
 as ``br`` and ``gzip`` for CloudFront, which forwards no other encoding of
 ``Accept-Encoding`` to the origin, and the build fails without their tools.
@@ -297,6 +299,7 @@ class Pyjoyment_Command_Author_generate_dockerfile(Pyjoyment.Command.object):
             'compress': ' '.join(shlex.quote(path) for path in compress),
             'compress_commands': ' \\\n    && '.join(commands),
             'compress_names': ' -o '.join(f'-name {shlex.quote(pattern)}' for pattern in patterns),
+            'compress_max_size': self.app.static.max_etag_size + 1,
             'compress_size': self.app.renderer.min_compress_size - 1,
             'cmd': json.dumps(cmd if target == 'lambda' else [*cmd, 'prefork']),
             'graceful_timeout': opts.graceful_timeout,
@@ -384,7 +387,7 @@ COPY --from=builder /opt/<%= name %>/.venv .venv
 COPY . .
 ENV PATH="/opt/<%= name %>/.venv/bin:$PATH"
 % if compress:
-RUN find <%= compress %> -type f -size +<%= compress_size %>c \\
+RUN find <%= compress %> -type f -size +<%= compress_size %>c -size -<%= compress_max_size %>c \\
     \( <%= compress_names %> \) \\
     -exec sh -c '<%= compress_commands %>' sh {} +
 % end
