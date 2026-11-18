@@ -189,6 +189,53 @@ with subtest('Hosts and origins'):
         t.post_ok('/mcp', {'Host': 'evil.com', 'Origin': 'http://evil.com'}).status_is(421)
         t.post_ok('/mcp', {'Origin': 'http://evil.com'}).status_is(403)
 
+with subtest('Security headers'):
+    with cookbook('security_headers') as t:
+        t.get_ok('/').status_is(200).header_is('X-Content-Type-Options', 'nosniff').header_is(
+            'Cache-Control', 'private'
+        )
+        (
+            t.header_is(
+                'Content-Security-Policy',
+                "base-uri 'self'; frame-ancestors 'self'; object-src 'none'; report-uri /csp-reports; report-to csp",
+            )
+            .header_like(
+                'Content-Security-Policy-Report-Only',
+                r"^default-src 'self' 'nonce-([^']+)'; img-src 'self' data:; frame-ancestors 'none'; "
+                r'report-uri /csp-reports; report-to csp$',
+            )
+            .header_is('Reporting-Endpoints', 'csp="/csp-reports"')
+            .header_exists_not('Strict-Transport-Security')
+        )
+        nonce = re.search(r"'nonce-([^']+)'", t.tx.res.headers.content_security_policy_report_only)[1]
+        t.element_exists(f'script[nonce="{nonce}"]').element_exists('link[href="/app.css"]:not([nonce])')
+        report = {'csp-report': {'blocked-uri': 'inline', 'effective-directive': 'script-src-elem'}}
+        with t.app.log.capture('warn') as logs:
+            t.post_ok('/csp-reports', json=report).status_is(204)
+        like_ok(str(logs), r'CSP violation of script-src-elem: inline', 'report')
+        reports = []
+        t.app.hook('csp_report', lambda c, report: reports.append(report))
+        t.post_ok('/csp-reports', json=report).status_is(204)
+        is_deeply_ok(reports, [{'blockedURL': 'inline', 'effectiveDirective': 'script-src-elem'}], 'hook')
+
+with subtest('Cross-origin resource sharing'):
+    with cookbook('cors') as t:
+        page = {'Host': 'api.example.com', 'Origin': 'https://app.example.com'}
+        (
+            t.get_ok('/api/user', page)
+            .status_is(200)
+            .header_is('Access-Control-Allow-Origin', 'https://app.example.com')
+            .header_is('Access-Control-Allow-Credentials', 'true')
+            .header_is('Vary', 'Origin')
+        )
+        preflight = {**page, 'Origin': 'http://localhost:5173', 'Access-Control-Request-Method': 'PUT'}
+        t.options_ok('/api/user', preflight).status_is(204).header_is(
+            'Access-Control-Allow-Origin', 'http://localhost:5173'
+        )
+        t.get_ok('/api/user', {**page, 'Origin': 'https://evil.com'}).status_is(403)
+        t.get_ok('/', {'Host': 'api.example.com', 'Origin': 'https://app.example.com'}).status_is(404)
+        t.header_exists_not('Access-Control-Allow-Origin')
+
 with subtest('Pre-forking'):
     with cookbook('worker') as t, t.app.log.capture('info') as logs:
         t.get_ok('/').status_is(200).content_is('Hello World!')
