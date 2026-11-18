@@ -11,6 +11,8 @@ from Pyjo.Test import *
 from Pyjoyment.Lite import app as lite
 from Pyjoyment.Lite import get, plugin
 
+import re
+
 
 lite.log.level = 'fatal'
 
@@ -129,6 +131,27 @@ with subtest('resource_policy'):
     app = application()
     app.plugin('SecurityHeaders', resource_policy='same-site')
     Pyjo.Test.Pyjo.new(app).get_ok('/').header_is('Cross-Origin-Resource-Policy', 'same-site')
+
+with subtest('csp_nonce'):
+    app = application()
+    app.plugin('SecurityHeaders', csp={'script-src': ["'self'"]})
+    app.routes.get('/nonce', lambda c: c.render(text=c.csp_nonce()))
+    template = (
+        '%= javascript(begin\n'
+        '  hljs.highlightAll();\n'
+        '%= end)\n'
+        '<script nonce="<%= csp_nonce() %>">hljs.highlightAll();</script>\n'
+        "%= javascript('/app.js', nonce=c.csp_nonce())\n"
+    )
+    app.routes.get('/page', lambda c: c.render(inline=template))
+    t = Pyjo.Test.Pyjo.new(app)
+    t.get_ok('/nonce').status_is(200)
+    nonce = t.tx.res.text
+    t.header_is('Content-Security-Policy', f"script-src 'self' 'nonce-{nonce}'").header_is('Cache-Control', 'private')
+    t.get_ok('/page').status_is(200)
+    nonces = {e.attr('nonce') for e in t.tx.res.dom('script')}
+    is_ok(len(nonces), 1, 'one nonce')
+    like_ok(t.tx.res.headers.content_security_policy, rf"'nonce-{re.escape(nonces.pop())}'$", 'nonce of the page')
 
 with subtest('security_headers'):
     app = application()

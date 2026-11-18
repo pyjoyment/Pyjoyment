@@ -131,6 +131,39 @@ Options
     the application that other sites load, as an image of a CDN, would be
     blocked.
 
+Helpers
+-------
+
+:mod:`Pyjoyment.Plugin.SecurityHeaders` implements the following helpers.
+
+``csp_nonce`` ::
+
+    nonce = c.csp_nonce()
+
+    %= javascript(begin
+      hljs.highlightAll();
+    %= end)
+    <script nonce="<%= csp_nonce() %>">hljs.highlightAll();</script>
+
+    The nonce of the response, 128 random bits, made when it is first used,
+    which the hook adds to the directives ``default-src``, ``script-src``,
+    ``script-src-elem``, ``style-src`` and ``style-src-elem`` that the
+    policies of ``csp`` and ``csp_report_only`` have, so that the scripts and
+    the styles of the response with that nonce run, and the ones that an
+    attacker would inject do not. The helpers ``javascript`` and
+    ``stylesheet`` of :mod:`Pyjoyment.Plugin.TagHelpers` give it to their
+    inline scripts and styles, as the bundled templates use them. A script of
+    a URL needs no nonce with a source as ``'self'``; with
+    ``'strict-dynamic'``, it gets one with ``javascript('/app.js',
+    nonce=c.csp_nonce())``. A nonce has no effect on the ``style``
+    attributes, which a policy of the styles blocks.
+
+    A response whose policy has the nonce gets ``Cache-Control: private``,
+    unless it has a ``Cache-Control`` already, as a shared cache, as a CDN,
+    would give the same nonce to every client, which would no longer be a
+    secret. A page that a CDN keeps is better without inline scripts and
+    styles, with a policy of their sources alone.
+
 Stash
 -----
 
@@ -157,7 +190,10 @@ Classes
 import Pyjo.Exception
 import Pyjoyment.Plugin
 
-from typing import TYPE_CHECKING, Any
+import base64
+import secrets
+
+from typing import TYPE_CHECKING, Any, cast
 
 
 if TYPE_CHECKING:
@@ -176,6 +212,8 @@ _HEADERS = {
     'referrer_policy': 'Referrer-Policy',
     'resource_policy': 'Cross-Origin-Resource-Policy',
 }
+# The directives of the scripts and the styles, and the default one of both, which the nonce goes into
+_NONCE_DIRECTIVES = ('default-src', 'script-src', 'script-src-elem', 'style-src', 'style-src-elem')
 _DEFAULTS: dict[str, Any] = {
     'content_type_options': 'nosniff',
     'csp': {'base-uri': ["'self'"], 'frame-ancestors': ["'self'"], 'object-src': ["'none'"]},
@@ -201,18 +239,23 @@ class Pyjoyment_Plugin_SecurityHeaders(Pyjoyment.Plugin.object):
             plugin.register(Pyjoyment.new())
             plugin.register(Pyjoyment.new(), {'hsts': {'max_age': 300}})
 
-        Register the hook in :mod:`Pyjoyment` application.
+        Register the hook and the helper in :mod:`Pyjoyment` application.
         """
         options = {**_DEFAULTS, **_options(conf or {})}
         headers = _headers(options)
 
         def after_dispatch(c: 'Pyjoyment.Controller.object') -> None:
             # An unknown option of the stash is logged, as the response has been rendered already
-            values = headers
-            if own := c.stash().get('security_headers'):
+            values, nonced = headers, False
+            stash = c.stash()
+            own: dict[str, Any] = stash.get('security_headers') or {}
+            if own or 'security_headers.nonce' in stash:
                 if unknown := sorted(set(own) - set(_HEADERS)):
                     c.helpers.log().error(f'Unknown option of SecurityHeaders: {unknown[0]}')
-                values = _headers({**options, **{k: v for k, v in own.items() if k in _HEADERS}})
+                current = {**options, **{k: v for k, v in own.items() if k in _HEADERS}}
+                current, nonced = _nonce(current, stash.get('security_headers.nonce'))
+                values = _headers(current)
+
             res_headers = c.res.headers
             for name, value in values.items():
                 if name == 'Strict-Transport-Security' and not _secure(c):
@@ -220,7 +263,20 @@ class Pyjoyment_Plugin_SecurityHeaders(Pyjoyment.Plugin.object):
                 if res_headers.header(name) is None:
                     res_headers.header(name, value)
 
+            # A shared cache, as a CDN, would give the nonce of the response to every client
+            if nonced and res_headers.cache_control is None:
+                res_headers.cache_control = 'private'
+
+        app.helper('csp_nonce', _csp_nonce)
         app.hook('after_dispatch', after_dispatch)
+
+
+def _csp_nonce(c: 'Pyjoyment.Controller.object') -> str:
+    # A nonce of 128 random bits for each response, made when a template or an action first needs it
+    stash = c.stash()
+    if (nonce := stash.get('security_headers.nonce')) is None:
+        nonce = stash['security_headers.nonce'] = base64.b64encode(secrets.token_bytes(16)).decode()
+    return nonce
 
 
 def _csp(policy: dict[str, list[str]]) -> str:
@@ -248,6 +304,23 @@ def _hsts(hsts: dict[str, Any]) -> str:
     if hsts.get('preload'):
         value += '; preload'
     return value
+
+
+def _nonce(options: dict[str, Any], nonce: str | None) -> tuple[dict[str, Any], bool]:
+    # The nonce in the directives of the scripts and the styles that a policy of a dict has, as a policy without them
+    # restricts neither, and whether a policy has it, for the Cache-Control of the response
+    if nonce is None:
+        return options, False
+    options = dict(options)
+    nonced = False
+    for option in ('csp', 'csp_report_only'):
+        if isinstance(policy := options[option], dict):
+            options[option] = {
+                d: [*sources, f"'nonce-{nonce}'"] if d in _NONCE_DIRECTIVES else sources
+                for d, sources in cast(dict[str, list[str]], policy).items()
+            }
+            nonced = nonced or any(d in _NONCE_DIRECTIVES for d in cast(dict[str, list[str]], policy))
+    return options, nonced
 
 
 def _options(conf: dict[str, Any]) -> dict[str, Any]:

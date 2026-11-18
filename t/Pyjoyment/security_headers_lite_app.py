@@ -12,6 +12,8 @@ from Pyjo.File import tempdir
 from Pyjo.Test import *
 from Pyjoyment.Lite import app, get, plugin
 
+import re
+
 
 # Not in Mojolicious: Pyjoyment.Plugin.SecurityHeaders, the headers that protect the pages in the browser
 
@@ -145,6 +147,84 @@ with subtest('Options of the response'):
         for name, value in HEADERS.items():
             other.header_is(name, value)
     like_ok(str(logs), r'\[error\] .*Unknown option of SecurityHeaders: cps', 'right message')
+
+INLINE = """
+%= javascript(begin
+  const a = 'b';
+%= end)
+%= stylesheet(begin
+  body {color: #000}
+%= end)
+%= javascript('/app.js')
+"""
+
+
+def nonce_of(t, header='Content-Security-Policy'):
+    # The nonce of the policy, which every inline script and style of the page has, and no style attribute
+    m = re.search(r"'nonce-([A-Za-z0-9+/=]+)'", t.tx.res.headers.header(header) or '')
+    if not ok(m, 'nonce in the policy'):
+        return None
+    dom = t.tx.res.dom()
+    inline = dom.find('script:not([src]), style')
+    ok(len(inline) > 0, 'inline scripts or styles')
+    is_deeply_ok(sorted({e.attr('nonce') for e in inline}), [m[1]], 'nonce of every inline script and style')
+    is_ok(len(dom.find('[style]')), 0, 'no style attributes')
+    return m[1]
+
+
+with subtest('Nonce'):
+    other = application({'csp': {'default-src': ["'self'"], 'script-src': ["'self'"], 'img-src': ["'self'", 'data:']}})
+    other.app.routes.get('/inline', lambda c: c.render(inline=INLINE))
+    other.app.routes.get('/cached', lambda c: c.res.headers.set(cache_control='no-store') and c.render(inline=INLINE))
+    other.app.routes.get('/dies', lambda c: c.helpers.reply.exception('Oops!'))
+    other.get_ok('/inline').status_is(200).header_is('Cache-Control', 'private')
+    nonce = nonce_of(other)
+    like_ok(
+        other.tx.res.headers.content_security_policy,
+        rf"^default-src 'self' 'nonce-{re.escape(nonce)}'; script-src 'self' 'nonce-{re.escape(nonce)}'; img-src 'self' data:$",
+        'nonce in the directives of the scripts and the styles',
+    )
+    other.element_exists('script[src="/app.js"]:not([nonce])')
+    other.get_ok('/inline')
+    isnt_ok(nonce_of(other), nonce, 'a new nonce for each response')
+    other.get_ok('/cached').status_is(200).header_is('Cache-Control', 'no-store')
+    other.get_ok('/').status_is(200).header_is(
+        'Content-Security-Policy', "default-src 'self'; script-src 'self'; img-src 'self' data:"
+    ).header_exists_not('Cache-Control')
+
+    # The bundled pages, of production and of development
+    for mode in ('production', 'development'):
+        other.app.mode = mode
+        other.get_ok('/missing').status_is(404).header_is('Cache-Control', 'private')
+        nonce_of(other)
+        other.get_ok('/dies').status_is(500).header_is('Cache-Control', 'private')
+        nonce_of(other)
+    other.app.mode = 'development'
+
+    # The policy of the report-only header gets the nonce too
+    other = application({'csp': None, 'csp_report_only': {'default-src': ["'self'"]}})
+    other.app.routes.get('/inline', lambda c: c.render(inline=INLINE))
+    other.get_ok('/inline').status_is(200).header_exists_not('Content-Security-Policy')
+    nonce_of(other, 'Content-Security-Policy-Report-Only')
+
+    # A policy without the directives of the scripts and the styles restricts neither
+    other = application()
+    other.app.routes.get('/inline', lambda c: c.render(inline=INLINE))
+    (
+        other.get_ok('/inline')
+        .status_is(200)
+        .header_is('Content-Security-Policy', HEADERS['Content-Security-Policy'])
+        .header_exists_not('Cache-Control')
+        .element_exists('script[nonce]')
+    )
+
+    # Without the plugin, no nonce
+    plain = Pyjoyment.new()
+    plain.log.level = 'fatal'
+    plain.routes.get('/inline', lambda c: c.render(inline=INLINE))
+    Pyjo.Test.Pyjo.new(plain).get_ok('/inline').status_is(200).element_exists('script:not([nonce])').element_exists_not(
+        '[nonce]'
+    )
 
 with subtest('Unknown option'):
     throws_ok(
