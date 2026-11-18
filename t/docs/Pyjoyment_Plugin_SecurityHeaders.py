@@ -110,6 +110,12 @@ with subtest('hsts'):
     t = Pyjo.Test.Pyjo.new(app)
     t.get_ok('/', HTTPS).header_is('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
 
+with subtest('max_report_size'):
+    app = application()
+    app.plugin('SecurityHeaders', reports='/csp-reports', max_report_size=16384)
+    t = Pyjo.Test.Pyjo.new(app)
+    t.post_ok('/csp-reports', json={'csp-report': {'blocked-uri': 'x' * 20000}}).status_is(413)
+
 with subtest('opener_policy'):
     app = application()
     app.plugin('SecurityHeaders', opener_policy='same-origin-allow-popups')
@@ -126,6 +132,18 @@ with subtest('referrer_policy'):
     app = application()
     app.plugin('SecurityHeaders', referrer_policy='no-referrer')
     Pyjo.Test.Pyjo.new(app).get_ok('/').header_is('Referrer-Policy', 'no-referrer')
+
+with subtest('reports'):
+    app = application()
+    app.plugin('SecurityHeaders', reports='/csp-reports', csp_report_only={'default-src': ["'self'"]})
+    t = Pyjo.Test.Pyjo.new(app)
+    (
+        t.get_ok('/')
+        .header_is('Content-Security-Policy-Report-Only', "default-src 'self'; report-uri /csp-reports; report-to csp")
+        .header_is('Reporting-Endpoints', 'csp="/csp-reports"')
+    )
+    report = {'csp-report': {'blocked-uri': 'inline', 'effective-directive': 'script-src-elem'}}
+    t.post_ok('/csp-reports', {'Content-Type': 'application/csp-report'}, json=report).status_is(204)
 
 with subtest('resource_policy'):
     app = application()
@@ -152,6 +170,20 @@ with subtest('csp_nonce'):
     nonces = {e.attr('nonce') for e in t.tx.res.dom('script')}
     is_ok(len(nonces), 1, 'one nonce')
     like_ok(t.tx.res.headers.content_security_policy, rf"'nonce-{re.escape(nonces.pop())}'$", 'nonce of the page')
+
+with subtest('csp_report'):
+    app = application()
+    app.plugin('SecurityHeaders', reports='/csp-reports')
+
+    @app.hook('csp_report')
+    def csp_report(c, report):
+        c.app.log.info(f'{report["effectiveDirective"]} blocked {report["blockedURL"]}')
+
+    t = Pyjo.Test.Pyjo.new(app)
+    report = {'csp-report': {'blocked-uri': 'inline', 'effective-directive': 'script-src-elem'}}
+    with app.log.capture('info') as logs:
+        t.post_ok('/csp-reports', json=report).status_is(204)
+    like_ok(str(logs), r'\[info\] .*script-src-elem blocked inline', 'hook')
 
 with subtest('security_headers'):
     app = application()
