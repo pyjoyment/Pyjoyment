@@ -97,6 +97,33 @@ with subtest('Common headers'):
     is_ok(headers.set(vary='foo').vary, 'foo', 'right value')
     is_ok(headers.set(www_authenticate='foo').www_authenticate, 'foo', 'right value')
 
+    # Not in Mojolicious: the headers of security and of CORS
+    for attr in (
+        'access_control_allow_credentials',
+        'access_control_allow_headers',
+        'access_control_allow_methods',
+        'access_control_expose_headers',
+        'access_control_max_age',
+        'access_control_request_headers',
+        'access_control_request_method',
+        'content_security_policy_report_only',
+        'cross_origin_embedder_policy',
+        'cross_origin_opener_policy',
+        'cross_origin_resource_policy',
+        'permissions_policy',
+        'referrer_policy',
+        'reporting_endpoints',
+        'x_content_type_options',
+    ):
+        is_ok(getattr(headers.set(**{attr: 'foo'}), attr), 'foo', f'right value of {attr}')
+    names = Pyjo.Headers.new().add('permissions-policy', 'foo').add('x-content-type-options', 'nosniff').names()
+    is_deeply_ok(names, ['Permissions-Policy', 'X-Content-Type-Options'], 'normal case')
+    is_ok(
+        Pyjo.Headers.new().set(content_security_policy_report_only='foo').to_str(),
+        'Content-Security-Policy-Report-Only: foo',
+        'right header',
+    )
+
     is_ok(headers.set(referrer='foo').referrer, 'foo', 'right value')
     is_ok(headers.referer, 'foo', 'right value')
     is_ok(headers.set(referer='bar').referer, 'bar', 'right value')
