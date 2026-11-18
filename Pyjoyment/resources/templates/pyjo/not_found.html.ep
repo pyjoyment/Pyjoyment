@@ -1,11 +1,13 @@
 %# Renamed from Mojolicious: the image of the unicat is pyjo/nounicat.png, where Mojo has mojo/noraptor.png, and its
 %# element is #nounicat, where Mojo has #noraptor
+%# Unlike Mojolicious: the inline styles and scripts are of the tag helpers, which give them the nonce of a
+%# Content-Security-Policy
 <!DOCTYPE html>
 <!-- Request ID: <%= c.req.request_id %> -->
 <html>
   <head>
     <title>Page Not Found</title>
-    <style>
+    %= stylesheet(begin
       a img {
         border: 0;
       }
@@ -27,7 +29,7 @@
         top: 50%;
         width: 306px;
       }
-    </style>
+    %= end)
     %= favicon()
   </head>
   <body>

@@ -1,11 +1,13 @@
 %# Renamed from Mojolicious: the image of the unicat is pyjo/failunicat.png, where Mojo has mojo/failraptor.png, and
 %# its element is #unicat, where Mojo has #raptor
+%# Unlike Mojolicious: the inline styles and scripts are of the tag helpers, which give them the nonce of a
+%# Content-Security-Policy
 <!DOCTYPE html>
 <!-- Request ID: <%= c.req.request_id %> -->
 <html>
   <head>
     <title>Server Error</title>
-    <style>
+    %= stylesheet(begin
       body {
         background-color: #caecf6;
       }
@@ -19,7 +21,7 @@
         top: 50%;
         width: 743px;
       }
-    </style>
+    %= end)
     %= favicon()
   </head>
   <body><div id="unicat"></div></body>

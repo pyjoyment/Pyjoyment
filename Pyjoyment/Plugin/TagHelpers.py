@@ -281,7 +281,9 @@ javascript ::
       const a = 'b';
     %= end)
 
-Generate portable ``script`` tag for JavaScript asset. ::
+Generate portable ``script`` tag for JavaScript asset. An inline script
+gets the nonce of the helper ``csp_nonce``, if the application has one, as
+:mod:`Pyjoyment.Plugin.SecurityHeaders` gives it. ::
 
     <script src="/path/to/script.js"></script>
     <script defer src="/path/to/script.js"></script>
@@ -472,7 +474,9 @@ stylesheet ::
       body {color: #000}
     %= end)
 
-Generate portable ``style`` or ``link`` tag for CSS asset. ::
+Generate portable ``style`` or ``link`` tag for CSS asset. An inline style
+gets the nonce of the helper ``csp_nonce``, if the application has one, as
+:mod:`Pyjoyment.Plugin.SecurityHeaders` gives it. ::
 
     <link href="/path/to/foo.css" rel="stylesheet">
     <link href="/path/to/foo.css" rel="stylesheet" title="Foo style">
@@ -800,7 +804,8 @@ def _input(c: 'Controller', name: str, /, *args: Any, **attrs: Any) -> Pyjo.Stri
 def _javascript(c: 'Controller', /, *args: Any, **attrs: Any) -> Pyjo.String.HTML.object:
     rest = list(args)
     content = f'//<![CDATA[\n{rest.pop()()}\n//]]>' if rest and callable(rest[-1]) else ''
-    src = {'src': _file_url(c, rest[0])} if rest else {}
+    # Not in Mojolicious: the nonce of an inline script, for a Content-Security-Policy
+    src = {'src': _file_url(c, rest[0])} if rest else _nonce(c)
     return _tag('script', lambda: content, **{**src, **attrs})
 
 
@@ -823,6 +828,15 @@ def _link_to(c: 'Controller', content: Any, /, *args: Any, **attrs: Any) -> Pyjo
         url.append(rest.pop(0))
 
     return _tag('a', content, **{'href': c.url_for(*url), **attrs})
+
+
+# Not in Mojolicious: the nonce of the inline script or style, of a helper csp_nonce, as the one of
+# Pyjoyment.Plugin.SecurityHeaders, for a Content-Security-Policy
+def _nonce(c: 'Controller') -> dict[str, Any]:
+    if c.app.renderer.get_helper('csp_nonce') is None:
+        return {}
+    helpers: Any = c.helpers
+    return {'nonce': helpers.csp_nonce()}
 
 
 # Unlike Mojolicious: the attributes of an option or a group are a dict after its value, where Mojo takes a flat list of
@@ -864,7 +878,8 @@ def _stylesheet(c: 'Controller', /, *args: Any, **attrs: Any) -> Pyjo.String.HTM
     rest = list(args)
     content = f'/*<![CDATA[*/\n{rest.pop()()}\n/*]]>*/' if rest and callable(rest[-1]) else ''
     if not rest:
-        return _tag('style', lambda: content, **attrs)
+        # Not in Mojolicious: the nonce of an inline style, for a Content-Security-Policy
+        return _tag('style', lambda: content, **{**_nonce(c), **attrs})
     return _tag('link', **{'rel': 'stylesheet', 'href': _file_url(c, rest[0]), **attrs})
 
 
