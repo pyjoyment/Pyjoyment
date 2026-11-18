@@ -565,7 +565,7 @@ with subtest('Precompressed variants'):
         .content_is('br variant')
     )
     etag = t.tx.res.headers.etag
-    like_ok(etag, r'^"[0-9a-f]{32}-br"$', 'ETag of the variant')
+    like_ok(etag, r'^"[0-9a-f]{32}"$', 'ETag of the variant')
     (
         t.get_ok('/compressed.txt', {'Accept-Encoding': 'gzip'})
         .status_is(200)
@@ -719,5 +719,37 @@ with subtest('Cache-Control'):
     t.get_ok('/no_store.txt').status_is(200).header_is('Cache-Control', 'no-store')
 
     t.app.static.cache_control = None
+
+# Unlike Mojolicious: the ETag of the content, and no Last-Modified of an mtime of a build, as the 1980-01-01 of the
+# files of a ZIP of generate lambda-zip
+with subtest('ETag of the content'):
+    dir = tempdir()
+    for name, content in (('a.css', 'a {}'), ('b.js', 'b()')):
+        file = dir.child(name).spew(content)
+        os.utime(file.to_str(), (315532800, 315532800))
+    t.app.static.paths.insert(0, dir.to_str())
+
+    t.get_ok('/a.css').status_is(200).header_exists_not('Last-Modified').content_is('a {}')
+    etag = t.tx.res.headers.etag
+    is_ok(etag, '"3d1a83e550d58944e1302c48126c0872"', 'MD5 of the content')
+    t.get_ok('/b.js').status_is(200).header_isnt('ETag', etag).header_exists_not('Last-Modified')
+    t.get_ok('/b.js', {'If-None-Match': etag}).status_is(200).content_is('b()')
+    t.get_ok('/b.js', {'If-Modified-Since': 'Tue, 01 Jan 1980 00:00:00 GMT'}).status_is(200).content_is('b()')
+    t.get_ok('/a.css', {'If-None-Match': etag}).status_is(304).content_is('')
+
+    # The same file of the next build, of the same size and mtime
+    old = t.get_ok('/b.js').tx.res.headers.etag
+    file = dir.child('b.js.new').spew('c()')
+    os.utime(file.to_str(), (315532800, 315532800))
+    os.replace(file.to_str(), dir.child('b.js').to_str())
+    t.get_ok('/b.js', {'If-None-Match': old}).status_is(200).header_isnt('ETag', old).content_is('c()')
+
+    t.app.static.min_last_modified = 0
+    t.get_ok('/a.css').status_is(200).header_is('Last-Modified', 'Tue, 01 Jan 1980 00:00:00 GMT').header_is(
+        'ETag', etag
+    )
+    t.app.static.min_last_modified = 631152000
+
+    t.app.static.paths.pop(0)
 
 done_testing()

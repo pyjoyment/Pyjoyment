@@ -96,6 +96,16 @@ with subtest('immutable'):
     ok(static.immutable.search('admin/css/base.5af66c1b1797.css'), 'hashed name of Django')
     ok(not static.immutable.search('admin/css/base.css'), 'name without a hash')
 
+with subtest('min_last_modified'):
+    static = Pyjoyment.Static.new()
+    min_last_modified = static.min_last_modified
+    is_ok(min_last_modified, 631152000, 'default')
+    static.min_last_modified = 631152000
+
+    # Last-Modified of every file
+    static.min_last_modified = 0
+    is_ok(static.min_last_modified, 0, 'every file')
+
 with subtest('paths'):
     static = Pyjoyment.Static.new()
     paths = static.paths
