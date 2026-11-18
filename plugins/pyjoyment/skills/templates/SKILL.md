@@ -1,6 +1,6 @@
 ---
 name: templates
-description: Write the templates of a Pyjoyment application. Use for ep templates of Embedded Python (tags, lines, blocks with end, escaping, the values of the stash as variables), layouts, partial templates, content blocks, helpers and tag helpers in templates, forms with CSRF protection and validation, templates of __DATA__ and templates/, and the template strings of PyRenderer.
+description: Write the templates of a Pyjoyment application. Use for ep templates of Embedded Python (tags, lines, blocks with end, escaping, the values of the stash as variables), layouts, partial templates, content blocks, helpers and tag helpers in templates, forms with CSRF protection and validation, the nonce of a Content-Security-Policy for inline scripts and styles, templates of __DATA__ and templates/, and the template strings of PyRenderer.
 ---
 
 # Templates
@@ -132,6 +132,12 @@ app.start()
   HTML that renders values from outside without the renderer `ep` takes
   `Pyjo.Template.new(auto_escape=True)`, or it is a hole for cross-site
   scripting.
+- An inline script or style goes through `%= javascript(begin` or
+  `%= stylesheet(begin` ... `%= end)`, which give it the nonce of the
+  Content-Security-Policy of `plugin('SecurityHeaders')`, or has
+  `nonce="<%= csp_nonce() %>"`; a policy with a nonce blocks the attributes
+  `style` and `onclick`, so their styles and handlers go into the stylesheet
+  and the script.
 
 ## Template strings
 
@@ -185,3 +191,4 @@ app.start()
 - Tag helpers: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_TagHelpers.html
 - Default helpers: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_DefaultHelpers.html
 - PyRenderer: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_PyRenderer.html
+- Pyjoyment.Plugin.SecurityHeaders: https://pyjoyment.readthedocs.io/en/stable/api/Pyjoyment_Plugin_SecurityHeaders.html

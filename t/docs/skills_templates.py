@@ -1,10 +1,12 @@
 import Pyjo.File
 import Pyjo.Test.Pyjo
+import Pyjoyment
 
 from Pyjo.Test import *
 
 import importlib
 import os
+import re
 import sys
 
 
@@ -43,5 +45,23 @@ with subtest('Template strings'):
     t = load(1)
     t.get_ok('/hello/Joe').status_is(200).text_is('p', 'Hello Joe! ').text_is('p a[href="/"]', 'Home')
     t.get_ok('/hello/%3Cb%3E').status_is(200).content_is('<p>Hello &lt;b&gt;! <a href="/">Home</a></p>')
+
+with subtest('Nonce'):
+    # The forms of the inline scripts and styles of the skill, with the Content-Security-Policy of SecurityHeaders
+    app = Pyjoyment.new()
+    app.log.level = 'fatal'
+    app.plugin('SecurityHeaders', csp={'script-src': ["'self'"], 'style-src': ["'self'"]})
+    template = (
+        '%= javascript(begin\n  hello();\n%= end)\n'
+        '%= stylesheet(begin\n  p {color: red}\n%= end)\n'
+        '<script nonce="<%= csp_nonce() %>">world();</script>\n'
+    )
+    app.routes.get('/', lambda c: c.render(inline=template))
+    t = Pyjo.Test.Pyjo.new(app)
+    t.get_ok('/').status_is(200)
+    nonce = t.tx.res.dom().at('script').attr('nonce')
+    ok(nonce, 'nonce')
+    is_ok(len(t.tx.res.dom(f'script[nonce="{nonce}"], style[nonce="{nonce}"]')), 3, 'every inline script and style')
+    t.header_like('Content-Security-Policy', rf"script-src 'self' 'nonce-{re.escape(nonce)}'")
 
 done_testing()

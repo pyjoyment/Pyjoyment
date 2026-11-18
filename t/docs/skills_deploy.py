@@ -2,6 +2,7 @@ import Pyjo.File
 import Pyjo.IOLoop
 import Pyjo.Log
 import Pyjo.Test.Pyjo
+import Pyjoyment.Plugin.SecurityHeaders
 
 from Pyjo.Test import *
 
@@ -40,6 +41,28 @@ with subtest('Probes'):
     t.get_ok('/livez').status_is(200).content_is('ok')
     t.get_ok('/healthz').status_is(200)
     t.get_ok('/readyz').status_is(200).content_is('ok')
+
+with subtest('Security headers'):
+    t = Pyjo.Test.Pyjo.new(app)
+    t.app.log.level = 'fatal'
+    (
+        t.get_ok('/')
+        .status_is(200)
+        .header_is('X-Content-Type-Options', 'nosniff')
+        .header_like('Content-Security-Policy', r"^base-uri 'self'; frame-ancestors 'self'; object-src 'none'; ")
+        .header_is('Content-Security-Policy-Report-Only', "default-src 'self'; report-uri /csp-reports; report-to csp")
+        .header_is('Reporting-Endpoints', 'csp="/csp-reports"')
+        .header_is('Permissions-Policy', 'camera=(), geolocation=(), microphone=()')
+        .header_exists_not('Strict-Transport-Security')
+    )
+    t.post_ok('/csp-reports', json={'csp-report': {'blocked-uri': 'inline'}}).status_is(204)
+    skill = Skills.read('deploy')
+    section = re.search(r'^## Security headers\n(.*?)^## ', skill, re.M | re.S)[1]
+    # The options that the section names are the ones of the plugin, and the value of the stash of a route
+    known = {*Pyjoyment.Plugin.SecurityHeaders._HEADERS, 'max_report_size', 'reports', 'security_headers'}
+    for option in re.findall(r'`(\w+)=', section):
+        ok(option in known, f'option {option}')
+    t.get_ok('/livez').status_is(200).header_is('Referrer-Policy', 'strict-origin-when-cross-origin')
 
 with subtest('Generators'):
     for generator in (['pyproject'], ['dockerfile', '-p', '8080'], ['kubernetes', '-i', 'myapp']):
