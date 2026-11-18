@@ -60,6 +60,10 @@ examples.
 :mod:`Pyjoyment.Plugin.PyRenderer`
     Renderer for template strings, loaded automatically.
 
+:mod:`Pyjoyment.Plugin.SecurityHeaders`
+    Headers that protect the pages in the browser, as HSTS, CSP and
+    Permissions-Policy.
+
 :mod:`Pyjoyment.Plugin.TagHelpers`
     Template specific helper collection, loaded automatically.
 

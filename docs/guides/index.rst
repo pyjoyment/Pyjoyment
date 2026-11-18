@@ -386,6 +386,7 @@ This is the class hierarchy of the :mod:`Pyjoyment` distribution.
     - :mod:`Pyjoyment.Plugin.HeaderCondition`
     - :mod:`Pyjoyment.Plugin.Mount`
     - :mod:`Pyjoyment.Plugin.PyRenderer`
+    - :mod:`Pyjoyment.Plugin.SecurityHeaders`
     - :mod:`Pyjoyment.Plugin.TagHelpers`
 
   - :mod:`Pyjoyment.Renderer`

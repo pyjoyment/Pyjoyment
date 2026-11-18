@@ -405,6 +405,7 @@ strict = [
   "Pyjoyment/Plugin/JSONConfig.py",
   "Pyjoyment/Plugin/Mount.py",
   "Pyjoyment/Plugin/PyRenderer.py",
+  "Pyjoyment/Plugin/SecurityHeaders.py",
   "Pyjoyment/Plugin/TagHelpers.py",
   "Pyjoyment/Plugin/TOMLConfig.py",
   "Pyjoyment/Plugin/YAMLConfig.py",
