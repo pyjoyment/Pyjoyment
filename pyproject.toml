@@ -395,6 +395,7 @@ strict = [
   "Pyjoyment/Plugin/__init__.py",
   "Pyjoyment/Plugin/AccessLog.py",
   "Pyjoyment/Plugin/AllowedHosts.py",
+  "Pyjoyment/Plugin/CORS.py",
   "Pyjoyment/Plugin/Config.py",
   "Pyjoyment/Plugin/DefaultHelpers.py",
   "Pyjoyment/Plugin/EPLRenderer.py",

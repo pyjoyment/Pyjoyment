@@ -29,6 +29,9 @@ examples.
 :mod:`Pyjoyment.Plugin.AllowedHosts`
     Validation of ``Host`` and ``Origin`` against DNS rebinding.
 
+:mod:`Pyjoyment.Plugin.CORS`
+    Cross-Origin Resource Sharing, for the pages of other sites.
+
 :mod:`Pyjoyment.Plugin.Config`
     Python-ish configuration files.
 
