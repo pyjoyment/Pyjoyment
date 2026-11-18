@@ -97,6 +97,14 @@ Options
     ``include_subdomains`` and ``preload`` come once every subdomain has
     HTTPS.
 
+``max_report_size`` ::
+
+    app.plugin('SecurityHeaders', reports='/csp-reports', max_report_size=16384)
+
+    Largest body of a request to the route of ``reports``, in bytes, defaults
+    to ``65536``, 64 KiB. A larger one gets ``413 Request Entity Too
+    Large``.
+
 ``opener_policy`` ::
 
     app.plugin('SecurityHeaders', opener_policy='same-origin-allow-popups')
@@ -123,6 +131,25 @@ Options
     origin alone for the requests to other sites, and nothing for a request
     from HTTPS to HTTP.
 
+``reports`` ::
+
+    app.plugin('SecurityHeaders', reports='/csp-reports', csp_report_only={'default-src': ["'self'"]})
+
+    The path of a route, named ``csp_reports``, that takes the reports of
+    the violations of the policies, defaults to ``None``. The policies of
+    ``csp`` and ``csp_report_only`` of a dict without ``report-uri`` or
+    ``report-to`` get both, ``report-uri`` for the browsers without the
+    Reporting API, and the responses ``Reporting-Endpoints``, as
+    ``csp="/csp-reports"``, which a browser takes from a page of HTTPS only,
+    with the prefix of an application that is mounted. The route takes the
+    reports of both, as ``application/csp-report`` and
+    ``application/reports+json``, logs each violation with ``warn``, emits
+    the hook ``csp_report``, and answers ``204 No Content``.
+
+    The route is public and takes the reports of any client, so a report is
+    what a client says, not what a browser has seen: its values are cut in
+    the log, and an application that stores the reports limits how many.
+
 ``resource_policy`` ::
 
     app.plugin('SecurityHeaders', resource_policy='same-site')
@@ -130,6 +157,23 @@ Options
     ``Cross-Origin-Resource-Policy``, defaults to ``None``, as a resource of
     the application that other sites load, as an image of a CDN, would be
     blocked.
+
+Hooks
+-----
+
+:mod:`Pyjoyment.Plugin.SecurityHeaders` emits the following hooks.
+
+``csp_report`` ::
+
+    @app.hook('csp_report')
+    def csp_report(c, report):
+        c.app.log.info(f'{report["effectiveDirective"]} blocked {report["blockedURL"]}')
+
+    Emitted for each violation of a request to the route of ``reports``,
+    with the controller and the violation, as the body of a report of the
+    Reporting API has it, with ``documentURL``, ``blockedURL``,
+    ``effectiveDirective``, ``disposition`` and the others, also for a
+    report of ``report-uri``, whose fields it renames.
 
 Helpers
 -------
@@ -191,6 +235,7 @@ import Pyjo.Exception
 import Pyjoyment.Plugin
 
 import base64
+import re
 import secrets
 
 from typing import TYPE_CHECKING, Any, cast
@@ -241,7 +286,10 @@ class Pyjoyment_Plugin_SecurityHeaders(Pyjoyment.Plugin.object):
 
         Register the hook and the helper in :mod:`Pyjoyment` application.
         """
-        options = {**_DEFAULTS, **_options(conf or {})}
+        conf = _options(conf or {})
+        path: str | None = conf.pop('reports', None)
+        max_size: int = conf.pop('max_report_size', 65536)
+        options = {**_DEFAULTS, **conf}
         headers = _headers(options)
 
         def after_dispatch(c: 'Pyjoyment.Controller.object') -> None:
@@ -249,12 +297,14 @@ class Pyjoyment_Plugin_SecurityHeaders(Pyjoyment.Plugin.object):
             values, nonced = headers, False
             stash = c.stash()
             own: dict[str, Any] = stash.get('security_headers') or {}
-            if own or 'security_headers.nonce' in stash:
+            if own or 'security_headers.nonce' in stash or path is not None:
                 if unknown := sorted(set(own) - set(_HEADERS)):
                     c.helpers.log().error(f'Unknown option of SecurityHeaders: {unknown[0]}')
-                current = {**options, **{k: v for k, v in own.items() if k in _HEADERS}}
+                # The endpoint of the reports with the prefix of an application that is mounted
+                url = str(c.url_for('csp_reports')) if path is not None else None
+                current = _reports({**options, **{k: v for k, v in own.items() if k in _HEADERS}}, url)
                 current, nonced = _nonce(current, stash.get('security_headers.nonce'))
-                values = _headers(current)
+                values = _headers(current, url)
 
             res_headers = c.res.headers
             for name, value in values.items():
@@ -270,6 +320,25 @@ class Pyjoyment_Plugin_SecurityHeaders(Pyjoyment.Plugin.object):
         app.helper('csp_nonce', _csp_nonce)
         app.hook('after_dispatch', after_dispatch)
 
+        # The reports of the violations of the policies, of report-uri and of report-to
+        if path is not None:
+
+            def csp_reports(c: 'Pyjoyment.Controller.object') -> None:
+                req = c.req
+                if req.body_size > max_size:
+                    c.render(text='Report too large', status=413)
+                    return
+                if (reports := _violations(req.json())) is None:
+                    c.render(text='Invalid report', status=400)
+                    return
+                log = c.helpers.log()
+                for report in reports:
+                    log.warn(_summary(report))
+                    app.plugins.emit_hook('csp_report', c, report)
+                c.rendered(204)
+
+            app.routes.post(path, csp_reports, 'csp_reports')
+
 
 def _csp_nonce(c: 'Pyjoyment.Controller.object') -> str:
     # A nonce of 128 random bits for each response, made when a template or an action first needs it
@@ -283,9 +352,9 @@ def _csp(policy: dict[str, list[str]]) -> str:
     return '; '.join(' '.join([directive, *sources]) for directive, sources in policy.items())
 
 
-def _headers(options: dict[str, Any]) -> dict[str, str]:
-    # The values of the headers of the options, without the ones that are left out
-    headers: dict[str, str] = {}
+def _headers(options: dict[str, Any], reports: str | None = None) -> dict[str, str]:
+    # The values of the headers of the options, without the ones that are left out, and the endpoint of the reports
+    headers: dict[str, str] = {'Reporting-Endpoints': f'csp="{reports}"'} if reports is not None else {}
     for option, name in _HEADERS.items():
         if (value := options[option]) is None or value is False:
             continue
@@ -324,9 +393,9 @@ def _nonce(options: dict[str, Any], nonce: str | None) -> tuple[dict[str, Any], 
 
 
 def _options(conf: dict[str, Any]) -> dict[str, Any]:
-    if unknown := sorted(set(conf) - set(_HEADERS)):
+    if unknown := sorted(set(conf) - set(_HEADERS) - {'max_report_size', 'reports'}):
         raise Pyjo.Exception.new(f'Unknown option of SecurityHeaders: {unknown[0]}')
-    return conf
+    return dict(conf)
 
 
 def _permissions(policy: dict[str, list[str] | str]) -> str:
@@ -341,6 +410,68 @@ def _permissions(policy: dict[str, list[str] | str]) -> str:
         tokens = [o.strip("'") if o.strip("'") in ('self', 'src') else f'"{o}"' for o in origins]
         features.append(f'{feature}=({" ".join(tokens)})')
     return ', '.join(features)
+
+
+def _reports(options: dict[str, Any], path: str | None) -> dict[str, Any]:
+    # The endpoint of the reports in the policies of a dict that name none, with report-uri for the browsers that do
+    # not have report-to
+    if path is None:
+        return options
+    options = dict(options)
+    for option in ('csp', 'csp_report_only'):
+        if not isinstance(policy := options[option], dict):
+            continue
+        directives = cast(dict[str, list[str]], policy)
+        if not {'report-uri', 'report-to'} & set(directives):
+            options[option] = {**directives, 'report-uri': [path], 'report-to': ['csp']}
+    return options
+
+
+# The fields of a report of report-uri, as the body of a report of report-to names them
+_FIELDS = {
+    'blocked-uri': 'blockedURL',
+    'column-number': 'columnNumber',
+    'disposition': 'disposition',
+    'document-uri': 'documentURL',
+    'effective-directive': 'effectiveDirective',
+    'line-number': 'lineNumber',
+    'original-policy': 'originalPolicy',
+    'referrer': 'referrer',
+    'script-sample': 'sample',
+    'source-file': 'sourceFile',
+    'status-code': 'statusCode',
+}
+
+
+def _summary(report: dict[str, Any]) -> str:
+    # One line of the log, without the control characters and the length that a client could forge it with
+    def field(name: str) -> str:
+        return re.sub(r'[\x00-\x1f\x7f]', '?', str(report.get(name) or '-'))[:200]
+
+    disposition = ' (report only)' if report.get('disposition') == 'report' else ''
+    return (
+        f'CSP violation of {field("effectiveDirective")}: {field("blockedURL")} in {field("documentURL")}{disposition}'
+    )
+
+
+def _violations(data: Any) -> list[dict[str, Any]] | None:
+    # The violations of a report of report-to, a list of reports of the Reporting API, or of report-uri, an object of
+    # csp-report, as the bodies of the former
+    if isinstance(data, list):
+        reports = cast(list[Any], data)
+        if not all(isinstance(r, dict) for r in reports):
+            return None
+        return [
+            cast(dict[str, Any], r['body'])
+            for r in cast(list[dict[str, Any]], reports)
+            if r.get('type') == 'csp-violation' and isinstance(r.get('body'), dict)
+        ]
+    if isinstance(data, dict) and isinstance(report := cast(dict[str, Any], data).get('csp-report'), dict):
+        legacy = cast(dict[str, Any], report)
+        violation = {_FIELDS[k]: v for k, v in legacy.items() if k in _FIELDS}
+        violation.setdefault('effectiveDirective', legacy.get('violated-directive'))
+        return [violation]
+    return None
 
 
 def _secure(c: 'Pyjoyment.Controller.object') -> bool:
