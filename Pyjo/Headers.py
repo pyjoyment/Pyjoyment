@@ -87,7 +87,13 @@ NAMES = {
         'If-Modified-Since If-None-Match Last-Modified Link Location Origin Proxy-Authenticate Proxy-Authorization '
         'Range Sec-WebSocket-Accept Sec-WebSocket-Extensions Sec-WebSocket-Key Sec-WebSocket-Protocol '
         'Sec-WebSocket-Version Server Server-Timing Set-Cookie Status Strict-Transport-Security TE Trailer '
-        'Transfer-Encoding Upgrade User-Agent Vary WWW-Authenticate'
+        'Transfer-Encoding Upgrade User-Agent Vary WWW-Authenticate '
+        # Not in Mojolicious: the headers of security and of CORS
+        'Access-Control-Allow-Credentials Access-Control-Allow-Headers Access-Control-Allow-Methods '
+        'Access-Control-Expose-Headers Access-Control-Max-Age Access-Control-Request-Headers '
+        'Access-Control-Request-Method Content-Security-Policy-Report-Only Cross-Origin-Embedder-Policy '
+        'Cross-Origin-Opener-Policy Cross-Origin-Resource-Policy Permissions-Policy Referrer-Policy '
+        'Reporting-Endpoints X-Content-Type-Options'
     ).split()
 }
 
@@ -105,6 +111,10 @@ HOP_BY_HOP = [
         'Upgrade',
     )
 ]
+
+
+# Not in Mojolicious: the specification of the shortcuts of the headers of CORS
+_CORS = ' from the `CORS protocol <https://fetch.spec.whatwg.org/#http-cors-protocol>`_ of Fetch'
 
 
 class _Shortcut:
@@ -288,11 +298,20 @@ class Pyjo_Headers(Pyjo.Base.object, Pyjo.String.Mixin.object):
     accept_encoding = _Shortcut('Accept-Encoding', "'gzip'")
     accept_language = _Shortcut('Accept-Language', "'de, en'")
     accept_ranges = _Shortcut('Accept-Ranges', "'bytes'")
+    # Not in Mojolicious: the headers of CORS other than Access-Control-Allow-Origin
+    access_control_allow_credentials = _Shortcut('Access-Control-Allow-Credentials', "'true'", _CORS)
+    access_control_allow_headers = _Shortcut('Access-Control-Allow-Headers', "'Content-Type, Authorization'", _CORS)
+    access_control_allow_methods = _Shortcut('Access-Control-Allow-Methods', "'GET, POST'", _CORS)
     access_control_allow_origin = _Shortcut(
         'Access-Control-Allow-Origin',
         "'*'",
         ' from `Cross-Origin Resource Sharing <https://www.w3.org/TR/cors/>`_',
     )
+    # Not in Mojolicious: the headers of CORS other than Access-Control-Allow-Origin
+    access_control_expose_headers = _Shortcut('Access-Control-Expose-Headers', "'Server-Timing'", _CORS)
+    access_control_max_age = _Shortcut('Access-Control-Max-Age', '86400', _CORS)
+    access_control_request_headers = _Shortcut('Access-Control-Request-Headers', "'content-type'", _CORS)
+    access_control_request_method = _Shortcut('Access-Control-Request-Method', "'PUT'", _CORS)
 
     def add(self, name: str, *values: Anything) -> Self:
         """::
@@ -369,8 +388,31 @@ class Pyjo_Headers(Pyjo.Base.object, Pyjo.String.Mixin.object):
         "'default-src https:'",
         ' from `Content Security Policy 1.0 <https://www.w3.org/TR/CSP/>`_',
     )
+    # Not in Mojolicious: the policy that the browser reports without enforcing it
+    content_security_policy_report_only = _Shortcut(
+        'Content-Security-Policy-Report-Only',
+        '"default-src \'self\'; report-to csp"',
+        ' from `Content Security Policy Level 3 <https://www.w3.org/TR/CSP3/>`_',
+    )
     content_type = _Shortcut('Content-Type', "'text/plain'")
     cookie = _Shortcut('Cookie', "'f=b'", ' from :rfc:`6265`')
+    # Not in Mojolicious: the policies of the isolation of a document from the ones of other origins
+    cross_origin_embedder_policy = _Shortcut(
+        'Cross-Origin-Embedder-Policy',
+        "'require-corp'",
+        ' from the `HTML Standard <https://html.spec.whatwg.org/multipage/browsers.html#coep>`_',
+    )
+    cross_origin_opener_policy = _Shortcut(
+        'Cross-Origin-Opener-Policy',
+        "'same-origin'",
+        ' from the `HTML Standard'
+        ' <https://html.spec.whatwg.org/multipage/browsers.html#cross-origin-opener-policies>`_',
+    )
+    cross_origin_resource_policy = _Shortcut(
+        'Cross-Origin-Resource-Policy',
+        "'same-origin'",
+        ' from `Fetch <https://fetch.spec.whatwg.org/#cross-origin-resource-policy-header>`_',
+    )
     date = _Shortcut('Date', "'Sun, 17 Aug 2008 16:27:35 GMT'")
 
     def dehop(self) -> Self:
@@ -608,6 +650,12 @@ class Pyjo_Headers(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
         return self
 
+    # Not in Mojolicious: the features of the browser that a document may use
+    permissions_policy = _Shortcut(
+        'Permissions-Policy',
+        "'camera=(), geolocation=(), microphone=()'",
+        ' from `Permissions Policy <https://www.w3.org/TR/permissions-policy/>`_',
+    )
     proxy_authenticate = _Shortcut('Proxy-Authenticate', '\'Basic "realm"\'')
     proxy_authorization = _Shortcut('Proxy-Authorization', "'Basic Zm9vOmJhcg=='")
     range = _Shortcut('Range', "'bytes=2-8'")
@@ -644,6 +692,13 @@ class Pyjo_Headers(Pyjo.Base.object, Pyjo.String.Mixin.object):
     def referrer(self, value: Anything) -> None:
         self.header('Referer', value)
 
+    # Not in Mojolicious: the referrer that the browser sends with the requests of a document
+    referrer_policy = _Shortcut(
+        'Referrer-Policy',
+        "'strict-origin-when-cross-origin'",
+        ' from `Referrer Policy <https://www.w3.org/TR/referrer-policy/>`_',
+    )
+
     def remove(self, name: str) -> Self:
         """::
 
@@ -654,6 +709,12 @@ class Pyjo_Headers(Pyjo.Base.object, Pyjo.String.Mixin.object):
         self._headers.pop(name.lower(), None)
         return self
 
+    # Not in Mojolicious: the endpoints of the reports of the browser, as the ones of CSP
+    reporting_endpoints = _Shortcut(
+        'Reporting-Endpoints',
+        '\'csp="/csp-reports"\'',
+        ' from `Reporting API <https://www.w3.org/TR/reporting-1/>`_',
+    )
     sec_websocket_accept = _Shortcut(
         'Sec-WebSocket-Accept',
         "'s3pPLMBiTxaQ9kYGzzhZRbK+xOo='",
@@ -753,6 +814,12 @@ class Pyjo_Headers(Pyjo.Base.object, Pyjo.String.Mixin.object):
 
     vary = _Shortcut('Vary', "'*'")
     www_authenticate = _Shortcut('WWW-Authenticate', '\'Basic realm="realm"\'')
+    # Not in Mojolicious: the type of the content that the browser does not sniff
+    x_content_type_options = _Shortcut(
+        'X-Content-Type-Options',
+        "'nosniff'",
+        ' from `Fetch <https://fetch.spec.whatwg.org/#x-content-type-options-header>`_',
+    )
 
 
 new = Pyjo_Headers.new
