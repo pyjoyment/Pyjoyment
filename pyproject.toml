@@ -93,7 +93,7 @@ servers = [
   "hypercorn>=0.18.0",
   "mangum>=0.22.0",
   "mcp>=2.3.0",
-  "pydantic>=2.14.3",
+  "pydantic>=2.14.4",
   "uwsgi>=2.0.31; sys_platform != 'win32'",
   "uvicorn>=0.54.0",
   "uvloop>=0.23.0; sys_platform != 'win32'",
